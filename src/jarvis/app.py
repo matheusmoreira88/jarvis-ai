@@ -427,6 +427,9 @@ class JarvisWindow(QMainWindow):
         modify_source = QPushButton("Propor alteração no código do JARVIS…")
         modify_source.clicked.connect(self.propose_source_change)
         integrations_layout.addWidget(modify_source)
+        restore_source = QPushButton("Restaurar backup de código…")
+        restore_source.clicked.connect(self.restore_source_backup)
+        integrations_layout.addWidget(restore_source)
         integrations_layout.addStretch(1)
         self.tabs.addTab(integrations_page, "Integrações")
         for role, body in memory.recent(30): self._append(role, body)
@@ -861,6 +864,42 @@ class JarvisWindow(QMainWindow):
             QMessageBox.information(self, "Código atualizado", f"Backup salvo em:\n{backup}")
         except Exception as exc:
             self.error(str(exc))
+
+    def restore_source_backup(self):
+        """Permite escolher um backup validado para reverter uma alteração anterior."""
+        from .self_modify import backups_for_file, restore_backup, SOURCE_ROOT
+
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Escolher módulo", str(SOURCE_ROOT), "Python (*.py)")
+        if not path:
+            return
+        try:
+            backups = backups_for_file(path)
+        except Exception as exc:
+            self.error(str(exc))
+            return
+        if not backups:
+            QMessageBox.information(self, "Sem backups", "Este módulo ainda não tem backups.")
+            return
+        labels = [backup.name for backup in backups]
+        choice, accepted = QInputDialog.getItem(
+            self, "Restaurar backup", "Escolha a versão salva:", labels, 0, False)
+        if not accepted:
+            return
+        selected = backups[labels.index(choice)]
+        if QMessageBox.question(
+            self, "Confirmar restauração",
+            f"Restaurar {selected.name}? A versão atual também será guardada como backup.") != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            safety_copy = restore_backup(path, str(selected))
+            QMessageBox.information(
+                self, "Backup restaurado",
+                f"Reinicie o JARVIS para carregar a versão restaurada.\n\n"
+                f"Backup da versão substituída:\n{safety_copy}")
+        except Exception as exc:
+            self.error(str(exc))
+            return
 
     def clear_local_memory(self):
         worker = getattr(self, "worker", None)

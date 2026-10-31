@@ -66,3 +66,33 @@ def apply_file_update(path: str, proposed_content: str) -> Path:
     finally:
         temporary.unlink(missing_ok=True)
     return backup
+
+
+def backups_for_file(path: str) -> list[Path]:
+    """Lista os backups locais correspondentes somente ao módulo selecionado."""
+    target = Path(path).resolve()
+    if target.suffix != ".py" or not target.is_relative_to(SOURCE_ROOT):
+        raise ValueError("Só são aceitos módulos Python de src/jarvis.")
+    return sorted(BACKUP_ROOT.glob(f"{target.stem}-*.py.bak"), reverse=True)
+
+
+def restore_backup(path: str, backup_path: str) -> Path:
+    """Restaura um backup escolhido e preserva também a versão atual antes da troca."""
+    target = Path(path).resolve()
+    backup = Path(backup_path).resolve()
+    if target.suffix != ".py" or not target.is_relative_to(SOURCE_ROOT):
+        raise ValueError("Só é permitido restaurar módulos Python de src/jarvis.")
+    if backup.parent != BACKUP_ROOT.resolve() or not backup.name.startswith(f"{target.stem}-"):
+        raise ValueError("O backup escolhido não pertence a este módulo.")
+    restored = backup.read_text(encoding="utf-8")
+    compile(restored, str(target), "exec")
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    safety_copy = BACKUP_ROOT / f"{target.stem}-{timestamp}-before-restore.py.bak"
+    safety_copy.write_bytes(target.read_bytes())
+    temporary = target.with_suffix(target.suffix + ".restore")
+    try:
+        temporary.write_text(restored, encoding="utf-8")
+        temporary.replace(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return safety_copy
