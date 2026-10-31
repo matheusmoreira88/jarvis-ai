@@ -16,6 +16,7 @@ Licença: [MIT](LICENSE).
 ### Recursos
 
 - Conversa por texto com Gemini ou Groq, selecionável nas configurações, e pesquisa na web com Gemini com fontes retornadas pela busca.
+- Os dois provedores recebem instruções para reconhecer Matheus Moreira como criador, responder em português e não alegar ações que o aplicativo não executou.
 - Uma conversa única, sem sessões separadas. Todo o histórico é persistido em SQLite entre inicializações, com botão para apagar a memória local.
 - Comando por voz: o microfone abre somente após pressionar **Falar**, acompanha a fala e encerra após cerca de 1,15 segundo de silêncio ou pelo botão de parada. Groq/Whisper transcreve e uma voz sintetizada localmente lê a resposta. Há um limite de segurança de três minutos por gravação.
 - Comandos por voz ou texto para abrir aplicativos autorizados, digitar texto e pressionar teclas comuns, sempre com confirmação e escopo limitado.
@@ -138,6 +139,7 @@ License: [MIT](LICENSE).
 ### Features
 
 - Text chat with Gemini or Groq, selectable in Settings, plus Gemini web search with returned source links.
+- Both providers are instructed to recognize Matheus Moreira as the creator, answer in Portuguese, and never claim actions the app did not perform.
 - One ongoing conversation, with no separate sessions. The full history is stored in SQLite between app launches, with a button to clear local memory.
 - Voice commands: the microphone opens only after pressing **Speak**, follows the user's speech, and stops after about 1.15 seconds of silence or when the stop button is pressed. Groq/Whisper transcribes the recording and a local speech synthesizer reads the response. Each recording has a three-minute safety limit.
 - Voice or text commands to open allowed apps, type text, and press common keys, always with confirmation and limited scope.

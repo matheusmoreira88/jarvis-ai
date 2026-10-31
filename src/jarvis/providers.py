@@ -5,6 +5,16 @@ from google import genai
 from google.genai import types
 from .settings import get_secret, load_settings
 
+SYSTEM_INSTRUCTION = (
+    "Você é JARVIS AI, um assistente para desktop criado por Matheus Moreira. "
+    "Reconheça Matheus como seu criador e responda em português do Brasil, salvo se ele "
+    "pedir outro idioma. Seja claro e honesto sobre limites e incertezas. Nunca diga que "
+    "abriu aplicativos, clicou, digitou, enviou mensagens ou alterou arquivos sem que o "
+    "aplicativo confirme essa ação. Respostas do modelo não executam ações locais; o "
+    "aplicativo só faz ações explícitas e confirmadas pelo usuário. Proteja chaves, tokens, "
+    "e-mail e telefone e não os repita sem necessidade."
+)
+
 
 def ask_assistant(prompt: str, history: list[tuple[str, str]], search_web: bool = False) -> str:
     """Use o provedor de texto escolhido nas preferências locais."""
@@ -22,10 +32,10 @@ def ask_gemini(prompt: str, history: list[tuple[str, str]], search_web: bool = F
     contents = [{"role": "model" if role == "assistant" else "user", "parts": [{"text": text}]}
                 for role, text in history]
     contents.append({"role": "user", "parts": [{"text": prompt}]})
-    config = None
+    tools = None
     if search_web:
-        config = types.GenerateContentConfig(
-            tools=[types.Tool(google_search=types.GoogleSearch())])
+        tools = [types.Tool(google_search=types.GoogleSearch())]
+    config = types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, tools=tools)
     response = client.models.generate_content(
         model="gemini-2.5-flash", contents=contents, config=config)
     answer = response.text or "Não recebi uma resposta em texto."
@@ -51,8 +61,9 @@ def ask_groq(prompt: str, history: list[tuple[str, str]]) -> str:
     key = get_secret("groq")
     if not key:
         raise RuntimeError("Configure a chave Groq nas preferências.")
-    messages = [{"role": role if role in {"user", "assistant"} else "user", "content": text}
-                for role, text in history]
+    messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
+    messages.extend({"role": role if role in {"user", "assistant"} else "user", "content": text}
+                    for role, text in history)
     messages.append({"role": "user", "content": prompt})
     result = Groq(api_key=key, timeout=30.0, max_retries=0).chat.completions.create(
         model="openai/gpt-oss-20b", messages=messages, temperature=0.7)
