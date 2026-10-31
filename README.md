@@ -9,9 +9,9 @@ Assistente pessoal para desktop em português, criado por **Matheus Moreira**. E
 Instagram do criador: [@mthz.mm](https://www.instagram.com/mthz.mm/)<br>
 Contato: [matheusmoreiradossantos88@gmail.com](mailto:matheusmoreiradossantos88@gmail.com)
 
-Se o projeto for útil, [deixe uma estrela no GitHub](https://github.com/matheusmoreira88/jarvis-ai) e compartilhe sugestões ou problemas pela área de Issues.
+Se o projeto for útil, [deixe uma estrela no GitHub](https://github.com/matheusmoreira88/jarvis-ai).
 
-Licença: [MIT](LICENSE).
+Licença: [MIT](license).
 
 ### Recursos
 
@@ -66,7 +66,7 @@ Os campos opcionais de e-mail e telefone nas configurações são referências p
 
 ### Controlar aplicativos
 
-Use comandos por texto ou voz como `abrir calculadora`, `abrir aplicativo: nome do app`, `abrir exe: C:\caminho\aplicativo.exe`, `digitar: texto que desejo colar`, `pressionar: enter`, `clicar` ou `rolar: baixo`. Quando você pedir para abrir um app, ele abre sem uma confirmação extra. A lista completa fica em **Integrações**. Digitar, pressionar uma tecla, clicar ou rolar ainda pede confirmação. Posicione o cursor no destino antes de confirmar o clique. O texto digitado e o caminho local do `.exe` ficam no histórico SQLite, mas são omitidos do contexto enviado ao Gemini/Groq.
+Use comandos por texto ou voz como `abrir calculadora`, `abrir aplicativo: nome do app`, `abrir exe: C:\caminho\aplicativo.exe`, `digitar: texto que desejo colar`, `pressionar: enter`, `clicar` ou `rolar: baixo`. Quando você pedir para abrir um app, ele abre sem uma confirmação extra. A lista completa fica em **Configurações**. Digitar, pressionar uma tecla, clicar ou rolar ainda pede confirmação. Posicione o cursor no destino antes de confirmar o clique. O texto digitado e o caminho local do `.exe` ficam no histórico SQLite, mas são omitidos do contexto enviado ao Gemini/Groq.
 
 Para pedir que o Gemini identifique um controle na tela, use `agir: clique no botão Salvar`. O JARVIS pede autorização para enviar uma captura atual ao Gemini, mostra a ação sugerida e solicita uma segunda confirmação antes de clicar. O modelo só pode propor clique, rolagem curta, uma tecla comum ou nenhuma ação; ele não digita nem executa comandos de sistema.
 
@@ -76,7 +76,7 @@ Para apagar a conversa persistida, clique em **Apagar memória local…** e conf
 
 Clique em **Ativar início automático** e confirme. O aplicativo abre minimizado no próximo login. Fechar a janela mantém o JARVIS na bandeja; escolha **Encerrar** no menu do ícone para sair. Para remover o início automático, clique em **Desativar início automático**.
 
-### Configurar as integrações
+### Configurar os serviços em Configurações
 
 #### Gemini e Groq
 
@@ -125,7 +125,7 @@ python -m pip install -e .
 python -m jarvis
 ```
 
-Contribuições são bem-vindas por Issues e Pull Requests. Antes de publicar mudanças, confira que nenhum segredo, token ou dado pessoal foi incluído.
+
 
 ---
 
@@ -136,9 +136,9 @@ A Portuguese-language desktop assistant created by **Matheus Moreira**. This is 
 Creator's Instagram: [@mthz.mm](https://www.instagram.com/mthz.mm/)<br>
 Contact: [matheusmoreiradossantos88@gmail.com](mailto:matheusmoreiradossantos88@gmail.com)
 
-If you find the project useful, [leave a star on GitHub](https://github.com/matheusmoreira88/jarvis-ai) and share suggestions or issues in the Issues section.
+If you find the project useful, [leave a star on GitHub](https://github.com/matheusmoreira88/jarvis-ai).
 
-License: [MIT](LICENSE).
+License: [MIT](license).
 
 ### Features
 
@@ -193,7 +193,7 @@ The optional email and phone fields in Settings are private references stored in
 
 ### Controlling apps
 
-Use text or voice commands such as `abrir calculadora` (open calculator), `abrir aplicativo: app name`, `abrir exe: C:\path\app.exe`, `digitar: text to paste`, `pressionar: enter` (press enter), `clicar` (click), or `rolar: baixo` (scroll down). An explicit request to open an app launches it without an extra confirmation. The full list is in **Integrations**. Typing, key presses, clicks, and scrolling still ask first. Place the pointer at the target before confirming a click. Typed text and local `.exe` paths are stored in SQLite history but excluded from context sent to Gemini/Groq.
+Use text or voice commands such as `abrir calculadora` (open calculator), `abrir aplicativo: app name`, `abrir exe: C:\path\app.exe`, `digitar: text to paste`, `pressionar: enter` (press enter), `clicar` (click), or `rolar: baixo` (scroll down). An explicit request to open an app launches it without an extra confirmation. The full list is in **Settings**. Typing, key presses, clicks, and scrolling still ask first. Place the pointer at the target before confirming a click. Typed text and local `.exe` paths are stored in SQLite history but excluded from context sent to Gemini/Groq.
 
 To ask Gemini to identify a control on screen, use `agir: click the Save button`. JARVIS asks permission to send a current screenshot to Gemini, shows the suggested action, and requests a second confirmation before clicking. The model can only propose one click, short scroll, common key press, or no action; it cannot type text or run system commands.
 
@@ -203,7 +203,7 @@ To erase the saved conversation, choose **Apagar memória local…** and confirm
 
 Click **Ativar início automático** (Enable automatic startup) and confirm. The app will open minimized at the next login. Closing the window keeps JARVIS in the system tray; select **Encerrar** (Exit) from the tray menu to quit. To remove automatic startup, click **Desativar início automático** (Disable automatic startup).
 
-### Configuring integrations
+### Configure services in Settings
 
 #### Gemini and Groq
 
@@ -251,5 +251,3 @@ py -3.11 -m venv .venv
 python -m pip install -e .
 python -m jarvis
 ```
-
-Contributions are welcome through Issues and Pull Requests. Before publishing changes, check that no secret, token, or personal data has been included.

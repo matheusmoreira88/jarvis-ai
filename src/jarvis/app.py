@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QL
                                QMainWindow, QPushButton, QTextEdit, QVBoxLayout, QWidget,
                                QMessageBox, QHBoxLayout, QFileDialog, QComboBox)
 from PySide6.QtWidgets import (QCheckBox, QTextBrowser, QSystemTrayIcon, QMenu, QStyle,
-                               QStackedWidget, QTabWidget)
+                               QStackedWidget, QTabWidget, QScrollArea, QFrame)
 from PySide6.QtWidgets import QInputDialog, QPlainTextEdit
 from PySide6.QtWidgets import QDialogButtonBox
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
@@ -487,7 +487,13 @@ class JarvisWindow(QMainWindow):
             QMainWindow, QWidget#centralSurface { background: #080b12; color: #edf2fb; }
             QWidget { color: #edf2fb; font-family: 'Segoe UI'; font-size: 13px; }
             QLabel { background: transparent; }
-            QWidget#sideRail { background: #0d121c; border: 1px solid #1b2635; border-radius: 20px; }
+            QWidget#sideRail { background: #07131d; border: 1px solid #163144; border-radius: 20px; }
+            QWidget#dashboardCard { background: #0b1925; border: 1px solid #173346; border-radius: 14px; }
+            QWidget#heroCard { background: #0a1723; border: 1px solid #17405a; border-radius: 18px; }
+            QLabel#dashboardKicker { color: #5bd5df; font-size: 10px; font-weight: 750; letter-spacing: 1.5px; }
+            QLabel#dashboardMetric { color: #e9f7ff; font-size: 18px; font-weight: 750; }
+            QLabel#dashboardHint { color: #8098aa; font-size: 11px; }
+            QLabel#coreOrb { color: #51eaff; background: #0c2838; border: 2px solid #176783; border-radius: 82px; font-size: 18px; font-weight: 800; }
             QLabel#brandTitle { color: #f5f8ff; font-size: 29px; font-weight: 800; letter-spacing: 2px; }
             QLabel#brandSubtitle, QLabel#mutedLabel { color: #7d8ba0; font-size: 10px; font-weight: 650; letter-spacing: 1px; }
             QLabel#pageTitle { color: #f2f6fd; font-size: 20px; font-weight: 700; }
@@ -535,19 +541,12 @@ class JarvisWindow(QMainWindow):
         rail_layout.addWidget(rail_caption)
         self.tabs = QTabWidget(); self.tabs.setObjectName("mainTabs"); self.tabs.tabBar().hide()
         self.nav_buttons = []
-        for index, label in enumerate(("Conversa", "Mídia", "Integrações")):
+        for index, label in enumerate(("Painel", "Conversa", "Mídia", "Configurações")):
             nav = QPushButton(label); nav.setObjectName("navButton"); nav.setCheckable(True)
             nav.clicked.connect(lambda checked=False, index=index: self.tabs.setCurrentIndex(index))
             rail_layout.addWidget(nav); self.nav_buttons.append(nav)
         self.nav_buttons[0].setChecked(True)
         rail_layout.addStretch(1)
-        self.voice_activation_button = QPushButton("Ligar escuta automática")
-        self.voice_activation_button.setObjectName("listenButton"); self.voice_activation_button.setCheckable(True)
-        self.voice_activation_button.setToolTip(
-            "Detecta fala no microfone. O áudio ambiente fica em buffers locais curtos; "
-            "somente frases detectadas são enviadas à Groq para transcrição.")
-        self.voice_activation_button.toggled.connect(self.toggle_voice_activation)
-        rail_layout.addWidget(self.voice_activation_button)
         self.voice_state = QLabel("Microfone desligado"); self.voice_state.setObjectName("voiceState")
         rail_layout.addWidget(self.voice_state)
         rail_layout.addSpacing(6)
@@ -558,13 +557,77 @@ class JarvisWindow(QMainWindow):
         main_area = QWidget(); main_layout = QVBoxLayout(main_area)
         main_layout.setContentsMargins(4, 2, 2, 2); main_layout.setSpacing(15)
         topbar = QHBoxLayout(); topbar.setContentsMargins(3, 4, 3, 2)
-        page_title = QLabel("Conversa"); page_title.setObjectName("pageTitle")
+        page_title = QLabel("Painel"); page_title.setObjectName("pageTitle")
         self.page_title = page_title
         topbar.addWidget(page_title); topbar.addStretch(1)
         self.status = QLabel("Pronto"); self.status.setObjectName("statusLabel")
         topbar.addWidget(self.status); main_layout.addLayout(topbar)
         layout.addWidget(main_area, 1); main_layout.addWidget(self.tabs, 1)
         self.tabs.currentChanged.connect(self._update_navigation)
+
+        dashboard_page = QWidget(); dashboard_layout = QVBoxLayout(dashboard_page)
+        dashboard_layout.setContentsMargins(20, 18, 20, 18); dashboard_layout.setSpacing(16)
+        dashboard_intro = QHBoxLayout()
+        intro_text = QVBoxLayout()
+        kicker = QLabel("JARVIS  /  DESKTOP AI"); kicker.setObjectName("dashboardKicker")
+        title = QLabel("Command Center"); title.setObjectName("pageTitle")
+        subtitle = QLabel("Seu ambiente de trabalho, em um só lugar."); subtitle.setObjectName("dashboardHint")
+        intro_text.addWidget(kicker); intro_text.addWidget(title); intro_text.addWidget(subtitle)
+        dashboard_intro.addLayout(intro_text); dashboard_intro.addStretch(1)
+        dashboard_layout.addLayout(dashboard_intro)
+
+        overview = QWidget(); overview.setObjectName("heroCard")
+        overview_layout = QHBoxLayout(overview); overview_layout.setContentsMargins(24, 20, 24, 20)
+        overview_copy = QVBoxLayout()
+        overview_label = QLabel("AI CORE OVERVIEW"); overview_label.setObjectName("dashboardKicker")
+        overview_copy.addWidget(overview_label)
+        overview_name = QLabel("JARVIS está pronto"); overview_name.setObjectName("dashboardMetric")
+        overview_copy.addWidget(overview_name)
+        provider_name = load_settings().get("provider", "gemini").upper()
+        provider_hint = QLabel(f"Provedor ativo  ·  {provider_name}\nMemória local  ·  conversa única")
+        provider_hint.setObjectName("dashboardHint"); overview_copy.addWidget(provider_hint)
+        overview_copy.addStretch(1)
+        overview_layout.addLayout(overview_copy, 1)
+        orb = QLabel("◉\nJ A R V I S\nA I   C O R E")
+        orb.setObjectName("coreOrb"); orb.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        orb.setFixedSize(164, 164); overview_layout.addWidget(orb)
+        dashboard_layout.addWidget(overview)
+
+        status_row = QHBoxLayout()
+        def make_status_card(heading: str, value: str, hint: str):
+            card = QWidget(); card.setObjectName("dashboardCard")
+            card_layout = QVBoxLayout(card); card_layout.setContentsMargins(16, 14, 16, 14)
+            heading_label = QLabel(heading.upper()); heading_label.setObjectName("dashboardKicker")
+            value_label = QLabel(value); value_label.setObjectName("dashboardMetric")
+            hint_label = QLabel(hint); hint_label.setObjectName("dashboardHint")
+            card_layout.addWidget(heading_label); card_layout.addWidget(value_label); card_layout.addWidget(hint_label)
+            return card
+        status_row.addWidget(make_status_card("IA", provider_name, "Chaves ajustáveis nas configurações"))
+        status_row.addWidget(make_status_card("Voz", "Mãos livres", "Detecção automática quando ativada"))
+        status_row.addWidget(make_status_card("Memória", "Ativa", "Histórico local persistente"))
+        status_row.addWidget(make_status_card("Desktop", "Conectado", "Aplicativos e tela disponíveis"))
+        dashboard_layout.addLayout(status_row)
+
+        lower_row = QHBoxLayout(); lower_row.setSpacing(14)
+        feed = QWidget(); feed.setObjectName("dashboardCard")
+        feed_layout = QVBoxLayout(feed); feed_layout.setContentsMargins(18, 16, 18, 16)
+        feed_title = QLabel("LIVE INTELLIGENCE FEED"); feed_title.setObjectName("dashboardKicker")
+        feed_layout.addWidget(feed_title)
+        feed_layout.addWidget(QLabel("•  Assistente pronto para receber comandos"))
+        feed_layout.addWidget(QLabel("•  O áudio de espera é analisado localmente"))
+        feed_layout.addWidget(QLabel("•  Visão de tela é iniciada sob demanda"))
+        feed_layout.addStretch(1)
+        quick = QWidget(); quick.setObjectName("dashboardCard")
+        quick_layout = QVBoxLayout(quick); quick_layout.setContentsMargins(18, 16, 18, 16)
+        quick_title = QLabel("QUICK COMMANDS"); quick_title.setObjectName("dashboardKicker")
+        quick_layout.addWidget(quick_title)
+        open_chat = QPushButton("Abrir conversa"); open_chat.clicked.connect(lambda: self.tabs.setCurrentIndex(1))
+        open_media = QPushButton("Abrir mídia"); open_media.clicked.connect(lambda: self.tabs.setCurrentIndex(2))
+        open_settings = QPushButton("Abrir configurações"); open_settings.clicked.connect(lambda: self.tabs.setCurrentIndex(3))
+        quick_layout.addWidget(open_chat); quick_layout.addWidget(open_media); quick_layout.addWidget(open_settings)
+        lower_row.addWidget(feed, 3); lower_row.addWidget(quick, 2)
+        dashboard_layout.addLayout(lower_row, 1)
+        self.tabs.addTab(dashboard_page, "Painel")
 
         assistant_page = QWidget(); assistant_layout = QVBoxLayout(assistant_page)
         assistant_layout.setContentsMargins(20, 18, 20, 18); assistant_layout.setSpacing(12)
@@ -581,21 +644,9 @@ class JarvisWindow(QMainWindow):
         self.search_checkbox = QCheckBox("Pesquisar na web com Gemini nesta solicitação")
         self.search_checkbox.setToolTip("Ativa Google Search grounding; a API pode consumir cota adicional.")
         assistant_layout.addWidget(self.search_checkbox)
-        assistant_actions = QHBoxLayout()
-        voice_hint = QLabel("A escuta contínua identifica sua fala enquanto estiver ativada na barra lateral.")
+        voice_hint = QLabel("A escuta e os recursos do sistema são gerenciados em Configurações.")
         voice_hint.setObjectName("mutedLabel")
-        assistant_actions.addWidget(voice_hint, 1)
-        vision = QPushButton("Analisar minha tela…")
-        vision.clicked.connect(self.analyze_screen); assistant_actions.addWidget(vision)
-        self.live_vision_button = QPushButton("Iniciar visão contínua")
-        self.live_vision_button.setCheckable(True)
-        self.live_vision_button.clicked.connect(self.toggle_live_vision)
-        assistant_actions.addWidget(self.live_vision_button)
-        self.clap_button = QPushButton("Ativar duplo aplauso")
-        self.clap_button.setCheckable(True)
-        self.clap_button.clicked.connect(self.toggle_clap_detection)
-        assistant_actions.addWidget(self.clap_button)
-        assistant_layout.addLayout(assistant_actions)
+        assistant_layout.addWidget(voice_hint)
         chat_row = QHBoxLayout()
         self.input = QLineEdit(); self.input.setPlaceholderText("Escreva um comando…")
         self.input.returnPressed.connect(self.send); chat_row.addWidget(self.input, 1)
@@ -643,19 +694,67 @@ class JarvisWindow(QMainWindow):
         self.player.setVideoOutput(self.video_widget)
         self.player.errorOccurred.connect(lambda *_: self.media_title.setText("Falha ao abrir mídia"))
 
-        integrations_page = QWidget(); integrations_layout = QVBoxLayout(integrations_page)
+        settings_scroll = QScrollArea(); settings_scroll.setWidgetResizable(True)
+        settings_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        integrations_page = QWidget(); settings_scroll.setWidget(integrations_page)
+        integrations_layout = QVBoxLayout(integrations_page)
         integrations_layout.setContentsMargins(20, 18, 20, 18); integrations_layout.setSpacing(12)
         def add_section_title(text: str):
             title = QLabel(text); title.setObjectName("sectionLabel")
             integrations_layout.addWidget(title)
 
-        add_section_title("PREFERÊNCIAS E MEMÓRIA LOCAL")
-        settings_row = QHBoxLayout()
-        settings = QPushButton("Configurações"); settings.clicked.connect(self.setup)
-        settings_row.addWidget(settings, 1)
-        clear_memory = QPushButton("Apagar memória local…")
-        clear_memory.clicked.connect(self.clear_local_memory); settings_row.addWidget(clear_memory, 1)
-        integrations_layout.addLayout(settings_row)
+        add_section_title("IA E CREDENCIAIS")
+        credentials_card = QWidget(); credentials_card.setObjectName("dashboardCard")
+        credentials_form = QFormLayout(credentials_card)
+        self.provider_setting = QComboBox()
+        self.provider_setting.addItem("Gemini", "gemini")
+        self.provider_setting.addItem("Groq", "groq")
+        self.provider_setting.setCurrentIndex(
+            0 if load_settings().get("provider", "gemini") == "gemini" else 1)
+        self.gemini_key_input = QLineEdit(get_secret("gemini") or "")
+        self.gemini_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.groq_key_input = QLineEdit(get_secret("groq") or "")
+        self.groq_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.user_email_input = QLineEdit(get_secret("user_email") or "")
+        self.user_phone_input = QLineEdit(get_secret("user_phone") or "")
+        credentials_form.addRow("Provedor principal", self.provider_setting)
+        credentials_form.addRow("Chave Gemini", self.gemini_key_input)
+        credentials_form.addRow("Chave Groq", self.groq_key_input)
+        credentials_form.addRow("E-mail pessoal (opcional)", self.user_email_input)
+        credentials_form.addRow("Telefone pessoal (opcional)", self.user_phone_input)
+        save_settings_button = QPushButton("Salvar configurações")
+        save_settings_button.setObjectName("primaryAction")
+        save_settings_button.clicked.connect(self._save_settings_page)
+        credentials_form.addRow(save_settings_button)
+        integrations_layout.addWidget(credentials_card)
+        add_section_title("MEMÓRIA LOCAL")
+        clear_memory = QPushButton("Apagar conversa e memória local…")
+        clear_memory.clicked.connect(self.clear_local_memory)
+        integrations_layout.addWidget(clear_memory)
+        add_section_title("VOZ, VISÃO E HUD")
+        voice_row = QHBoxLayout()
+        self.voice_activation_button = QPushButton("Ligar escuta automática")
+        self.voice_activation_button.setObjectName("listenButton")
+        self.voice_activation_button.setCheckable(True)
+        self.voice_activation_button.setToolTip(
+            "Detecta fala no microfone. O áudio ambiente fica em buffers locais curtos; "
+            "somente frases detectadas são enviadas à Groq para transcrição.")
+        self.voice_activation_button.toggled.connect(self.toggle_voice_activation)
+        voice_row.addWidget(self.voice_activation_button, 1)
+        analyze_screen_button = QPushButton("Analisar minha tela…")
+        analyze_screen_button.clicked.connect(self.analyze_screen)
+        voice_row.addWidget(analyze_screen_button, 1)
+        integrations_layout.addLayout(voice_row)
+        vision_row = QHBoxLayout()
+        self.live_vision_button = QPushButton("Iniciar visão contínua")
+        self.live_vision_button.setCheckable(True)
+        self.live_vision_button.clicked.connect(self.toggle_live_vision)
+        vision_row.addWidget(self.live_vision_button, 1)
+        self.clap_button = QPushButton("Ativar duplo aplauso")
+        self.clap_button.setCheckable(True)
+        self.clap_button.clicked.connect(self.toggle_clap_detection)
+        vision_row.addWidget(self.clap_button, 1)
+        integrations_layout.addLayout(vision_row)
         add_section_title("APLICATIVOS DO COMPUTADOR")
         launch_app = QPushButton("Ver todos os aplicativos instalados…")
         launch_app.clicked.connect(self.open_installed_apps)
@@ -691,7 +790,7 @@ class JarvisWindow(QMainWindow):
         restore_source.clicked.connect(self.restore_source_backup)
         integrations_layout.addWidget(restore_source)
         integrations_layout.addStretch(1)
-        self.tabs.addTab(integrations_page, "Integrações")
+        self.tabs.addTab(settings_scroll, "Configurações")
         saved_messages = memory.history_page(limit=50)
         self.oldest_message_id = saved_messages[0][0] if saved_messages else None
         if saved_messages:
@@ -703,7 +802,7 @@ class JarvisWindow(QMainWindow):
                 "<div style='margin:14px 8px;color:#aebbd0'>"
                 "<div style='font-size:22px;font-weight:700;color:#e8fff8'>Olá, Matheus.</div>"
                 "<p>Este é seu espaço de conversa contínua. Escreva uma mensagem ou ative "
-                "<b>escuta automática</b> na barra lateral para falar naturalmente.</p>"
+                "<b>escuta automática</b> em Configurações para falar naturalmente.</p>"
                 "<p>Use <b>Analisar minha tela</b> para uma captura pontual ou escreva "
                 "<b>agir: clique no botão Salvar</b> para revisar uma ação visual. "
                 "A visão contínua só começa depois da sua confirmação.</p>"
@@ -728,9 +827,21 @@ class JarvisWindow(QMainWindow):
         if load_settings().get("voice_activation_enabled", False):
             QTimer.singleShot(0, lambda: self.voice_activation_button.setChecked(True))
 
+    def _save_settings_page(self):
+        """Persiste preferências e credenciais editadas na página Configurações."""
+        try:
+            save_secret("gemini", self.gemini_key_input.text())
+            save_secret("groq", self.groq_key_input.text())
+            save_secret("user_email", self.user_email_input.text())
+            save_secret("user_phone", self.user_phone_input.text())
+            save_settings({**load_settings(), "provider": self.provider_setting.currentData()})
+            QMessageBox.information(self, "Configurações", "Preferências e chaves salvas neste computador.")
+        except Exception as exc:
+            QMessageBox.warning(self, "Configurações não salvas", str(exc))
+
     def _update_navigation(self, index: int):
         """Mantém o menu lateral e o título sincronizados com a página ativa."""
-        labels = ("Conversa", "Mídia", "Integrações")
+        labels = ("Painel", "Conversa", "Mídia", "Configurações")
         for position, button in enumerate(self.nav_buttons):
             button.setChecked(position == index)
         if 0 <= index < len(labels):
