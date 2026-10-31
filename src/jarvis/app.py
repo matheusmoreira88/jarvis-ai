@@ -53,7 +53,9 @@ class ReplyWorker(QThread):
             image = None
             if self.mode == "voice":
                 self.finished_text.emit("__REC__")
-                prompt = transcribe_groq(record_utterance(self.stop_event.is_set))
+                recording = record_utterance(self.stop_event.is_set)
+                self.finished_text.emit("__TRANSCRIBING__")
+                prompt = transcribe_groq(recording)
                 if not prompt:
                     raise RuntimeError("Não detectei fala. Tente novamente.")
                 self.finished_text.emit("__VOICE_COMMAND__" + prompt)
@@ -816,7 +818,21 @@ class JarvisWindow(QMainWindow):
         history = memory.context_recent()
         if mode in {"text", "spoken"} and history and history[-1] == ("user", prompt):
             history.pop()  # The provider adapter appends the current prompt itself.
-        self.input.setEnabled(False); self.status.setText("Capturando/transmitindo somente a solicitação atual…")
+        self.input.setEnabled(False)
+        if mode == "screen":
+            status = "Enviando captura pontual e pedido à Gemini…"
+        elif mode == "plan":
+            status = "Enviando captura consentida à Gemini para sugerir uma ação…"
+        elif mode == "voice":
+            status = "Abrindo o microfone para o comando por voz…"
+        elif mode == "spoken":
+            provider = load_settings().get("provider", "gemini").capitalize()
+            status = f"Enviando transcrição e contexto recente à {provider}…"
+        else:
+            provider = "Gemini" if search_web else load_settings().get("provider", "gemini").capitalize()
+            detail = "mensagem, contexto recente e pesquisa" if search_web else "mensagem e contexto recente"
+            status = f"Enviando {detail} à {provider}…"
+        self.status.setText(status)
         self.worker = ReplyWorker(prompt, mode, search_web, history)
         self._track_worker(self.worker)
         self.talk_button.setEnabled(mode == "voice")
@@ -994,7 +1010,9 @@ class JarvisWindow(QMainWindow):
 
     def _worker_event(self, value: str):
         if value == "__REC__":
-            self.status.setText("Ouvindo em tempo real · encerra após silêncio ou pelo botão (máx. 3 min).")
+            self.status.setText("Microfone ativo · encerra após silêncio ou pelo botão (máx. 3 min).")
+        elif value == "__TRANSCRIBING__":
+            self.status.setText("Fala concluída · enviando gravação à Groq para transcrever…")
         elif value == "__BUSY__":
             self.status.setText("Analisando a captura enviada ao Gemini…")
         elif value.startswith("__USER__"):

@@ -103,7 +103,8 @@ O aplicativo não lê mensagens nem envia sem a ação final do usuário. Em uma
 
 ### Privacidade e segurança
 
-- Gemini e Groq recebem somente o conteúdo encaminhado para cada solicitação: prompts, capturas de tela após ação ou consentimento, e áudio gravado para transcrição.
+- Para conversas por texto ou voz, o provedor escolhido recebe a mensagem atual e até 20 mensagens anteriores da conversa. O áudio gravado é enviado à Groq para transcrição; depois, a transcrição e o contexto recente seguem ao provedor escolhido.
+- Capturas pontuais e propostas de ação enviam a imagem e o pedido atual à Gemini após a solicitação/consentimento; não enviam o histórico da conversa. A visão contínua envia quadros e pedidos de análise à Gemini Live somente enquanto estiver ativa e consentida. Capturas não são guardadas no SQLite.
 - A detecção de palmas analisa áudio localmente e não grava nem transmite os blocos de microfone.
 - Chaves de API e contatos ficam no cofre de credenciais do usuário. Tokens OAuth e configurações ficam nas pastas privadas de dados do aplicativo, fora do repositório.
 - O histórico SQLite permanece no computador e não é criptografado; no Linux/macOS, o JARVIS restringe as permissões dos arquivos e pastas à conta atual. No Windows, usa a pasta de dados do perfil do usuário.
@@ -229,7 +230,8 @@ The app does not read messages or send without the user's final action. For call
 
 ### Privacy and security
 
-- Gemini and Groq receive only the content routed to them: prompts, screenshots after an explicit action or consent, and recorded audio for transcription.
+- For text or voice conversations, the selected provider receives the current message and up to 20 previous conversation messages. Recorded audio is sent to Groq for transcription; then the transcript and recent context go to the selected chat provider.
+- On-demand captures and action proposals send the image and current request to Gemini after the user requests/consents; they do not include conversation history. Continuous vision sends frames and analysis prompts to Gemini Live only while it is enabled with consent. Captures are not saved to SQLite.
 - Clap detection analyzes audio locally and does not record or transmit microphone blocks.
 - API keys and contacts are stored in the user's credential vault. OAuth tokens and settings are stored in private application-data folders outside the repository.
 - SQLite history stays on the computer and is not encrypted; on Linux/macOS, JARVIS restricts file and directory permissions to the current account. On Windows, it uses the current user's application-data folder.
