@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import platform
 import subprocess
+from pathlib import Path
 
 import pyautogui
 
@@ -20,6 +21,23 @@ def open_known_app(name: str) -> str:
         raise ValueError("Aplicativo fora da lista permitida neste protótipo.")
     subprocess.Popen(command, shell=False)
     return f"Solicitei ao sistema abrir {name}."
+
+
+def open_user_selected_executable(path: str) -> str:
+    """Abre um executável local escolhido pela pessoa, sem passar por um shell."""
+    if platform.system() != "Windows":
+        raise NotImplementedError("A abertura de executáveis escolhidos está disponível no Windows.")
+    executable = Path(path.strip().strip('"')).expanduser()
+    if not executable.is_absolute():
+        raise ValueError("Informe o caminho completo do arquivo .exe.")
+    try:
+        executable = executable.resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError("Não encontrei esse arquivo .exe.") from exc
+    if not executable.is_file() or executable.suffix.lower() != ".exe":
+        raise ValueError("Escolha um arquivo executável .exe.")
+    subprocess.Popen([str(executable)], cwd=str(executable.parent), shell=False)
+    return f"Solicitei ao Windows abrir {executable.name}."
 
 
 SAFE_KEYS = {

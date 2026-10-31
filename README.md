@@ -21,7 +21,7 @@ Licença: [MIT](LICENSE).
 - Comando por voz: o microfone abre somente após pressionar **Falar**, acompanha a fala e encerra após cerca de 1,15 segundo de silêncio ou pelo botão de parada. Groq/Whisper transcreve e uma voz sintetizada localmente lê a resposta. Há um limite de segurança de três minutos por gravação.
 - Comandos por voz ou texto para abrir aplicativos autorizados, digitar texto e pressionar teclas comuns, sempre com confirmação e escopo limitado.
 - Análise da tela por captura explícita ou observação contínua opcional com Gemini 3.8 Live, até um quadro por segundo. Depois de cada cinco quadros, envia um pedido de análise; as observações são exibidas no histórico e o áudio de resposta é reproduzido localmente. A observação pede consentimento, transmite imagens e pode consumir cota da API; a conexão é renovada periodicamente.
-- Abertura confirmada de aplicativos numa lista fixa: Bloco de Notas, Calculadora e Explorador de Arquivos.
+- Abertura confirmada de aplicativos conhecidos (Bloco de Notas, Calculadora e Explorador de Arquivos) e escolha manual de outros executáveis `.exe` no Windows.
 - Player no HUD para arquivos locais e URLs, além do YouTube incorporado: cole uma URL ou pesquise o nome de uma música, escolha um resultado e reproduza na página oficial sem baixar a faixa. O painel pode ser recolhido enquanto o áudio toca. Baixar áudio por URL é uma opção separada que pede confirmação.
 - Gmail por OAuth de desktop, com permissão limitada a enviar mensagens e confirmação antes de cada envio.
 - WhatsApp Web dentro do HUD, contatos permitidos guardados localmente e mensagens preparadas para revisão. A interface de chamadas do WhatsApp Web pode ser usada no HUD se o serviço e o Qt WebEngine forem compatíveis; o usuário atende e encerra pela própria interface, após permitir o microfone ou a câmera quando solicitado.
@@ -66,7 +66,7 @@ Os campos opcionais de e-mail e telefone nas configurações são referências p
 
 ### Controlar aplicativos
 
-Use comandos por texto ou voz como `abrir calculadora`, `digitar: texto que desejo colar`, `pressionar: enter`, `clicar` ou `rolar: baixo`. Para digitar, pressionar uma tecla, clicar ou rolar, o JARVIS pede confirmação e envia a ação ao aplicativo ativo. Posicione o cursor no destino antes de confirmar o clique. O conteúdo de `digitar:` fica no histórico local SQLite, mas é omitido do contexto enviado ao Gemini/Groq.
+Use comandos por texto ou voz como `abrir calculadora`, `abrir exe: C:\caminho\aplicativo.exe`, `digitar: texto que desejo colar`, `pressionar: enter`, `clicar` ou `rolar: baixo`. Para abrir um executável, escolher um app, digitar, pressionar uma tecla, clicar ou rolar, o JARVIS pede confirmação. A abertura de um `.exe` também está disponível em **Integrações**. Posicione o cursor no destino antes de confirmar o clique. O texto digitado e o caminho local do `.exe` ficam no histórico SQLite, mas são omitidos do contexto enviado ao Gemini/Groq.
 
 Para apagar a conversa persistida, clique em **Apagar memória local…** e confirme.
 
@@ -145,7 +145,7 @@ License: [MIT](LICENSE).
 - Voice commands: the microphone opens only after pressing **Speak**, follows the user's speech, and stops after about 1.15 seconds of silence or when the stop button is pressed. Groq/Whisper transcribes the recording and a local speech synthesizer reads the response. Each recording has a three-minute safety limit.
 - Voice or text commands to open allowed apps, type text, and press common keys, always with confirmation and limited scope.
 - Screen analysis on demand or optional continuous observation with Gemini 3.8 Live, up to one frame per second. It sends an analysis prompt after every five frames; observations appear in the history and response audio is played locally. Observation asks for consent, streams images, and may use API quota; the connection is renewed periodically.
-- Confirmed opening of a fixed list of apps: Notepad, Calculator, and File Explorer.
+- Confirmed opening of known apps (Notepad, Calculator, and File Explorer) and manual selection of other `.exe` files on Windows.
 - HUD player for local files and URLs, plus YouTube embedded in the interface: paste a URL or search for a song, choose a result, and play it on the official page without downloading the track. The panel can be collapsed while audio plays. Downloading audio from a URL is a separate option that asks for confirmation.
 - Gmail desktop OAuth integration, limited to sending messages, with confirmation before each send.
 - WhatsApp Web inside the HUD, with an allowlist stored locally and messages prepared for review. WhatsApp Web's call interface can also be used in the HUD if the service and Qt WebEngine are compatible; the user answers and ends calls in that interface, after granting microphone or camera access when requested.
@@ -190,7 +190,7 @@ The optional email and phone fields in Settings are private references stored in
 
 ### Controlling apps
 
-Use text or voice commands such as `abrir calculadora` (open calculator), `digitar: text to paste`, `pressionar: enter` (press enter), `clicar` (click), or `rolar: baixo` (scroll down). To type text, press a key, click, or scroll, JARVIS asks for confirmation and sends the action to the active app. Place the pointer at the target before confirming a click. The content of `digitar:` is stored in local SQLite history but excluded from context sent to Gemini/Groq.
+Use text or voice commands such as `abrir calculadora` (open calculator), `abrir exe: C:\path\app.exe`, `digitar: text to paste`, `pressionar: enter` (press enter), `clicar` (click), or `rolar: baixo` (scroll down). JARVIS asks for confirmation before opening an executable, typing, pressing a key, clicking, or scrolling. You can also select an `.exe` from **Integrations**. Place the pointer at the target before confirming a click. Typed text and local `.exe` paths are stored in SQLite history but excluded from context sent to Gemini/Groq.
 
 To erase the saved conversation, choose **Apagar memória local…** and confirm.
 

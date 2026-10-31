@@ -418,7 +418,7 @@ class JarvisWindow(QMainWindow):
         assistant_layout.setContentsMargins(20, 18, 20, 18); assistant_layout.setSpacing(12)
         assistant_layout.addWidget(QLabel(
             "Comandos locais: ‘abrir calculadora’, ‘digitar: texto’ e ‘pressionar: enter’. "
-            "Digitação e teclas pedem confirmação."))
+            "Use também ‘abrir exe: caminho completo’. Ações locais pedem confirmação."))
         self.chat = QTextBrowser(); self.chat.setOpenExternalLinks(True)
         assistant_layout.addWidget(self.chat, 1)
         self.search_checkbox = QCheckBox("Pesquisar na web com Gemini nesta solicitação")
@@ -503,6 +503,10 @@ class JarvisWindow(QMainWindow):
         clear_memory = QPushButton("Apagar memória local…")
         clear_memory.clicked.connect(self.clear_local_memory); settings_row.addWidget(clear_memory, 1)
         integrations_layout.addLayout(settings_row)
+        add_section_title("APLICATIVOS DO COMPUTADOR")
+        launch_app = QPushButton("Escolher e abrir aplicativo .exe…")
+        launch_app.clicked.connect(self.select_and_open_executable)
+        integrations_layout.addWidget(launch_app)
         add_section_title("COMUNICAÇÃO · GMAIL E WHATSAPP")
         gmail_row = QHBoxLayout()
         configure_gmail = QPushButton("Configurar Gmail OAuth…")
@@ -581,6 +585,22 @@ class JarvisWindow(QMainWindow):
         """Executa apenas ações locais explícitas; nunca interpreta saída do modelo como ação."""
         normalized = prompt.strip()
         lowered = normalized.lower()
+        if lowered.startswith("abrir exe:"):
+            path = normalized[len("abrir exe:"):].strip()
+            if not path:
+                QMessageBox.information(self, "Abrir aplicativo", "Informe o caminho completo do .exe.")
+                return True
+            if QMessageBox.question(
+                    self, "Confirmar abertura",
+                    f"Permitir que o JARVIS abra este aplicativo?\n\n{path}") == QMessageBox.StandardButton.Yes:
+                try:
+                    from .computer import open_user_selected_executable
+                    self._record_private_control_action(
+                        prompt, open_user_selected_executable(path))
+                except Exception as exc:
+                    self.error(str(exc))
+            return True
+
         if lowered == "clicar":
             from .computer import click_pointer
             answer = QMessageBox.question(
@@ -667,6 +687,11 @@ class JarvisWindow(QMainWindow):
         self._append("user", prompt); memory.add("user", prompt)
         self._append("assistant", result); memory.add("assistant", result)
 
+    def _record_private_control_action(self, prompt: str, result: str):
+        """Mantém caminhos locais no histórico, mas fora do contexto enviado às APIs."""
+        self._append("private_action", prompt); memory.add("private_action", prompt)
+        self._append("assistant", result); memory.add("assistant", result)
+
     def _track_worker(self, worker: QThread):
         """Keep a thread alive until Qt tells us its background task has finished."""
         self.background_workers.add(worker)
@@ -699,6 +724,23 @@ class JarvisWindow(QMainWindow):
             self.tray_icon.showMessage("JARVIS", message)
         self.show_from_tray()
         self.error(message)
+
+    def select_and_open_executable(self):
+        """Deixa a pessoa escolher um .exe no Windows e confirma antes de abri-lo."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Escolher aplicativo", "", "Aplicativos Windows (*.exe)")
+        if not path:
+            return
+        if QMessageBox.question(
+                self, "Confirmar abertura",
+                f"Permitir que o JARVIS abra este aplicativo?\n\n{path}") != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            from .computer import open_user_selected_executable
+            self._record_private_control_action(
+                f"abrir exe: {path}", open_user_selected_executable(path))
+        except Exception as exc:
+            self.error(str(exc))
 
     def _start(self, prompt: str, mode: str):
         search_web = self.search_checkbox.isChecked() and mode in {"text", "spoken"}
