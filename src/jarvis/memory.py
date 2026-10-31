@@ -40,6 +40,15 @@ def recent(limit: int = 20) -> list[tuple[str, str]]:
     return list(reversed(rows))
 
 
+def context_recent(limit: int = 20) -> list[tuple[str, str]]:
+    """Retorna só turnos de conversa; comandos locais privados nunca vão aos provedores."""
+    with _connection() as db:
+        rows = db.execute(
+            "SELECT role, body FROM messages WHERE role IN ('user', 'assistant') "
+            "ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return list(reversed(rows))
+
+
 def clear() -> None:
     """Remove all saved messages without deleting the SQLite database itself."""
     with _connection() as db:

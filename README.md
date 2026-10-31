@@ -66,7 +66,7 @@ Os campos opcionais de e-mail e telefone nas configurações são referências p
 
 ### Controlar aplicativos
 
-Use comandos por texto ou voz como `abrir calculadora`, `digitar: texto que desejo colar`, `pressionar: enter`, `clicar` ou `rolar: baixo`. Para digitar, pressionar uma tecla, clicar ou rolar, o JARVIS pede confirmação e envia a ação ao aplicativo ativo. Posicione o cursor no destino antes de confirmar o clique. O texto digitado por esse recurso não é salvo no histórico.
+Use comandos por texto ou voz como `abrir calculadora`, `digitar: texto que desejo colar`, `pressionar: enter`, `clicar` ou `rolar: baixo`. Para digitar, pressionar uma tecla, clicar ou rolar, o JARVIS pede confirmação e envia a ação ao aplicativo ativo. Posicione o cursor no destino antes de confirmar o clique. O conteúdo de `digitar:` fica no histórico local SQLite, mas é omitido do contexto enviado ao Gemini/Groq.
 
 Para apagar a conversa persistida, clique em **Apagar memória local…** e confirme.
 
@@ -189,7 +189,7 @@ The optional email and phone fields in Settings are private references stored in
 
 ### Controlling apps
 
-Use text or voice commands such as `abrir calculadora` (open calculator), `digitar: text to paste`, `pressionar: enter` (press enter), `clicar` (click), or `rolar: baixo` (scroll down). To type text, press a key, click, or scroll, JARVIS asks for confirmation and sends the action to the active app. Place the pointer at the target before confirming a click. Text entered with this feature is not saved in the conversation history.
+Use text or voice commands such as `abrir calculadora` (open calculator), `digitar: text to paste`, `pressionar: enter` (press enter), `clicar` (click), or `rolar: baixo` (scroll down). To type text, press a key, click, or scroll, JARVIS asks for confirmation and sends the action to the active app. Place the pointer at the target before confirming a click. The content of `digitar:` is stored in local SQLite history but excluded from context sent to Gemini/Groq.
 
 To erase the saved conversation, choose **Apagar memória local…** and confirm.
 

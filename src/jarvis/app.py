@@ -448,7 +448,7 @@ class JarvisWindow(QMainWindow):
             self._start_clap_worker()
 
     def _append(self, role: str, body: str):
-        label = "Você" if role == "user" else "JARVIS"
+        label = "Você" if role in {"user", "private_action"} else "JARVIS"
         safe_body = html.escape(body).replace("\n", "<br>")
         safe_body = re.sub(
             r"(https://[^\s&lt;&gt;]+)",
@@ -517,8 +517,8 @@ class JarvisWindow(QMainWindow):
                 "Deixe o cursor no campo de destino antes de confirmar.\n\n" + text[:1200])
             if answer == QMessageBox.StandardButton.Yes:
                 QApplication.clipboard().setText(text)
-                self._append("user", "[Comando para digitar; conteúdo omitido do histórico]")
-                memory.add("user", "[Comando para digitar; conteúdo omitido do histórico]")
+                self._append("private_action", prompt)
+                memory.add("private_action", prompt)
                 self._append("assistant", "Texto colado no aplicativo ativo.")
                 memory.add("assistant", "Texto colado no aplicativo ativo.")
                 self._yield_focus_to_active_app()
@@ -594,7 +594,7 @@ class JarvisWindow(QMainWindow):
         if mode in {"voice", "spoken"}: self._stop_clap_worker()
         if mode not in {"screen", "spoken", "voice"}:
             self._append("user", prompt); memory.add("user", prompt)
-        history = memory.recent()
+        history = memory.context_recent()
         if mode in {"text", "spoken"} and history and history[-1] == ("user", prompt):
             history.pop()  # The provider adapter appends the current prompt itself.
         self.input.setEnabled(False); self.status.setText("Capturando/transmitindo somente a solicitação atual…")
