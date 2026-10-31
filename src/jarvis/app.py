@@ -26,10 +26,12 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from . import memory, __version__
 from .providers import analyze_image, ask_assistant, propose_screen_action, transcribe_groq
 from .settings import get_secret, save_secret, load_settings, save_settings
-from .vision import capture_primary_screen, capture_primary_screen_jpeg
+from .vision import capture_primary_screen
+from .vision_worker import LiveVisionWorker
 from .dashboard import DonutGauge, MemoryBrain, ScreenPreviewWorker
 from .reminders import parse_reminder_request
-from .voice import record_utterance, wait_for_spoken_utterance, speak
+from .voice import record_utterance, speak
+from .voice_worker import VoiceActivationWorker
 from .computer import open_known_app
 from .autostart import set_enabled
 from .claps import ClapWorker
@@ -88,68 +90,6 @@ class ReplyWorker(QThread):
             self.failed.emit(str(exc))
 
 
-class VoiceActivationWorker(QThread):
-    """Detecta a palavra-chave localmente ou aguarda fala, conforme a preferência."""
-    phrase = Signal(str)
-    state_changed = Signal(str)
-    failed = Signal(str)
-
-    def __init__(self, wake_word: bool = False):
-        super().__init__()
-        self.wake_word = wake_word
-        self._stop_event = Event()
-        self._pause_event = Event()
-
-    def stop(self):
-        self._stop_event.set()
-        self._pause_event.clear()
-
-    def pause(self):
-        self._pause_event.set()
-
-    def resume(self):
-        self._pause_event.clear()
-
-    def run(self):
-        import time
-        while not self._stop_event.is_set():
-            if self._pause_event.is_set():
-                time.sleep(0.08)
-                continue
-            try:
-                if self.wake_word:
-                    from .voice import WakeWordListener
-                    if not hasattr(self, "_wake_listener"):
-                        self.state_changed.emit("carregando-palavra-chave")
-                        self._wake_listener = WakeWordListener()
-                    self.state_changed.emit("palavra-chave")
-                    audio = self._wake_listener.listen_for_command(
-                        self._stop_event.is_set,
-                        self._pause_event.is_set,
-                        on_detected=lambda: self.state_changed.emit("comando"),
-                    )
-                else:
-                    self.state_changed.emit("escutando")
-                    audio = wait_for_spoken_utterance(
-                        self._stop_event.is_set, self._pause_event.is_set)
-                if audio is None:
-                    continue
-                self._pause_event.set()
-                self.state_changed.emit("transcrevendo")
-                phrase = transcribe_groq(audio).strip()
-                if self.wake_word:
-                    phrase = re.sub(r"^\s*(?:hey\s)?jarvis[,.:;!\s-]*", "", phrase, flags=re.I)
-                if phrase:
-                    self.phrase.emit(phrase)
-                else:
-                    self._pause_event.clear()
-            except Exception as exc:
-                self.state_changed.emit("erro")
-                self.failed.emit(str(exc))
-                self._pause_event.set()
-        self.state_changed.emit("desligado")
-
-
 class DownloadWorker(QThread):
     completed = Signal(str)
     failed = Signal(str)
@@ -195,123 +135,6 @@ class GmailWorker(QThread):
             self.failed.emit(str(exc))
 
 
-class LiveVisionWorker(QThread):
-    """Transmite quadros da tela à Gemini Live enquanto a pessoa consentir."""
-    observation = Signal(str)
-    failed = Signal(str)
-
-    def __init__(self):
-        super().__init__()
-        self._active = True
-
-    def run(self):
-        try:
-            import asyncio
-            from google import genai
-            from google.genai import types
-            from .providers import SYSTEM_INSTRUCTION
-            from .settings import get_secret
-
-            asyncio.run(self._stream(genai, types, get_secret("gemini")))
-        except Exception as exc:
-            self.failed.emit(str(exc))
-
-    async def _stream(self, genai, types, api_key: str | None):
-        """Envia imagens pela sessão Live e renova a sessão antes do limite de duração."""
-        import asyncio
-        import sounddevice as sd
-
-        if not api_key:
-            raise RuntimeError("Configure a chave Gemini para usar visão contínua.")
-        client = genai.Client(api_key=api_key)
-        audio_output = None
-        audio_error_reported = False
-        try:
-            while self._active:
-                async with client.aio.live.connect(
-                    model="gemini-3.8-live",
-                    config={
-                        "response_modalities": ["AUDIO"],
-                        "output_audio_transcription": {},
-                        "system_instruction": SYSTEM_INSTRUCTION,
-                    },
-                ) as session:
-                    async def receive_updates():
-                        nonlocal audio_output, audio_error_reported
-                        async for message in session.receive():
-                            if not self._active:
-                                break
-                            content = getattr(message, "server_content", None)
-                            transcript = getattr(content, "output_transcription", None) if content else None
-                            text = getattr(transcript, "text", "").strip() if transcript else ""
-                            if text:
-                                self.observation.emit(text)
-                            model_turn = getattr(content, "model_turn", None) if content else None
-                            for part in (getattr(model_turn, "parts", ()) if model_turn else ()):
-                                audio = getattr(part, "inline_data", None)
-                                data = getattr(audio, "data", None) if audio else None
-                                if data and audio_output is not False:
-                                    try:
-                                        if audio_output is None:
-                                            audio_output = sd.RawOutputStream(
-                                                samplerate=24_000, channels=1, dtype="int16")
-                                            audio_output.start()
-                                        # Este worker já roda fora da UI; a escrita bloqueante não congela o HUD.
-                                        audio_output.write(data)
-                                    except Exception as exc:
-                                        if audio_output is not None:
-                                            try:
-                                                audio_output.stop()
-                                            except Exception:
-                                                pass
-                                            try:
-                                                audio_output.close()
-                                            except Exception:
-                                                pass
-                                        audio_output = False
-                                        if not audio_error_reported:
-                                            self.failed.emit(
-                                                f"Não foi possível reproduzir a voz da Gemini Live: {exc}")
-                                            audio_error_reported = True
-
-                    receiver = asyncio.create_task(receive_updates())
-                    try:
-                        # A Live API aceita até um quadro de vídeo por segundo.
-                        for frame_number in range(110):
-                            if not self._active or receiver.done():
-                                break
-                            await session.send_realtime_input(video=types.Blob(
-                                data=capture_primary_screen_jpeg(), mime_type="image/jpeg"))
-                            # Vídeo sozinho não inicia uma resposta: peça uma leitura após cinco quadros.
-                            if frame_number % 5 == 4:
-                                await session.send_realtime_input(text=(
-                                    "Analise as imagens recentes da tela. Em português, informe "
-                                    "somente mudanças importantes ou algo que pareça exigir ajuda. "
-                                    "Não execute ações no computador."
-                                ))
-                            await asyncio.sleep(1)
-                    finally:
-                        receiver.cancel()
-                        try:
-                            await receiver
-                        except asyncio.CancelledError:
-                            pass
-                if self._active:
-                    await asyncio.sleep(0.2)
-        finally:
-            try:
-                if audio_output not in (None, False):
-                    try:
-                        audio_output.stop()
-                    finally:
-                        audio_output.close()
-            finally:
-                await client.aio.aclose()
-
-    def stop(self):
-        self._active = False
-
-
 class WhatsAppWebDialog(QDialog):
     def __init__(self, url: str, parent=None):
         super().__init__(parent)
@@ -329,7 +152,7 @@ class WhatsAppWebDialog(QDialog):
         layout.addWidget(self.web, 1)
 
     def _handle_web_permission(self, permission):
-        """Ask every time before WhatsApp Web uses this app's microphone or camera."""
+        """Grant only official WhatsApp media permissions; deny every other origin/type."""
         allowed_hosts = {"web.whatsapp.com", "www.whatsapp.com"}
         permission_types = QWebEnginePermission.PermissionType
         media_types = {
@@ -342,21 +165,8 @@ class WhatsAppWebDialog(QDialog):
                 or permission.permissionType() not in media_types):
             permission.deny()
             return
-        label = {
-            permission_types.MediaAudioCapture: "microfone",
-            permission_types.MediaVideoCapture: "câmera",
-            permission_types.MediaAudioVideoCapture: "microfone e câmera",
-        }[permission.permissionType()]
-        choice = QMessageBox.question(
-            self, "Permissão do WhatsApp Web",
-            f"Permitir que web.whatsapp.com use seu {label} para uma chamada iniciada "
-            "ou atendida por você? Essa autorização vale para esta solicitação.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No)
-        if choice == QMessageBox.StandardButton.Yes:
-            permission.grant()
-        else:
-            permission.deny()
+        # The site and media type are still checked; installation terms describe this grant.
+        permission.grant()
 
 
 class ContactsDialog(QDialog):
@@ -667,7 +477,7 @@ class JarvisWindow(QMainWindow):
         self.provider_hint = QLabel(
             f"{provider_name}  ·  memória local protegida  ·  voz mãos livres")
         overview_copy.addWidget(self.provider_hint)
-        self.live_voice_hint = QLabel("Fale “Hey Jarvis” para começar")
+        self.live_voice_hint = QLabel("Fale “Jarvis” para começar")
         self.live_voice_hint.setObjectName("dashboardHint")
         overview_copy.addWidget(self.live_voice_hint)
         overview_copy.addStretch(1)
@@ -870,14 +680,15 @@ class JarvisWindow(QMainWindow):
         self.voice_activation_button.setObjectName("listenButton")
         self.voice_activation_button.setCheckable(True)
         self.voice_activation_button.setToolTip(
-            "Com “Hey Jarvis”, a detecção fica local e sem botão de gravação. "
-            "O comando reconhecido é enviado à Groq para transcrição.")
+            "No modo Jarvis, fala detectada é enviada à Groq para transcrição; "
+            "somente frases iniciadas por Jarvis viram comandos.")
         self.voice_activation_button.toggled.connect(self.toggle_voice_activation)
         voice_row.addWidget(self.voice_activation_button, 1)
         self.activation_mode = QComboBox()
         self.activation_mode.addItem("Fala contínua", "continuous")
-        self.activation_mode.addItem("Palavra-chave · Hey Jarvis", "wake_word")
-        mode_index = self.activation_mode.findData(load_settings().get("activation_mode", "wake_word"))
+        self.activation_mode.addItem("Jarvis · falar normalmente", "jarvis")
+        self.activation_mode.addItem("Hey Jarvis · detecção local", "wake_word")
+        mode_index = self.activation_mode.findData(load_settings().get("activation_mode", "jarvis"))
         self.activation_mode.setCurrentIndex(max(0, mode_index))
         self.activation_mode.currentIndexChanged.connect(self._save_activation_mode)
         integrations_layout.addWidget(QLabel("Modo de ativação do microfone — sem botão para gravar"))
@@ -887,7 +698,7 @@ class JarvisWindow(QMainWindow):
         for label, key in (("Manual · cada recurso separado", "manual"),
                             ("Privado · microfone e tela desligados", "private"),
                             ("Voz · ativação escolhida acima", "voice"),
-                            ("Tela · visão só após consentimento", "screen")):
+                            ("Tela · visão ao ativar", "screen")):
             self.privacy_profile.addItem(label, key)
         profile_index = self.privacy_profile.findData(load_settings().get("privacy_profile", "manual"))
         self.privacy_profile.setCurrentIndex(max(0, profile_index))
@@ -974,7 +785,7 @@ class JarvisWindow(QMainWindow):
                 "<div style='margin:14px 8px;color:#aebbd0'>"
                 "<div style='font-size:22px;font-weight:700;color:#e8fff8'>Olá, Matheus.</div>"
                 "<p>Este é seu espaço de conversa contínua. Escreva uma mensagem ou ative "
-                "<b>Hey Jarvis</b> para falar naturalmente, sem botão de gravação.</p>"
+                "<b>Jarvis</b> para falar naturalmente, sem botão de gravação.</p>"
                 "<p>Use <b>Analisar minha tela</b> para uma captura pontual ou escreva "
                 "<b>agir: clique no botão Salvar</b> para revisar uma ação visual. "
                 "A prévia local da tela é fluida; a Gemini recebe até 1 imagem por segundo.</p>"
@@ -998,8 +809,11 @@ class JarvisWindow(QMainWindow):
             self.clap_button.setChecked(True)
             self._start_clap_worker()
         settings = load_settings()
-        if "activation_mode" not in settings:
-            settings["activation_mode"] = "wake_word"
+        if settings.get("activation_mode") in (None, "wake_word", "continuous"):
+            settings["activation_mode"] = "jarvis"
+            self.activation_mode.blockSignals(True)
+            self.activation_mode.setCurrentIndex(self.activation_mode.findData("jarvis"))
+            self.activation_mode.blockSignals(False)
         if "hands_free_enabled" not in settings:
             settings["hands_free_enabled"] = settings.get("privacy_profile", "manual") != "private"
         if settings.get("privacy_profile") == "private":
@@ -1053,8 +867,8 @@ class JarvisWindow(QMainWindow):
     def _refresh_privacy_indicators(self):
         """Sincroniza cartões de voz, tela e privacidade com o estado real da aplicação."""
         settings = load_settings()
-        mode = settings.get("activation_mode", "wake_word")
-        label = "Hey Jarvis" if mode == "wake_word" else "Fala contínua"
+        mode = settings.get("activation_mode", "jarvis")
+        label = "Jarvis" if mode == "jarvis" else ("Hey Jarvis" if mode == "wake_word" else "Fala contínua")
         state = "Ativa" if getattr(self, "voice_activation_button", None) and self.voice_activation_button.isChecked() else "Desligada"
         self._set_dashboard_metric("voz", f"{state} · {label}")
         vision = "Ao vivo" if getattr(self, "live_vision_worker", None) else "Desligada"
@@ -1072,14 +886,17 @@ class JarvisWindow(QMainWindow):
         if profile == "private":
             self.voice_activation_button.setChecked(False)
             self.live_vision_button.setChecked(False)
+            self.toggle_live_vision(False)
             self.clap_button.setChecked(False)
             self.status.setText("Perfil privado · microfone e tela desligados")
         elif profile == "voice":
             self.live_vision_button.setChecked(False)
+            self.toggle_live_vision(False)
             self.voice_activation_button.setChecked(True)
         elif profile == "screen":
             self.voice_activation_button.setChecked(False)
-            self.live_vision_button.setChecked(True)  # Mantém a caixa de consentimento existente.
+            self.live_vision_button.setChecked(True)
+            self.toggle_live_vision(True)
         else:
             self.status.setText("Perfil manual · cada recurso é controlado separadamente")
         self._refresh_privacy_indicators()
@@ -1401,16 +1218,7 @@ class JarvisWindow(QMainWindow):
                     self, "Gemini necessário",
                     "Cadastre a chave Gemini em Configurações para planejar uma ação na tela.")
                 return True
-            consent = QMessageBox.warning(
-                self, "Enviar captura para planejar uma ação",
-                "A captura atual da tela será enviada ao Gemini para propor uma única ação. "
-                "O JARVIS não fará nada antes de mostrar a proposta e pedir outra confirmação. "
-                "Continuar?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if consent == QMessageBox.StandardButton.Yes:
-                self._start(request, "plan")
+            self._start(request, "plan")
             return True
 
         if lowered == "clicar":
@@ -1652,7 +1460,7 @@ class JarvisWindow(QMainWindow):
         if mode == "screen":
             status = "Enviando captura pontual e pedido à Gemini…"
         elif mode == "plan":
-            status = "Enviando captura consentida à Gemini para sugerir uma ação…"
+            status = "Enviando captura à Gemini para sugerir uma ação…"
         elif mode == "voice":
             status = "Abrindo o microfone para o comando por voz…"
         elif mode == "spoken":
@@ -1707,7 +1515,7 @@ class JarvisWindow(QMainWindow):
         self.voice_activation_button.setText("Desativar voz mãos livres")
         self.voice_state.setText("Abrindo microfone…")
         worker = VoiceActivationWorker(
-            wake_word=self.activation_mode.currentData() == "wake_word")
+            mode=self.activation_mode.currentData())
         self.voice_activation_worker = worker
         worker.phrase.connect(self._handle_spoken_phrase)
         worker.state_changed.connect(self._voice_activation_state)
@@ -1718,7 +1526,7 @@ class JarvisWindow(QMainWindow):
 
     def _voice_activation_state(self, state: str):
         labels = {
-            "escutando": "Escutando fala · áudio ambiente fica local",
+            "escutando": "Aguardando Jarvis · fala detectada vai à Groq",
             "transcrevendo": "Fala detectada · transcrevendo com Groq",
             "erro": "Falha no microfone",
             "desligado": "Microfone desligado",
@@ -2089,18 +1897,6 @@ class JarvisWindow(QMainWindow):
             if not get_secret("gemini"):
                 QMessageBox.warning(self, "Gemini necessário",
                                     "A visão de tela usa Gemini. Cadastre a chave em Configurações.")
-                self.live_vision_button.setChecked(False)
-                return
-            answer = QMessageBox.warning(
-                self, "Visão contínua da tela",
-                "A Gemini Live recebe imagens do monitor principal até uma por segundo (limite da API). "
-                "O HUD mantém uma prévia local fluida da tela. As observações transcritas aparecerão no histórico do HUD e "
-                "a voz será reproduzida no computador. Imagens e áudio gerado passam pelo Google "
-                "e podem consumir cota. A conexão "
-                "será renovada periodicamente; você pode parar a qualquer momento. Iniciar?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No)
-            if answer != QMessageBox.StandardButton.Yes:
                 self.live_vision_button.setChecked(False)
                 return
             self.live_vision_worker = LiveVisionWorker()

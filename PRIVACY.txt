@@ -1,0 +1,13 @@
+﻿JARVIS AI · Informações de privacidade / Privacy information
+
+PORTUGUÊS (BRASIL)
+Ao ativar a voz no modo “Jarvis”, o aplicativo detecta trechos de fala localmente e os envia à API Groq para transcrição, mesmo quando o trecho não começa com “Jarvis”. Apenas transcrições iniciadas por “Jarvis” viram comandos. O modo opcional “Hey Jarvis” usa detecção local da palavra-chave.
+Quando você liga a visão contínua, a tela principal é enviada à Gemini Live em até 1 imagem por segundo e uma prévia local mais fluida aparece no HUD. Capturas pontuais e propostas de ação também enviam uma imagem ao Gemini quando solicitadas. Isso pode consumir cota da API. Desligue voz ou visão em Configurações quando quiser. O perfil Privado desliga microfone e visão.
+O WhatsApp Web integrado pode usar microfone/câmera quando o próprio site solicita esse acesso. O JARVIS libera apenas esses tipos de permissão ao domínio oficial web.whatsapp.com. As permissões do Windows ainda se aplicam. Comandos que clicam, digitam, pressionam teclas ou enviam e-mails continuam sujeitos às confirmações de ação mostradas no aplicativo.
+Lembranças e conversas ficam em SQLite local. É possível desativar o envio de lembranças salvas no contexto da IA nas configurações. Chaves de API ficam no cofre do sistema.
+
+ENGLISH
+When voice mode “Jarvis” is enabled, the app detects speech segments locally and sends them to the Groq API for transcription even if they do not start with “Jarvis”. Only transcripts beginning with “Jarvis” become commands. Optional “Hey Jarvis” mode performs local wake-word detection.
+When continuous vision is switched on, the primary screen is sent to Gemini Live at up to one image per second while a smoother local preview appears in the HUD. Requested single captures and screen-action proposals also send an image to Gemini. API quota may be used. Voice and vision can be turned off in Settings. Private mode switches off the microphone and vision.
+Embedded WhatsApp Web may use the microphone/camera when the official site requests access. JARVIS grants only those media permissions to web.whatsapp.com. Windows permissions still apply. Commands that click, type, press keys, or send emails continue to require action confirmations inside the app.
+Memories and chat history stay in local SQLite. Settings can prevent saved memories from entering AI context. API keys stay in the system credential vault.

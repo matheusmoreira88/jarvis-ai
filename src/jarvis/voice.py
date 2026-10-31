@@ -11,7 +11,7 @@ import sounddevice as sd
 
 SAMPLE_RATE = 16_000
 BLOCK_SIZE = 1_024  # Aproximadamente 64 ms por bloco, para encerrar sem longas esperas.
-END_SILENCE_SECONDS = 1.15
+END_SILENCE_SECONDS = 0.7
 START_TIMEOUT_SECONDS = 12
 MAX_UTTERANCE_SECONDS = 180
 SPEECH_THRESHOLD = 0.012  # RMS normalizado; ajustável após testes com microfones variados.
@@ -212,3 +212,10 @@ def speak(text: str) -> None:
         engine.runAndWait()
     finally:
         engine.stop()
+
+
+def strip_jarvis_prefix(text: str) -> str | None:
+    """Return the command after Jarvis, or None when no activation was spoken."""
+    import re
+    match = re.match(r"^\s*(?:hey\s+)?jarvis\b[,.:;!\s-]*(.*)$", text, re.I | re.S)
+    return match.group(1).strip() if match else None
