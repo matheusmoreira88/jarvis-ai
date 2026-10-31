@@ -816,7 +816,8 @@ class JarvisWindow(QMainWindow):
         if mode in {"voice", "spoken"}: self._stop_clap_worker()
         if mode not in {"screen", "spoken", "voice"}:
             self._append("user", prompt); memory.add("user", prompt)
-        history = memory.context_recent()
+        # A consulta inclui o texto atual; reserve 20 itens anteriores depois de removê-lo.
+        history = memory.context_recent(limit=21)
         if mode in {"text", "spoken"} and history and history[-1] == ("user", prompt):
             history.pop()  # The provider adapter appends the current prompt itself.
         self.input.setEnabled(False)
