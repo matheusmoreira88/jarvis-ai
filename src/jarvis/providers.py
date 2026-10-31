@@ -75,14 +75,18 @@ def ask_groq(prompt: str, history: list[tuple[str, str]]) -> str:
     key = get_secret("groq")
     if not key:
         raise RuntimeError("Configure a chave Groq nas preferências.")
-    messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
+    messages = []
     messages.extend({"role": role if role in {"user", "assistant"} else "user", "content": text}
                     for role, text in history)
-    messages.append({"role": "user", "content": prompt})
+    messages.append({
+        "role": "user",
+        "content": f"{SYSTEM_INSTRUCTION}\n\nSolicitação atual do usuário:\n{prompt}",
+    })
     client = Groq(api_key=key, timeout=30.0, max_retries=0)
     try:
         result = client.chat.completions.create(
-            model="openai/gpt-oss-20b", messages=messages, temperature=0.7)
+            model="openai/gpt-oss-20b", messages=messages, temperature=0.7,
+            include_reasoning=False)
     finally:
         client.close()
     return result.choices[0].message.content or "Não recebi uma resposta em texto."
