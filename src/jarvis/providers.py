@@ -36,8 +36,11 @@ def ask_gemini(prompt: str, history: list[tuple[str, str]], search_web: bool = F
     if search_web:
         tools = [types.Tool(google_search=types.GoogleSearch())]
     config = types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, tools=tools)
-    response = client.models.generate_content(
-        model="gemini-2.5-flash", contents=contents, config=config)
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash", contents=contents, config=config)
+    finally:
+        client.close()
     answer = response.text or "Não recebi uma resposta em texto."
     # Preserve the sources returned by Google Search grounding for review in chat.
     candidates = getattr(response, "candidates", None) or []
@@ -65,8 +68,12 @@ def ask_groq(prompt: str, history: list[tuple[str, str]]) -> str:
     messages.extend({"role": role if role in {"user", "assistant"} else "user", "content": text}
                     for role, text in history)
     messages.append({"role": "user", "content": prompt})
-    result = Groq(api_key=key, timeout=30.0, max_retries=0).chat.completions.create(
-        model="openai/gpt-oss-20b", messages=messages, temperature=0.7)
+    client = Groq(api_key=key, timeout=30.0, max_retries=0)
+    try:
+        result = client.chat.completions.create(
+            model="openai/gpt-oss-20b", messages=messages, temperature=0.7)
+    finally:
+        client.close()
     return result.choices[0].message.content or "Não recebi uma resposta em texto."
 
 
@@ -77,8 +84,11 @@ def analyze_image(prompt: str, image_bytes: bytes) -> str:
         raise RuntimeError("Configure a chave Gemini nas preferências.")
     client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=30000))
     image = types.Part.from_bytes(data=image_bytes, mime_type="image/png")
-    response = client.models.generate_content(
-        model="gemini-2.5-flash", contents=[prompt, image])
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash", contents=[prompt, image])
+    finally:
+        client.close()
     return response.text or "Não consegui interpretar a captura."
 
 
@@ -89,7 +99,10 @@ def transcribe_groq(wav_bytes: bytes) -> str:
     if not key:
         raise RuntimeError("Cadastre a chave Groq ou use o campo de texto.")
     client = Groq(api_key=key, timeout=30.0, max_retries=0)
-    result = client.audio.transcriptions.create(
-        file=("utterance.wav", wav_bytes), model="whisper-large-v3-turbo",
-        language="pt", response_format="text")
+    try:
+        result = client.audio.transcriptions.create(
+            file=("utterance.wav", wav_bytes), model="whisper-large-v3-turbo",
+            language="pt", response_format="text")
+    finally:
+        client.close()
     return str(result).strip()
