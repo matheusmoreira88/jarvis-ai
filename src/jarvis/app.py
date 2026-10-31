@@ -362,15 +362,60 @@ class JarvisWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("JARVIS · Assistente desktop")
-        self.resize(1100, 760)
-        self.setStyleSheet("QWidget{background:#0b1020;color:#e7ebf5;font-family:'Segoe UI';font-size:14px} QTextEdit,QLineEdit{background:#141d30;border:1px solid #34415e;border-radius:8px;padding:10px} QPushButton{background:#627cf0;border:0;border-radius:8px;padding:10px 18px;font-weight:600} QPushButton:hover{background:#7890ff}")
-        central = QWidget(); self.setCentralWidget(central); layout = QVBoxLayout(central)
-        head = QLabel("JARVIS  /  ASSISTENTE PESSOAL")
-        head.setStyleSheet("font-size:22px;font-weight:700;color:#9fb2ff;padding:8px")
-        layout.addWidget(head)
-        self.tabs = QTabWidget(); layout.addWidget(self.tabs, 1)
+        self.resize(1280, 860)
+        self.setMinimumSize(900, 640)
+        self.setStyleSheet("""
+            QMainWindow, QWidget#centralSurface { background: #080d17; color: #e6edf7; }
+            QWidget { color: #e6edf7; font-family: 'Segoe UI'; font-size: 14px; }
+            QLabel { background: transparent; }
+            QLabel#brandTitle { color: #f2f7ff; font-size: 27px; font-weight: 750; letter-spacing: 2px; }
+            QLabel#brandSubtitle { color: #7f91aa; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; }
+            QLabel#sectionLabel { color: #8ca0b9; font-size: 10px; font-weight: 750;
+                letter-spacing: 1.2px; padding: 4px 2px 0; }
+            QLabel#statusLabel { color: #86e3c3; background: #0d211f; border: 1px solid #19423b;
+                border-radius: 12px; padding: 9px 14px; }
+            QTabWidget#mainTabs::pane { background: #0d1420; border: 1px solid #1c293b;
+                border-radius: 16px; top: -1px; }
+            QTabWidget#mainTabs QTabBar::tab { background: transparent; color: #8493a8;
+                padding: 12px 22px; margin: 0 4px 8px 0; border-radius: 10px; font-weight: 650; }
+            QTabWidget#mainTabs QTabBar::tab:selected { color: #d8fff2; background: #12302e;
+                border: 1px solid #20534a; }
+            QTabWidget#mainTabs QTabBar::tab:hover:!selected { color: #d7e2f1; background: #111c2c; }
+            QTextBrowser, QTextEdit, QLineEdit, QPlainTextEdit, QComboBox {
+                background: #09111d; color: #e6edf7; border: 1px solid #26364b;
+                border-radius: 11px; padding: 12px; selection-background-color: #277b6b; }
+            QTextBrowser { padding: 16px; }
+            QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus {
+                border: 1px solid #41bca2; }
+            QPushButton { color: #dce7f5; background: #152235; border: 1px solid #283b53;
+                border-radius: 10px; padding: 10px 16px; font-weight: 650; }
+            QPushButton:hover { background: #1c3048; border-color: #3c5877; }
+            QPushButton:pressed { background: #102033; }
+            QPushButton:checked { color: #d8fff2; background: #12302e; border-color: #287563; }
+            QPushButton#primaryAction { color: #061713; background: #62d7b4; border-color: #62d7b4; }
+            QPushButton#primaryAction:hover { background: #82e7c9; }
+            QCheckBox { spacing: 9px; color: #aebbd0; }
+            QCheckBox::indicator { width: 17px; height: 17px; border-radius: 5px;
+                background: #0b1421; border: 1px solid #42536b; }
+            QCheckBox::indicator:checked { background: #45c5a5; border-color: #45c5a5; }
+            QMenu { background: #101a29; border: 1px solid #293b52; }
+            QMenu::item:selected { background: #1c3048; }
+            QScrollBar:vertical { background: #0a111c; width: 10px; margin: 3px; }
+            QScrollBar::handle:vertical { background: #34465d; min-height: 28px; border-radius: 5px; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+        """)
+        central = QWidget(); central.setObjectName("centralSurface"); self.setCentralWidget(central)
+        layout = QVBoxLayout(central); layout.setContentsMargins(24, 20, 24, 18); layout.setSpacing(15)
+        brand_row = QHBoxLayout(); brand_row.setSpacing(14)
+        brand = QVBoxLayout(); brand.setSpacing(1)
+        head = QLabel("JARVIS"); head.setObjectName("brandTitle")
+        subtitle = QLabel("ASSISTENTE PESSOAL · DESKTOP HUD"); subtitle.setObjectName("brandSubtitle")
+        brand.addWidget(head); brand.addWidget(subtitle); brand_row.addLayout(brand); brand_row.addStretch(1)
+        layout.addLayout(brand_row)
+        self.tabs = QTabWidget(); self.tabs.setObjectName("mainTabs"); layout.addWidget(self.tabs, 1)
 
         assistant_page = QWidget(); assistant_layout = QVBoxLayout(assistant_page)
+        assistant_layout.setContentsMargins(20, 18, 20, 18); assistant_layout.setSpacing(12)
         assistant_layout.addWidget(QLabel(
             "Comandos locais: ‘abrir calculadora’, ‘digitar: texto’ e ‘pressionar: enter’. "
             "Digitação e teclas pedem confirmação."))
@@ -380,15 +425,16 @@ class JarvisWindow(QMainWindow):
         self.search_checkbox.setToolTip("Ativa Google Search grounding; a API pode consumir cota adicional.")
         assistant_layout.addWidget(self.search_checkbox)
         assistant_actions = QHBoxLayout()
-        self.talk_button = QPushButton("🎙 Falar")
+        self.talk_button = QPushButton("Falar")
+        self.talk_button.setObjectName("primaryAction")
         self.talk_button.clicked.connect(self.talk); assistant_actions.addWidget(self.talk_button)
-        vision = QPushButton("▣ Analisar minha tela…")
+        vision = QPushButton("Analisar minha tela…")
         vision.clicked.connect(self.analyze_screen); assistant_actions.addWidget(vision)
         self.live_vision_button = QPushButton("Iniciar visão contínua")
         self.live_vision_button.setCheckable(True)
         self.live_vision_button.clicked.connect(self.toggle_live_vision)
         assistant_actions.addWidget(self.live_vision_button)
-        self.clap_button = QPushButton("👏 Ativar duplo aplauso")
+        self.clap_button = QPushButton("Ativar duplo aplauso")
         self.clap_button.setCheckable(True)
         self.clap_button.clicked.connect(self.toggle_clap_detection)
         assistant_actions.addWidget(self.clap_button)
@@ -397,11 +443,12 @@ class JarvisWindow(QMainWindow):
         self.input = QLineEdit(); self.input.setPlaceholderText("Escreva um comando…")
         self.input.returnPressed.connect(self.send); chat_row.addWidget(self.input, 1)
         send = QPushButton("Enviar"); send.clicked.connect(self.send); chat_row.addWidget(send)
+        send.setObjectName("primaryAction")
         assistant_layout.addLayout(chat_row)
         self.tabs.addTab(assistant_page, "Assistente")
 
         self.media_panel = QWidget(); media_layout = QVBoxLayout(self.media_panel)
-        media_layout.setContentsMargins(6, 4, 6, 4)
+        media_layout.setContentsMargins(20, 18, 20, 18); media_layout.setSpacing(12)
         media_header = QHBoxLayout()
         media_header.addWidget(QLabel("MÍDIA · arquivos, URLs e YouTube"))
         self.media_title = QLabel("Parado"); media_header.addWidget(self.media_title, 1)
@@ -427,9 +474,9 @@ class JarvisWindow(QMainWindow):
         media_controls_layout.addWidget(self.media_source, 1)
         file_button = QPushButton("Arquivo…"); file_button.clicked.connect(self.open_media_file)
         media_controls_layout.addWidget(file_button)
-        play_button = QPushButton("▶ Tocar / buscar"); play_button.clicked.connect(self.play_media)
+        play_button = QPushButton("Tocar / buscar"); play_button.clicked.connect(self.play_media)
         media_controls_layout.addWidget(play_button)
-        pause_button = QPushButton("⏸ Pausar"); pause_button.clicked.connect(self.pause_media)
+        pause_button = QPushButton("Pausar"); pause_button.clicked.connect(self.pause_media)
         media_controls_layout.addWidget(pause_button)
         download_button = QPushButton("Baixar áudio…"); download_button.clicked.connect(self.download_media)
         media_controls_layout.addWidget(download_button); media_layout.addWidget(self.media_controls)
@@ -440,16 +487,23 @@ class JarvisWindow(QMainWindow):
         self.player.errorOccurred.connect(lambda *_: self.media_title.setText("Falha ao abrir mídia"))
 
         self.status = QLabel("Pronto · microfone fechado")
-        self.status.setStyleSheet("color:#aebce0;padding:4px")
+        self.status.setObjectName("statusLabel")
         layout.addWidget(self.status)
 
         integrations_page = QWidget(); integrations_layout = QVBoxLayout(integrations_page)
+        integrations_layout.setContentsMargins(20, 18, 20, 18); integrations_layout.setSpacing(12)
+        def add_section_title(text: str):
+            title = QLabel(text); title.setObjectName("sectionLabel")
+            integrations_layout.addWidget(title)
+
+        add_section_title("PREFERÊNCIAS E MEMÓRIA LOCAL")
         settings_row = QHBoxLayout()
         settings = QPushButton("Configurações"); settings.clicked.connect(self.setup)
         settings_row.addWidget(settings, 1)
         clear_memory = QPushButton("Apagar memória local…")
         clear_memory.clicked.connect(self.clear_local_memory); settings_row.addWidget(clear_memory, 1)
         integrations_layout.addLayout(settings_row)
+        add_section_title("COMUNICAÇÃO · GMAIL E WHATSAPP")
         gmail_row = QHBoxLayout()
         configure_gmail = QPushButton("Configurar Gmail OAuth…")
         configure_gmail.clicked.connect(self.configure_gmail); gmail_row.addWidget(configure_gmail, 1)
@@ -462,12 +516,14 @@ class JarvisWindow(QMainWindow):
         send_whatsapp = QPushButton("Preparar mensagem WhatsApp…")
         send_whatsapp.clicked.connect(self.compose_whatsapp); wa_row.addWidget(send_whatsapp, 1)
         integrations_layout.addLayout(wa_row)
+        add_section_title("INÍCIO DO SISTEMA")
         startup_row = QHBoxLayout()
         autostart = QPushButton("Ativar início automático")
         autostart.clicked.connect(self.enable_autostart); startup_row.addWidget(autostart, 1)
         disable_autostart = QPushButton("Desativar início automático")
         disable_autostart.clicked.connect(self.disable_autostart); startup_row.addWidget(disable_autostart, 1)
         integrations_layout.addLayout(startup_row)
+        add_section_title("CÓDIGO · ALTERAÇÕES SEMPRE REVISADAS")
         modify_source = QPushButton("Propor alteração no código do JARVIS…")
         modify_source.clicked.connect(self.propose_source_change)
         integrations_layout.addWidget(modify_source)
@@ -476,7 +532,21 @@ class JarvisWindow(QMainWindow):
         integrations_layout.addWidget(restore_source)
         integrations_layout.addStretch(1)
         self.tabs.addTab(integrations_page, "Integrações")
-        for role, body in memory.recent(30): self._append(role, body)
+        saved_messages = memory.recent(30)
+        if saved_messages:
+            for role, body in saved_messages: self._append(role, body)
+        else:
+            # A tela inicial explica o HUD sem criar uma mensagem falsa no histórico.
+            self.chat.setHtml(
+                "<div style='margin:14px 8px;color:#aebbd0'>"
+                "<div style='font-size:22px;font-weight:700;color:#e8fff8'>Olá, Matheus.</div>"
+                "<p>Este é seu espaço de conversa contínua. Escreva uma mensagem ou escolha "
+                "<b>Falar</b> para enviar um comando por voz.</p>"
+                "<p>Use <b>Analisar minha tela</b> para uma captura pontual; a visão contínua "
+                "só começa depois da sua confirmação.</p>"
+                "<p style='color:#7f91aa'>As conversas ficam na memória local. Comandos que "
+                "alteram o computador pedem confirmação antes de agir.</p></div>"
+            )
         self.clap_worker = None
         self.live_vision_worker = None
         self.pending_voice_command = None
@@ -648,7 +718,7 @@ class JarvisWindow(QMainWindow):
         if mode == "voice":
             self.talk_button.setText("Parar gravação")
         else:
-            self.talk_button.setText("🎙 Falar")
+            self.talk_button.setText("Falar")
         self.worker.finished_text.connect(self._worker_event); self.worker.failed.connect(self.error)
         self.worker.finished.connect(lambda: self.status.setText("Pronto · microfone fechado"))
         if mode == "voice":
@@ -671,7 +741,7 @@ class JarvisWindow(QMainWindow):
         self._start("", "voice")
 
     def _finish_voice_button(self):
-        self.talk_button.setText("🎙 Falar")
+        self.talk_button.setText("Falar")
         self.talk_button.setEnabled(True)
 
     def open_media_file(self):
