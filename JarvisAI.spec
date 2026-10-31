@@ -1,5 +1,5 @@
 # PyInstaller one-folder bundle for Qt WebEngine, audio and credential providers.
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_submodules, collect_dynamic_libs
 
 hiddenimports = collect_submodules("keyring.backends") + [
     "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets",
@@ -8,7 +8,7 @@ hiddenimports = collect_submodules("keyring.backends") + [
 ]
 
 a = Analysis(
-    ["run_jarvis.py"], pathex=["src"], binaries=[], datas=[],
+    ["run_jarvis.py"], pathex=["src"], binaries=collect_dynamic_libs("vosk"), datas=[],
     hiddenimports=hiddenimports, hookspath=[], hooksconfig={},
     runtime_hooks=[], excludes=[], noarchive=False, optimize=1,
 )

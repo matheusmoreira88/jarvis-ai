@@ -8,9 +8,10 @@ class LiveVisionWorker(QThread):
     observation = Signal(str)
     failed = Signal(str)
 
-    def __init__(self):
+    def __init__(self, frame_source=None):
         super().__init__()
         self._active = True
+        self.frame_source = frame_source
 
     def run(self):
         try:
@@ -88,8 +89,11 @@ class LiveVisionWorker(QThread):
                         for frame_number in range(110):
                             if not self._active or receiver.done():
                                 break
+                            frame = self.frame_source() if self.frame_source else None
+                            if frame is None:
+                                frame = capture_primary_screen_jpeg()
                             await session.send_realtime_input(video=types.Blob(
-                                data=capture_primary_screen_jpeg(), mime_type="image/jpeg"))
+                                data=frame, mime_type="image/jpeg"))
                             # Vídeo sozinho não inicia uma resposta: peça uma leitura após cinco quadros.
                             if frame_number % 5 == 4:
                                 await session.send_realtime_input(text=(

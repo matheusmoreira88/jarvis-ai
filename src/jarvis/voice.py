@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import time
 import wave
+from contextlib import nullcontext
 from collections.abc import Callable
 
 import numpy as np
@@ -11,7 +12,7 @@ import sounddevice as sd
 
 SAMPLE_RATE = 16_000
 BLOCK_SIZE = 1_024  # Aproximadamente 64 ms por bloco, para encerrar sem longas esperas.
-END_SILENCE_SECONDS = 0.7
+END_SILENCE_SECONDS = 0.55
 START_TIMEOUT_SECONDS = 12
 MAX_UTTERANCE_SECONDS = 180
 SPEECH_THRESHOLD = 0.012  # RMS normalizado; ajustável após testes com microfones variados.
@@ -81,6 +82,7 @@ def wait_for_spoken_utterance(
     *,
     max_seconds: int = MAX_UTTERANCE_SECONDS,
     start_timeout: int = START_TIMEOUT_SECONDS,
+    stream=None,
 ) -> bytes | None:
     """Escuta em espera local e retorna só um segmento que contenha fala detectada."""
     chunks: list[np.ndarray] = []
@@ -90,21 +92,27 @@ def wait_for_spoken_utterance(
     last_speech_at: float | None = None
     capture_started_at: float | None = None
     waiting_started_at = time.monotonic()
+    noise_floor = 0.004
 
     # O áudio ambiente só permanece em buffers curtos em memória; nada é enviado em espera.
-    with sd.InputStream(
+    source = nullcontext(stream) if stream is not None else sd.InputStream(
         samplerate=SAMPLE_RATE,
         channels=1,
         blocksize=BLOCK_SIZE,
         dtype="int16",
-    ) as stream:
+    )
+    with source as stream:
         while not stop_requested() and not pause_requested():
             block, _overflowed = stream.read(BLOCK_SIZE)
             block = np.asarray(block, dtype=np.int16).copy()
             level = float(np.sqrt(np.mean(block.astype(np.float32) ** 2))) / 32768.0
             now = time.monotonic()
+            threshold = max(0.006, min(0.04, noise_floor * 2.8))
+            if not speech_started and level < threshold:
+                # Follow background noise slowly without learning a spoken word as noise.
+                noise_floor = noise_floor * 0.96 + level * 0.04
 
-            if level >= SPEECH_THRESHOLD:
+            if level >= threshold:
                 if not speech_started:
                     capture_started_at = now
                     chunks.extend(pre_roll[-5:])
@@ -210,6 +218,23 @@ def speak(text: str) -> None:
     try:
         engine.say(text)
         engine.runAndWait()
+    finally:
+        engine.stop()
+
+
+def speak_fragments(fragments) -> None:
+    """Read sentence-sized fragments with one local TTS engine instance."""
+    import pyttsx3
+
+    engine = pyttsx3.init()
+    try:
+        while True:
+            fragment = fragments.get()
+            if fragment is None:
+                break
+            if fragment.strip():
+                engine.say(fragment.strip())
+                engine.runAndWait()
     finally:
         engine.stop()
 

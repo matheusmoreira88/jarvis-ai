@@ -28,6 +28,50 @@ def ask_assistant(prompt: str, history: list[tuple[str, str]], search_web: bool 
     return ask_gemini(prompt, history, search_web=search_web)
 
 
+def stream_assistant(prompt: str, history: list[tuple[str, str]], search_web: bool = False):
+    """Yield text as it arrives so the HUD and speech can begin immediately."""
+    provider = load_settings().get("provider", "gemini")
+    if search_web:
+        # Grounding metadata is retained by the non-streaming adapter.
+        yield ask_gemini(prompt, history, search_web=True)
+        return
+    if provider == "groq":
+        from groq import Groq
+        key = get_secret("groq")
+        if not key:
+            raise RuntimeError("Configure a chave Groq nas preferências.")
+        messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
+        messages.extend({"role": role if role in {"user", "assistant"} else "user",
+                         "content": value} for role, value in history)
+        messages.append({"role": "user", "content": prompt})
+        client = Groq(api_key=key, timeout=30.0, max_retries=0)
+        try:
+            for part in client.chat.completions.create(
+                    model="openai/gpt-oss-20b", messages=messages,
+                    temperature=0.7, include_reasoning=False, stream=True):
+                content = part.choices[0].delta.content
+                if content:
+                    yield content
+        finally:
+            client.close()
+        return
+    key = get_secret("gemini")
+    if not key:
+        raise RuntimeError("Configure a chave Gemini nas preferências.")
+    client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=30000))
+    contents = [{"role": "model" if role == "assistant" else "user",
+                 "parts": [{"text": value}]} for role, value in history]
+    contents.append({"role": "user", "parts": [{"text": prompt}]})
+    try:
+        for part in client.models.generate_content_stream(
+                model="gemini-3.8-flash", contents=contents,
+                config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION)):
+            if part.text:
+                yield part.text
+    finally:
+        client.close()
+
+
 def ask_gemini(prompt: str, history: list[tuple[str, str]], search_web: bool = False) -> str:
     key = get_secret("gemini")
     if not key:
@@ -76,12 +120,12 @@ def ask_groq(prompt: str, history: list[tuple[str, str]]) -> str:
     key = get_secret("groq")
     if not key:
         raise RuntimeError("Configure a chave Groq nas preferências.")
-    messages = []
+    messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
     messages.extend({"role": role if role in {"user", "assistant"} else "user", "content": text}
                     for role, text in history)
     messages.append({
         "role": "user",
-        "content": f"{SYSTEM_INSTRUCTION}\n\nSolicitação atual do usuário:\n{prompt}",
+        "content": prompt,
     })
     client = Groq(api_key=key, timeout=30.0, max_retries=0)
     try:

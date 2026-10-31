@@ -3,10 +3,53 @@ from __future__ import annotations
 
 import sqlite3
 import os
+import re
+import threading
 from contextlib import contextmanager
 from platformdirs import user_data_path
 
 DB_FILE = user_data_path("JarvisAI", "Matheus") / "memory.sqlite3"
+_initialized: set[str] = set()
+_schema_lock = threading.Lock()
+
+
+def _initialize(db: sqlite3.Connection) -> None:
+    """Create/migrate the schema once per database, rather than on every query."""
+    db.execute("PRAGMA journal_mode=WAL")
+    db.execute("PRAGMA busy_timeout=3000")
+    db.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, role TEXT, body TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+    db.execute(
+        "CREATE TABLE IF NOT EXISTS long_term_memory ("
+        "id INTEGER PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, "
+        "created_at TEXT NOT NULL)"
+    )
+    db.execute(
+        "CREATE TABLE IF NOT EXISTS reminders ("
+        "id INTEGER PRIMARY KEY, title TEXT NOT NULL, due_at TEXT NOT NULL, "
+        "notify_at TEXT NOT NULL, notified_at TEXT, created_at TEXT NOT NULL, "
+        "repeat_rule TEXT)"
+    )
+    if "repeat_rule" not in {row[1] for row in db.execute("PRAGMA table_info(reminders)")}:
+        db.execute("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT")
+    db.execute("CREATE INDEX IF NOT EXISTS reminders_due_idx ON reminders(notify_at) WHERE notified_at IS NULL")
+    db.execute("CREATE INDEX IF NOT EXISTS memory_created_idx ON long_term_memory(created_at)")
+    db.execute("CREATE INDEX IF NOT EXISTS reminders_created_idx ON reminders(created_at)")
+    # FTS stores an index of the user's notes. The source of truth remains the table above.
+    db.execute("CREATE VIRTUAL TABLE IF NOT EXISTS memory_search USING fts5(title, body, content='long_term_memory', content_rowid='id')")
+    db.executescript("""
+        CREATE TRIGGER IF NOT EXISTS memory_search_insert AFTER INSERT ON long_term_memory BEGIN
+            INSERT INTO memory_search(rowid, title, body) VALUES (new.id, new.title, new.body);
+        END;
+        CREATE TRIGGER IF NOT EXISTS memory_search_delete AFTER DELETE ON long_term_memory BEGIN
+            INSERT INTO memory_search(memory_search, rowid, title, body)
+            VALUES ('delete', old.id, old.title, old.body);
+        END;
+    """)
+    # Existing installations already have memories; rebuild once during migration.
+    if db.execute("SELECT COUNT(*) FROM memory_search").fetchone()[0] != db.execute(
+            "SELECT COUNT(*) FROM long_term_memory").fetchone()[0]:
+        db.execute("INSERT INTO memory_search(memory_search) VALUES ('rebuild')")
+    db.commit()
 
 
 def _connect():
@@ -14,21 +57,17 @@ def _connect():
     DB_FILE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     if os.name == "posix":
         os.chmod(DB_FILE.parent, 0o700)
-    db = sqlite3.connect(DB_FILE)
+    db = sqlite3.connect(DB_FILE, timeout=3)
     try:
         if os.name == "posix":
             os.chmod(DB_FILE, 0o600)
-        db.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, role TEXT, body TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
-        db.execute(
-            "CREATE TABLE IF NOT EXISTS long_term_memory ("
-            "id INTEGER PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, "
-            "created_at TEXT NOT NULL)"
-        )
-        db.execute(
-            "CREATE TABLE IF NOT EXISTS reminders ("
-            "id INTEGER PRIMARY KEY, title TEXT NOT NULL, due_at TEXT NOT NULL, "
-            "notify_at TEXT NOT NULL, notified_at TEXT, created_at TEXT NOT NULL)"
-        )
+        identity = str(DB_FILE.resolve())
+        if identity not in _initialized:
+            with _schema_lock:
+                if identity not in _initialized:
+                    _initialize(db)
+                    _initialized.add(identity)
+        db.execute("PRAGMA busy_timeout=3000")
         return db
     except Exception:
         db.close()
@@ -101,7 +140,8 @@ def save_memory(title: str, body: str) -> int:
         return int(cursor.lastrowid)
 
 
-def save_reminder(title: str, due_at: str, notify_at: str) -> int:
+def save_reminder(title: str, due_at: str, notify_at: str,
+                  repeat_rule: str | None = None) -> int:
     """Store a dated reminder in UTC so DST and timezone offsets compare correctly."""
     from datetime import datetime, timezone
 
@@ -111,11 +151,15 @@ def save_reminder(title: str, due_at: str, notify_at: str) -> int:
             parsed = parsed.astimezone()
         return parsed.astimezone(timezone.utc).isoformat(timespec="seconds")
 
+    if repeat_rule not in {None, "daily", "weekly", "monthly", "yearly"}:
+        raise ValueError("Recorrência inválida.")
+
     with _connection() as db:
         cursor = db.execute(
-            "INSERT INTO reminders(title, due_at, notify_at, created_at) VALUES (?, ?, ?, ?)",
+            "INSERT INTO reminders(title, due_at, notify_at, created_at, repeat_rule) "
+            "VALUES (?, ?, ?, ?, ?)",
             (title.strip(), utc_stamp(due_at), utc_stamp(notify_at),
-             datetime.now(timezone.utc).isoformat(timespec="seconds")),
+             datetime.now(timezone.utc).isoformat(timespec="seconds"), repeat_rule),
         )
         return int(cursor.lastrowid)
 
@@ -134,37 +178,68 @@ def due_reminders(now: str | None = None) -> list[tuple[int, str, str]]:
 
 
 def mark_reminders_notified(ids: list[int]) -> None:
-    """Mark alerts before showing them so a restart cannot duplicate the same notification."""
-    from datetime import datetime, timezone
+    """Mark displayed alerts and schedule the next occurrence of recurring ones."""
+    from datetime import datetime, timezone, timedelta
+    from .reminders import _add_months, _add_years
     if not ids:
         return
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     placeholders = ",".join("?" for _ in ids)
     with _connection() as db:
+        recurring = db.execute(
+            f"SELECT title, due_at, notify_at, repeat_rule FROM reminders "
+            f"WHERE id IN ({placeholders}) AND notified_at IS NULL AND repeat_rule IS NOT NULL",
+            ids,
+        ).fetchall()
         db.execute(
-            f"UPDATE reminders SET notified_at = ? WHERE id IN ({placeholders})",
+            f"UPDATE reminders SET notified_at = ? WHERE id IN ({placeholders}) "
+            "AND notified_at IS NULL",
             (stamp, *ids),
         )
+        now = datetime.now(timezone.utc)
+        for title, due_stamp, notify_stamp, repeat_rule in recurring:
+            due = datetime.fromisoformat(due_stamp)
+            advance = {
+                "daily": lambda value: value + timedelta(days=1),
+                "weekly": lambda value: value + timedelta(weeks=1),
+                "monthly": lambda value: _add_months(value, 1),
+                "yearly": lambda value: _add_years(value, 1),
+            }.get(repeat_rule)
+            if advance is None:
+                continue
+            lead = due - datetime.fromisoformat(notify_stamp)
+            due = advance(due)
+            # Skip expired cycles after a long period with the app closed.
+            for _ in range(4000):
+                if due - lead > now:
+                    break
+                due = advance(due)
+            else:
+                continue
+            db.execute(
+                "INSERT INTO reminders(title, due_at, notify_at, created_at, repeat_rule) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (title, due.isoformat(timespec="seconds"),
+                 (due - lead).isoformat(timespec="seconds"), stamp, repeat_rule),
+            )
 
 
-def saved_items() -> list[tuple[str, int, str, str]]:
+def saved_items(*, query: str = "", limit: int = 100, offset: int = 0) -> list[tuple[str, int, str, str]]:
     """List permanent memories and reminders for the user's memory manager."""
+    limit = max(1, min(int(limit), 200))
+    offset = max(0, int(offset))
+    pattern = f"%{query.strip()}%"
     with _connection() as db:
-        notes = db.execute(
-            "SELECT id, title, body FROM long_term_memory ORDER BY id DESC"
+        return db.execute(
+            "SELECT kind, id, title, detail FROM ("
+            "SELECT 'memory' AS kind, id, title, body AS detail, created_at "
+            "FROM long_term_memory WHERE title LIKE ? OR body LIKE ? "
+            "UNION ALL "
+            "SELECT 'reminder' AS kind, id, title, due_at AS detail, created_at "
+            "FROM reminders WHERE title LIKE ?) "
+            "ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+            (pattern, pattern, pattern, limit, offset),
         ).fetchall()
-        reminders = db.execute(
-            "SELECT id, title, due_at FROM reminders ORDER BY due_at DESC, id DESC"
-        ).fetchall()
-    items = [
-        ("memory", row_id, title, body)
-        for row_id, title, body in notes
-    ]
-    items.extend(
-        ("reminder", row_id, title, due_at)
-        for row_id, title, due_at in reminders
-    )
-    return items
 
 
 def delete_saved_item(kind: str, item_id: int) -> None:
@@ -190,21 +265,34 @@ def long_term_count() -> int:
     return int(notes + reminders)
 
 
-def context_for_ai(limit: int = 12) -> list[str]:
-    """Return a small dated context block for the selected cloud model."""
+def context_for_ai(query: str = "", limit: int = 12) -> list[str]:
+    """Retrieve relevant old notes and a few recent ones within a bounded context."""
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     with _connection() as db:
-        notes = db.execute(
-            "SELECT title, body FROM long_term_memory ORDER BY id DESC LIMIT ?",
-            (limit,),
+        terms = re.findall(r"\w{3,}", query.casefold(), re.UNICODE)
+        terms = list(dict.fromkeys(terms))[:8]
+        relevant = []
+        if terms:
+            expression = " OR ".join('"' + term.replace('"', '') + '"' for term in terms)
+            relevant = db.execute(
+                "SELECT m.id, m.title, m.body FROM memory_search s "
+                "JOIN long_term_memory m ON m.id = s.rowid "
+                "WHERE memory_search MATCH ? ORDER BY bm25(memory_search) LIMIT ?",
+                (expression, limit),
+            ).fetchall()
+        recent = db.execute(
+            "SELECT id, title, body FROM long_term_memory ORDER BY id DESC LIMIT ?",
+            (min(limit, 3),),
         ).fetchall()
         reminders = db.execute(
             "SELECT title, due_at FROM reminders WHERE due_at >= ? "
             "ORDER BY due_at LIMIT ?",
             (now, limit),
         ).fetchall()
-    result = [f"Lembrança permanente — {title}: {body}" for title, body in reversed(notes)]
+    notes = list(dict((row[0], row) for row in relevant + recent).values())[:limit]
+    result = [f"Lembrança permanente — {title[:120]}: {body[:650]}"
+              for _id, title, body in notes]
     result.extend(
         f"Lembrete futuro — {title}, vence em {due_at}"
         for title, due_at in reminders

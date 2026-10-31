@@ -39,6 +39,14 @@ def parse_reminder_request(text: str, *, now: datetime | None = None) -> dict | 
     normalized = normalized.replace("é", "e").replace("ê", "e").replace("í", "i")
     normalized = normalized.replace("ó", "o").replace("ô", "o").replace("õ", "o")
     normalized = normalized.replace("ú", "u").replace("ç", "c")
+    repeat_rule = None
+    for pattern, rule in ((r"\btod[oa]s?\s+os?\s+dias?\b|\btodo\s+dia\b", "daily"),
+                          (r"\btoda\s+semana\b", "weekly"),
+                          (r"\btodo\s+mes\b", "monthly"),
+                          (r"\btodo\s+ano\b", "yearly")):
+        if re.search(pattern, normalized):
+            repeat_rule = rule
+            break
 
     lead_match = re.search(
         r"\b(\d{1,3})\s*(dia|dias|semana|semanas|mes|meses|ano|anos)\s+antes\b",
@@ -75,6 +83,10 @@ def parse_reminder_request(text: str, *, now: datetime | None = None) -> dict | 
         except ValueError:
             return None
 
+    if due is None and repeat_rule:
+        due = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        if due <= now:
+            due += timedelta(days=1)
     if due is None:
         return None
 
@@ -100,6 +112,7 @@ def parse_reminder_request(text: str, *, now: datetime | None = None) -> dict | 
     title = re.sub(r"(?i)^\s*(?:hey\s+)?jarvis[:,]?\s*", "", title)
     title = re.sub(r"(?i)^\s*(?:me\s+)?lemb(?:ra|re)\s+(?:de\s+)?", "", title)
     title = re.sub(r"(?i)^\s*(?:por favor\s+)?", "", title)
+    title = re.sub(r"(?i)\b(?:todos?\s+os?\s+dias?|toda\s+semana|todo\s+m[eê]s|todo\s+ano)\b", " ", title)
     title = re.sub(
         r"(?i)\b\d{1,3}\s*(?:dias?|semanas?|mes(?:es)?|anos?)\s+antes\b", " ", title)
     title = re.sub(r"(?i)\b(?:quando\s+voce\s+inicializar|quando\s+iniciar)\b", " ", title)
@@ -116,4 +129,5 @@ def parse_reminder_request(text: str, *, now: datetime | None = None) -> dict | 
         "title": title[:180],
         "due_at": due.isoformat(timespec="minutes"),
         "remind_at": remind_at.isoformat(timespec="minutes"),
+        "repeat_rule": repeat_rule,
     }
