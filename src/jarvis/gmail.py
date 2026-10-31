@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import os
 from email.message import EmailMessage
 from pathlib import Path
 from platformdirs import user_config_path, user_data_path
@@ -12,13 +13,28 @@ TOKEN_FILE = user_data_path("JarvisAI", "Matheus") / "gmail-token.json"
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
 
+def _write_private(path: Path, content: str) -> None:
+    """Grava credenciais por substituição atômica e restringe permissões em POSIX."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    try:
+        temporary.write_text(content, encoding="utf-8")
+        if os.name != "nt":
+            temporary.chmod(0o600)
+            path.parent.chmod(0o700)
+        temporary.replace(path)
+        if os.name != "nt":
+            path.chmod(0o600)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def install_client_file(source: str) -> None:
     import json
     data = json.loads(Path(source).read_text(encoding="utf-8"))
     if "installed" not in data:
         raise ValueError("Escolha um arquivo OAuth do tipo aplicativo para computador.")
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CLIENT_FILE.write_text(json.dumps(data), encoding="utf-8")
+    _write_private(CLIENT_FILE, json.dumps(data))
 
 
 def send_email(to: str, subject: str, body: str) -> None:
@@ -38,8 +54,7 @@ def send_email(to: str, subject: str, body: str) -> None:
         else:
             flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_FILE), SCOPES)
             creds = flow.run_local_server(port=0)
-        TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-        TOKEN_FILE.write_text(creds.to_json(), encoding="utf-8")
+        _write_private(TOKEN_FILE, creds.to_json())
     message = EmailMessage()
     message["To"] = to; message["Subject"] = subject
     message.set_content(body)
