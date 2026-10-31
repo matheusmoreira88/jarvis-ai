@@ -16,10 +16,15 @@ def set_enabled(enabled: bool) -> None:
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
                 r"Software\Microsoft\Windows\CurrentVersion\Run") as key:
             if enabled:
-                pythonw = Path(sys.executable).with_name("pythonw.exe")
-                executable = str(pythonw if pythonw.exists() else sys.executable)
+                if getattr(sys, "frozen", False):
+                    executable = sys.executable
+                    arguments = "--background"
+                else:
+                    pythonw = Path(sys.executable).with_name("pythonw.exe")
+                    executable = str(pythonw if pythonw.exists() else sys.executable)
+                    arguments = "-m jarvis --background"
                 winreg.SetValueEx(key, APP_ID, 0, winreg.REG_SZ,
-                                  f'"{executable}" -m jarvis --background')
+                                  f'"{executable}" {arguments}')
             else:
                 try: winreg.DeleteValue(key, APP_ID)
                 except FileNotFoundError: pass

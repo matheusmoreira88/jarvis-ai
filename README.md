@@ -32,14 +32,23 @@ Licença: [MIT](license).
 ### Requisitos
 
 - Windows 10/11. O início automático também oferece suporte a Linux; macOS ainda não foi implementado.
-- Python 3.11 ou superior: [baixar Python](https://www.python.org/downloads/). No Windows, marque **Add Python to PATH** durante a instalação.
+- Para instalar pelo código: Python 3.11 ou superior: [baixar Python](https://www.python.org/downloads/). No Windows, marque **Add Python to PATH** durante a instalação.
 - Microfone e saída de áudio para os recursos de voz.
 - Chave Gemini: [Google AI Studio](https://aistudio.google.com/app/api-keys).
 - Chave Groq: [Groq Console](https://console.groq.com/keys). Groq pode ser usado para conversa e é necessário para transcrição de voz.
 
 O uso das APIs depende dos limites, disponibilidade, termos e eventual cobrança de cada provedor. O Gemini 3.8 Flash oferece uso gratuito dentro da cota indicada pelo Google, mas a pesquisa Google (Search Grounding) não está incluída no nível gratuito. Confira a [página oficial de preços](https://ai.google.dev/gemini-api/docs/pricing) e os painéis antes de usar recursos pagos.
 
-### Instalação no Windows
+- O Command Center mostra estados atuais de provedor, microfone, visão, mídia e memória; a troca de páginas e o núcleo visual usam animações suaves.
+- Peça músicas como toca música [artista ou faixa] ou pesquise no YouTube [termo]; os resultados oficiais abrem dentro do HUD. O vídeo pode ficar numa janela flutuante, em modo compacto ou em tela cheia.
+
+### Instalação fácil no Windows
+
+Baixe `JARVIS-AI-Setup` nos artefatos da execução mais recente de **Build Windows installer** em GitHub → Actions e abra o instalador. Ele instala o JARVIS sem exigir Python no computador. Na primeira execução, cadastre as chaves Gemini/Groq em Configurações.
+
+Para criar o instalador a partir do código, instale Python 3.11+, Inno Setup e execute `build_windows.bat`. O pacote portátil também aparece em `dist/JarvisAI`.
+
+### Instalação pelo código
 
 Instale o Python, abra o PowerShell e execute:
 
@@ -159,14 +168,23 @@ License: [MIT](license).
 ### Requirements
 
 - Windows 10/11. Automatic startup also supports Linux; macOS support has not been implemented.
-- Python 3.11 or newer: [download Python](https://www.python.org/downloads/). On Windows, select **Add Python to PATH** during installation.
+- For a source install: Python 3.11 or newer: [download Python](https://www.python.org/downloads/). On Windows, select **Add Python to PATH** during installation.
 - A microphone and audio output for voice features.
 - Gemini API key: [Google AI Studio](https://aistudio.google.com/app/api-keys).
 - Groq API key: [Groq Console](https://console.groq.com/keys). Groq can be used for chat and is required for voice transcription.
 
 API use is subject to each provider's limits, availability, terms, and any charges. Gemini 3.8 Flash offers free use within Google's published free quota, but Google Search grounding is not included in the free tier. Check the [official pricing page](https://ai.google.dev/gemini-api/docs/pricing) and provider dashboards before using paid features.
 
-### Windows installation
+- The Command Center shows current provider, microphone, screen, media, and memory states, with gentle page transitions and a pulsing core.
+- Say or type play [artist or track] or search YouTube [query] to open official YouTube results in the HUD. The player supports a floating window, compact mode, and full screen.
+
+### Easy Windows installation
+
+Download `JARVIS-AI-Setup` from the latest **Build Windows installer** run under GitHub → Actions and run the installer. It installs JARVIS without requiring Python on the target computer. Enter Gemini/Groq keys in Settings on first launch.
+
+To build the installer from source, install Python 3.11+ and Inno Setup, then run `build_windows.bat`. The portable app is also written to `dist/JarvisAI`.
+
+### Install from source
 
 Install Python, open PowerShell, and run:
 

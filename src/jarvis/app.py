@@ -7,14 +7,14 @@ import json
 import re
 from pathlib import Path
 from threading import Event
-from PySide6.QtCore import QThread, Signal, QUrl, QTimer, QUrlQuery, QStandardPaths, Qt, QLockFile
+from PySide6.QtCore import (QThread, Signal, QUrl, QTimer, QUrlQuery, QStandardPaths, Qt, QLockFile, QPropertyAnimation, QEasingCurve)
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QLabel,
                                QMainWindow, QPushButton, QTextEdit, QVBoxLayout, QWidget,
                                QMessageBox, QHBoxLayout, QFileDialog, QComboBox)
 from PySide6.QtWidgets import (QCheckBox, QTextBrowser, QSystemTrayIcon, QMenu, QStyle,
                                QStackedWidget, QTabWidget, QScrollArea, QFrame)
-from PySide6.QtWidgets import QInputDialog, QPlainTextEdit
+from PySide6.QtWidgets import QInputDialog, QPlainTextEdit, QGraphicsOpacityEffect
 from PySide6.QtWidgets import QDialogButtonBox
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
@@ -563,6 +563,7 @@ class JarvisWindow(QMainWindow):
         self.status = QLabel("Pronto"); self.status.setObjectName("statusLabel")
         topbar.addWidget(self.status); main_layout.addLayout(topbar)
         layout.addWidget(main_area, 1); main_layout.addWidget(self.tabs, 1)
+        self.page_fade_animation = None
         self.tabs.currentChanged.connect(self._update_navigation)
 
         dashboard_page = QWidget(); dashboard_layout = QVBoxLayout(dashboard_page)
@@ -585,27 +586,41 @@ class JarvisWindow(QMainWindow):
         overview_copy.addWidget(overview_name)
         provider_name = load_settings().get("provider", "gemini").upper()
         provider_hint = QLabel(f"Provedor ativo  ·  {provider_name}\nMemória local  ·  conversa única")
-        provider_hint.setObjectName("dashboardHint"); overview_copy.addWidget(provider_hint)
+        self.provider_hint = provider_hint
+        overview_copy.addWidget(provider_hint)
         overview_copy.addStretch(1)
         overview_layout.addLayout(overview_copy, 1)
         orb = QLabel("◉\nJ A R V I S\nA I   C O R E")
         orb.setObjectName("coreOrb"); orb.setAlignment(Qt.AlignmentFlag.AlignCenter)
         orb.setFixedSize(164, 164); overview_layout.addWidget(orb)
+        orb_effect = QGraphicsOpacityEffect(orb); orb_effect.setOpacity(0.84)
+        orb.setGraphicsEffect(orb_effect)
+        self.orb_animation = QPropertyAnimation(orb_effect, b"opacity", self)
+        self.orb_animation.setDuration(1800)
+        self.orb_animation.setStartValue(0.84); self.orb_animation.setEndValue(0.84)
+        self.orb_animation.setKeyValueAt(0.5, 1.0)
+        self.orb_animation.setEasingCurve(QEasingCurve.Type.InOutSine)
+        self.orb_animation.setLoopCount(-1); self.orb_animation.start()
         dashboard_layout.addWidget(overview)
 
         status_row = QHBoxLayout()
+        self.dashboard_metrics = {}
         def make_status_card(heading: str, value: str, hint: str):
             card = QWidget(); card.setObjectName("dashboardCard")
-            card_layout = QVBoxLayout(card); card_layout.setContentsMargins(16, 14, 16, 14)
+            card_layout = QVBoxLayout(card); card_layout.setContentsMargins(14, 12, 14, 12)
             heading_label = QLabel(heading.upper()); heading_label.setObjectName("dashboardKicker")
             value_label = QLabel(value); value_label.setObjectName("dashboardMetric")
+            value_label.setMinimumWidth(0)
             hint_label = QLabel(hint); hint_label.setObjectName("dashboardHint")
+            hint_label.setWordWrap(True)
             card_layout.addWidget(heading_label); card_layout.addWidget(value_label); card_layout.addWidget(hint_label)
+            self.dashboard_metrics[heading.lower()] = value_label
             return card
-        status_row.addWidget(make_status_card("IA", provider_name, "Chaves ajustáveis nas configurações"))
-        status_row.addWidget(make_status_card("Voz", "Mãos livres", "Detecção automática quando ativada"))
-        status_row.addWidget(make_status_card("Memória", "Ativa", "Histórico local persistente"))
-        status_row.addWidget(make_status_card("Desktop", "Conectado", "Aplicativos e tela disponíveis"))
+        status_row.addWidget(make_status_card("IA", provider_name, "Provedor principal"))
+        status_row.addWidget(make_status_card("Voz", "Desligada", "Escuta automática"))
+        status_row.addWidget(make_status_card("Tela", "Sob demanda", "Visão contínua"))
+        status_row.addWidget(make_status_card("Mídia", "Parada", "Player do HUD"))
+        status_row.addWidget(make_status_card("Memória", "Ativa", "Conversa local"))
         dashboard_layout.addLayout(status_row)
 
         lower_row = QHBoxLayout(); lower_row.setSpacing(14)
@@ -659,8 +674,15 @@ class JarvisWindow(QMainWindow):
         media_layout.setContentsMargins(20, 18, 20, 18); media_layout.setSpacing(12)
         media_header = QHBoxLayout()
         media_header.addWidget(QLabel("MÍDIA · arquivos, URLs e YouTube"))
-        self.media_title = QLabel("Parado"); media_header.addWidget(self.media_title, 1)
-        self.compact_button = QPushButton("Minimizar")
+        self.media_title = QLabel("YouTube pronto para buscar")
+        media_header.addWidget(self.media_title, 1)
+        self.media_window_button = QPushButton("Janela flutuante")
+        self.media_window_button.clicked.connect(self.open_mini_player)
+        media_header.addWidget(self.media_window_button)
+        self.media_fullscreen_button = QPushButton("Tela cheia")
+        self.media_fullscreen_button.clicked.connect(self.toggle_media_fullscreen)
+        media_header.addWidget(self.media_fullscreen_button)
+        self.compact_button = QPushButton("Recolher controles")
         self.compact_button.clicked.connect(self.toggle_compact_media)
         media_header.addWidget(self.compact_button); media_layout.addLayout(media_header)
         self.media_view = QStackedWidget(self.media_panel)
@@ -668,11 +690,18 @@ class JarvisWindow(QMainWindow):
         self.media_idle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_widget = QVideoWidget(self.media_view); self.video_widget.setMinimumHeight(260)
         self.youtube_view = QWebEngineView(self.media_view); self.youtube_view.setMinimumHeight(300)
-        profile = QWebEngineProfile("jarvis-youtube", self)
+        self.youtube_profile = QWebEngineProfile("jarvis-youtube", self)
         storage = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
-        profile.setPersistentStoragePath(storage + "/youtube-profile")
-        profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
-        self.youtube_view.setPage(QWebEnginePage(profile, self.youtube_view))
+        self.youtube_profile.setPersistentStoragePath(storage + "/youtube-profile")
+        self.youtube_profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
+        self.youtube_view.setPage(QWebEnginePage(self.youtube_profile, self.youtube_view))
+        self.youtube_view.loadStarted.connect(self._youtube_load_started)
+        self.youtube_view.loadFinished.connect(self._youtube_load_finished)
+        self.youtube_view.page().fullScreenRequested.connect(self._youtube_fullscreen_requested)
+        self.youtube_status_timer = QTimer(self)
+        self.youtube_status_timer.setInterval(1000)
+        self.youtube_status_timer.timeout.connect(self._poll_youtube_status)
+        self.mini_player_dialog = None
         self.media_view.addWidget(self.media_idle)
         self.media_view.addWidget(self.video_widget)
         self.media_view.addWidget(self.youtube_view)
@@ -692,6 +721,7 @@ class JarvisWindow(QMainWindow):
         self.player = QMediaPlayer(self); self.audio_output = QAudioOutput(self)
         self.player.setAudioOutput(self.audio_output)
         self.player.setVideoOutput(self.video_widget)
+        self.player.playbackStateChanged.connect(self._local_media_state_changed)
         self.player.errorOccurred.connect(lambda *_: self.media_title.setText("Falha ao abrir mídia"))
 
         settings_scroll = QScrollArea(); settings_scroll.setWidgetResizable(True)
@@ -834,7 +864,11 @@ class JarvisWindow(QMainWindow):
             save_secret("groq", self.groq_key_input.text())
             save_secret("user_email", self.user_email_input.text())
             save_secret("user_phone", self.user_phone_input.text())
-            save_settings({**load_settings(), "provider": self.provider_setting.currentData()})
+            selected_provider = self.provider_setting.currentData()
+            save_settings({**load_settings(), "provider": selected_provider})
+            self._set_dashboard_metric("ia", selected_provider.upper())
+            self.provider_hint.setText(
+                f"Provedor ativo  ·  {selected_provider.upper()}\nMemória local  ·  conversa única")
             QMessageBox.information(self, "Configurações", "Preferências e chaves salvas neste computador.")
         except Exception as exc:
             QMessageBox.warning(self, "Configurações não salvas", str(exc))
@@ -846,6 +880,19 @@ class JarvisWindow(QMainWindow):
             button.setChecked(position == index)
         if 0 <= index < len(labels):
             self.page_title.setText(labels[index])
+            page = self.tabs.widget(index)
+            if page is not None and index != 2:
+                if self.page_fade_animation:
+                    self.page_fade_animation.stop()
+                effect = QGraphicsOpacityEffect(page)
+                effect.setOpacity(0.72)
+                page.setGraphicsEffect(effect)
+                self.page_fade_animation = QPropertyAnimation(effect, b"opacity", self)
+                self.page_fade_animation.setDuration(240)
+                self.page_fade_animation.setStartValue(0.72)
+                self.page_fade_animation.setEndValue(1.0)
+                self.page_fade_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+                self.page_fade_animation.start()
 
     def _message_markup(self, role: str, body: str) -> str:
         label = "Você" if role in {"user", "private_action"} else "JARVIS"
@@ -891,6 +938,9 @@ class JarvisWindow(QMainWindow):
         """Executa apenas ações locais explícitas; nunca interpreta saída do modelo como ação."""
         normalized = prompt.strip()
         lowered = normalized.lower()
+        if self._handle_media_command(normalized):
+            return True
+
         if lowered.startswith("abrir aplicativo:"):
             requested = normalized[len("abrir aplicativo:"):].strip()
             if not requested:
@@ -1181,15 +1231,22 @@ class JarvisWindow(QMainWindow):
             detail = "mensagem, contexto recente e pesquisa" if search_web else "mensagem e contexto recente"
             status = f"Enviando {detail} à {provider}…"
         self.status.setText(status)
+        if mode in {"screen", "plan"}:
+            self._set_dashboard_metric("tela", "Analisando")
         self.worker = ReplyWorker(prompt, mode, search_web, history)
         self._track_worker(self.worker)
         self.worker.finished_text.connect(self._worker_event)
         self.worker.failed.connect(self.error)
         self.worker.finished.connect(lambda: self.status.setText("Pronto"))
+        self.worker.finished.connect(lambda mode=mode: self._finish_reply_indicators(mode))
         self.worker.finished.connect(self._resume_voice_activation)
         if mode in {"voice", "spoken"}:
             self.worker.finished.connect(self._resume_clap_worker)
         self.worker.start()
+
+    def _finish_reply_indicators(self, mode: str):
+        if mode in {"screen", "plan"} and not self.live_vision_worker:
+            self._set_dashboard_metric("tela", "Sob demanda")
 
     def toggle_voice_activation(self, enabled: bool):
         """Liga ou desliga a escuta automática; nenhum áudio em espera sai do computador."""
@@ -1234,6 +1291,9 @@ class JarvisWindow(QMainWindow):
             "desligado": "Microfone desligado",
         }
         self.voice_state.setText(labels.get(state, state))
+        values = {"escutando": "Escutando", "transcrevendo": "Transcrevendo",
+                  "erro": "Erro", "desligado": "Desligada"}
+        self._set_dashboard_metric("voz", values.get(state, state))
 
     def _voice_activation_failed(self, message: str):
         self.voice_activation_button.setChecked(False)
@@ -1268,6 +1328,197 @@ class JarvisWindow(QMainWindow):
             return
         self._start(phrase, "spoken")
 
+    def _handle_media_command(self, prompt: str) -> bool:
+        """Recognizes spoken or typed YouTube searches and player window commands."""
+        text = prompt.strip()
+        lowered = text.casefold()
+        is_media_search = lowered.startswith((
+            "toca ", "toque ", "tocar ", "reproduz ", "reproduza ",
+            "pesquise no youtube", "pesquisa no youtube", "pesquisar no youtube",
+            "busque no youtube", "buscar no youtube", "busca no youtube",
+            "procure no youtube", "procurar no youtube", "youtube:"))
+        if any(term in lowered for term in ("tela cheia", "fullscreen", "full screen")) and not is_media_search:
+            if self.tabs.currentIndex() == 2 or self.mini_player_dialog:
+                self.toggle_media_fullscreen()
+                return True
+        if any(term in lowered for term in ("minimiza o player", "minimize player", "minimizar player", "minimizada", "minimizado")) and not is_media_search:
+            if self.mini_player_dialog:
+                self.mini_player_dialog.showMinimized()
+            else:
+                self._set_compact_media(True)
+            return True
+        if any(term in lowered for term in ("abre em uma janela", "abrir em janela", "janela flutuante", "abre janela")):
+            self.open_mini_player()
+            return True
+
+        query = None
+        search_prefixes = (
+            "pesquise no youtube", "pesquisa no youtube", "pesquisar no youtube",
+            "busque no youtube", "buscar no youtube", "busca no youtube",
+            "procure no youtube", "procurar no youtube", "youtube:"
+        )
+        for prefix in search_prefixes:
+            if lowered.startswith(prefix):
+                query = text[len(prefix):].strip(" :,-")
+                break
+        if query is None:
+            match = re.match(
+                r"^(?:toca|toque|tocar|reproduz|reproduza)\s+(.*)$", text, re.IGNORECASE)
+            if match:
+                query = match.group(1).strip()
+                query = re.sub(
+                    r"^(?:a\s+)?(?:m[uú]sica|som|can[cç][aã]o)(?:\s+(?:de|do|da))?\s*",
+                    "", query, flags=re.IGNORECASE)
+                query = re.sub(r"\s+no\s+youtube$", "", query, flags=re.IGNORECASE).strip()
+        if query is None and lowered in {"abrir youtube", "abre youtube", "abrir música", "abrir musica"}:
+            query = ""
+        if query is None:
+            return False
+        wants_fullscreen = any(term in lowered for term in ("tela cheia", "fullscreen", "full screen"))
+        wants_window = any(term in lowered for term in ("em janela", "janela flutuante", "modo janela"))
+        wants_minimized = "minimiz" in lowered
+        for suffix in (" em tela cheia", " fullscreen", " full screen", " em janela flutuante", " em modo janela", " em janela", " minimiza o player", " minimizada", " minimizado"):
+            if query.casefold().endswith(suffix):
+                query = query[:-len(suffix)].strip()
+        self.search_youtube_in_hud(query)
+        if wants_window:
+            QTimer.singleShot(1400, self.open_mini_player)
+        if wants_fullscreen:
+            QTimer.singleShot(1800, self.toggle_media_fullscreen)
+        if wants_minimized:
+            QTimer.singleShot(1400, lambda: self._set_compact_media(True))
+        return True
+
+    def search_youtube_in_hud(self, query: str):
+        """Loads official YouTube search results inside the media page of the HUD."""
+        self.media_source.setText(query)
+        self.tabs.setCurrentIndex(2)
+        if query.strip():
+            search_url = QUrl("https://www.youtube.com/results")
+            params = QUrlQuery(); params.addQueryItem("search_query", query.strip())
+            search_url.setQuery(params)
+        else:
+            search_url = QUrl("https://www.youtube.com/")
+        self._play_youtube(search_url, query.strip())
+
+    def _set_dashboard_metric(self, key: str, value: str):
+        metric = getattr(self, "dashboard_metrics", {}).get(key)
+        if metric is not None:
+            metric.setText(value)
+
+    def _youtube_load_started(self):
+        self._set_dashboard_metric("mídia", "Conectando…")
+        self.status.setText("Abrindo YouTube dentro da HUD…")
+
+    def _youtube_load_finished(self, success: bool):
+        if not success:
+            self._set_dashboard_metric("mídia", "Falha ao abrir")
+            self.status.setText("Não foi possível carregar o YouTube")
+            return
+        self._set_dashboard_metric("mídia", "YouTube pronto")
+        self.status.setText("YouTube carregado na HUD")
+        if not self.youtube_status_timer.isActive():
+            self.youtube_status_timer.start()
+
+    def _poll_youtube_status(self):
+        if not self.youtube_view.isVisible() and not self.mini_player_dialog:
+            return
+        script = (
+            "(() => { const v=document.querySelector('video'); "
+            "if (!v) return 'ready'; if (!v.paused && !v.ended) return 'playing'; "
+            "if (v.ended) return 'ended'; return 'paused'; })()")
+        self.youtube_view.page().runJavaScript(script, self._youtube_playback_status)
+
+    def _youtube_playback_status(self, state):
+        states = {
+            "playing": ("Reproduzindo", "YouTube reproduzindo"),
+            "paused": ("Pausada", "Vídeo pausado no YouTube"),
+            "ended": ("Concluída", "Reprodução encerrada"),
+            "ready": ("YouTube pronto", "Escolha um resultado na página"),
+        }
+        result = states.get(state)
+        if result:
+            self._set_dashboard_metric("mídia", result[0])
+            self.media_title.setText(result[1])
+
+    def _local_media_state_changed(self, state):
+        states = {
+            QMediaPlayer.PlaybackState.PlayingState: ("Reproduzindo", "Reproduzindo mídia local"),
+            QMediaPlayer.PlaybackState.PausedState: ("Pausada", "Mídia pausada"),
+            QMediaPlayer.PlaybackState.StoppedState: ("Parada", "Player parado"),
+        }
+        value, title = states.get(state, ("Parada", "Player parado"))
+        self._set_dashboard_metric("mídia", value)
+        if self.media_view.currentWidget() is not self.youtube_view:
+            self.media_title.setText(title)
+
+    def open_mini_player(self):
+        """Moves the active YouTube page into a small floating window without restarting it."""
+        if self.mini_player_dialog:
+            self.mini_player_dialog.showNormal()
+            self.mini_player_dialog.raise_()
+            self.mini_player_dialog.activateWindow()
+            return
+        current_url = self.youtube_view.url().toString()
+        if not current_url or current_url == "about:blank":
+            query = self.media_source.text().strip()
+            self.search_youtube_in_hud(query)
+            QTimer.singleShot(1400, self.open_mini_player)
+            return
+        dialog = QDialog(self, Qt.WindowType.Window)
+        dialog.setWindowTitle("JARVIS · Player YouTube")
+        dialog.setMinimumSize(640, 380)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
+        self.media_view.removeWidget(self.youtube_view)
+        self.youtube_view.setParent(dialog)
+        box = QVBoxLayout(dialog); box.setContentsMargins(10, 10, 10, 10); box.setSpacing(8)
+        controls = QHBoxLayout()
+        label = QLabel("JARVIS · PLAYER FLUTUANTE"); label.setObjectName("dashboardKicker")
+        controls.addWidget(label); controls.addStretch(1)
+        minimize = QPushButton("Minimizar"); minimize.clicked.connect(dialog.showMinimized)
+        controls.addWidget(minimize)
+        fullscreen = QPushButton("Tela cheia")
+        fullscreen.clicked.connect(lambda: self._toggle_window_fullscreen(dialog))
+        controls.addWidget(fullscreen)
+        back = QPushButton("Voltar ao HUD"); back.clicked.connect(dialog.close)
+        controls.addWidget(back)
+        box.addLayout(controls); box.addWidget(self.youtube_view, 1)
+        self.mini_player_dialog = dialog
+        dialog.finished.connect(self._restore_mini_player)
+        dialog.show()
+
+    def _restore_mini_player(self, *_args):
+        """Returns the live YouTube widget to the embedded HUD player when its window closes."""
+        dialog = self.mini_player_dialog
+        if dialog is None:
+            return
+        self.youtube_view.setParent(self.media_view)
+        self.media_view.addWidget(self.youtube_view)
+        self.media_view.setCurrentWidget(self.youtube_view)
+        self.mini_player_dialog = None
+        dialog.hide()
+        self._set_dashboard_metric("mídia", "YouTube pronto")
+
+    def _toggle_window_fullscreen(self, window):
+        if window.isFullScreen():
+            window.showNormal()
+        else:
+            window.showFullScreen()
+
+    def toggle_media_fullscreen(self):
+        """Toggles full screen on the floating player or the complete media HUD."""
+        target = self.mini_player_dialog or self
+        self._toggle_window_fullscreen(target)
+
+    def _youtube_fullscreen_requested(self, request):
+        request.accept()
+        if request.toggleOn():
+            self.toggle_media_fullscreen()
+        else:
+            target = self.mini_player_dialog or self
+            if target.isFullScreen():
+                target.showNormal()
+
     def open_media_file(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Abrir mídia", "",
@@ -1294,20 +1545,24 @@ class JarvisWindow(QMainWindow):
             self._play_youtube(candidate_url)
             return
         if not candidate.lower().startswith(("http://", "https://")):
-            # A plain song name opens YouTube search; playback remains under user control.
-            search_url = QUrl("https://www.youtube.com/results")
-            query = QUrlQuery()
-            query.addQueryItem("search_query", source)
-            search_url.setQuery(query)
-            self._play_youtube(search_url)
+            # Search on the official site in the embedded view; playback stays on YouTube.
+            self.search_youtube_in_hud(source)
             return
         self._play_source(candidate_url, candidate_url.fileName() or candidate_url.host() or source)
 
-    def _play_youtube(self, url: QUrl):
+    def _play_youtube(self, url: QUrl, query: str = ""):
         self.player.stop()
+        if self.mini_player_dialog:
+            self._restore_mini_player()
         self.media_view.setCurrentWidget(self.youtube_view)
         self.youtube_view.setUrl(url)
-        self.media_title.setText("YouTube · use os controles da página para reproduzir")
+        title = f"Buscando no YouTube · {query}" if query else "YouTube · navegue e reproduza na HUD"
+        self.media_title.setText(title)
+        self._set_dashboard_metric("mídia", "Buscando…")
+        self.status.setText("Pesquisa do YouTube aberta dentro da HUD")
+        if not self.youtube_status_timer.isActive():
+            self.youtube_status_timer.start()
+        # Keep Qt WebEngine's video surface free of opacity effects.
 
     def _play_source(self, url: QUrl, title: str):
         video_suffixes = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4v"}
@@ -1351,11 +1606,40 @@ class JarvisWindow(QMainWindow):
         self.status.setText("Download concluído")
         QMessageBox.information(self, "Download concluído", f"Arquivo salvo em:\n{path}")
 
-    def toggle_compact_media(self):
-        compact = self.media_controls.isVisible()
+    def _set_compact_media(self, compact: bool):
         self.media_controls.setVisible(not compact)
-        self.media_view.setVisible(not compact)
-        self.compact_button.setText("Expandir" if compact else "Minimizar")
+        if getattr(self, "media_view_animation", None):
+            self.media_view_animation.stop()
+        current_height = max(180, self.media_view.height())
+        target_height = 180 if compact else max(current_height, int(self.height() * 0.58))
+        self.media_view.setMaximumHeight(current_height)
+        self.media_view_animation = QPropertyAnimation(self.media_view, b"maximumHeight", self)
+        self.media_view_animation.setDuration(280)
+        self.media_view_animation.setStartValue(current_height)
+        self.media_view_animation.setEndValue(target_height)
+        self.media_view_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.media_view_animation.finished.connect(
+            lambda compact=compact: self.media_view.setMaximumHeight(180 if compact else 16_777_215))
+        self.media_view_animation.start()
+        self.compact_button.setText("Mostrar controles" if compact else "Recolher controles")
+        self._set_dashboard_metric("mídia", "Compacta" if compact else "Expandida")
+
+    def toggle_compact_media(self):
+        self._set_compact_media(self.media_controls.isVisible())
+
+    def _animate_widget(self, widget):
+        """Adds a short ease-out fade when the active media surface changes."""
+        if getattr(self, "media_fade_animation", None):
+            self.media_fade_animation.stop()
+        effect = QGraphicsOpacityEffect(widget)
+        effect.setOpacity(0.68)
+        widget.setGraphicsEffect(effect)
+        self.media_fade_animation = QPropertyAnimation(effect, b"opacity", self)
+        self.media_fade_animation.setDuration(280)
+        self.media_fade_animation.setStartValue(0.68)
+        self.media_fade_animation.setEndValue(1.0)
+        self.media_fade_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.media_fade_animation.start()
 
     def analyze_screen(self):
         prompt = self.input.text().strip() or "Descreva o que aparece na minha tela e destaque elementos importantes."
@@ -1388,6 +1672,7 @@ class JarvisWindow(QMainWindow):
             self.live_vision_worker.start()
             self.live_vision_button.setText("Parar visão contínua")
             self.status.setText("Visão Gemini Live ativa · até 1 quadro por segundo")
+            self._set_dashboard_metric("tela", "Ao vivo")
         else:
             self._stop_live_vision()
 
@@ -1401,6 +1686,7 @@ class JarvisWindow(QMainWindow):
         self.live_vision_button.setEnabled(True)
         self.live_vision_worker = None
         self.status.setText("Visão contínua parada")
+        self._set_dashboard_metric("tela", "Sob demanda")
         if self._close_when_vision_stops:
             QTimer.singleShot(0, self.close)
 
