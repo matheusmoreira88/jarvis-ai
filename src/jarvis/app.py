@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sys
 import html
+import json
 import re
 from pathlib import Path
 from threading import Event
@@ -20,7 +21,7 @@ from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngin
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from . import memory
-from .providers import analyze_image, ask_assistant, transcribe_groq
+from .providers import analyze_image, ask_assistant, propose_screen_action, transcribe_groq
 from .settings import get_secret, save_secret, load_settings, save_settings
 from .vision import capture_primary_screen
 from .voice import record_utterance, speak
@@ -63,6 +64,12 @@ class ReplyWorker(QThread):
                 self.finished_text.emit("__BUSY__")
                 answer = analyze_image(prompt, image)
                 self.finished_text.emit("__ANSWER__" + answer)
+                return
+            elif self.mode == "plan":
+                image = capture_primary_screen()
+                self.finished_text.emit("__BUSY__")
+                action = propose_screen_action(prompt, image)
+                self.finished_text.emit("__PLAN__" + json.dumps(action, ensure_ascii=False))
                 return
             answer = ask_assistant(prompt, self.history, self.search_web)
             if self.mode == "spoken":
@@ -418,8 +425,9 @@ class JarvisWindow(QMainWindow):
         assistant_page = QWidget(); assistant_layout = QVBoxLayout(assistant_page)
         assistant_layout.setContentsMargins(20, 18, 20, 18); assistant_layout.setSpacing(12)
         assistant_layout.addWidget(QLabel(
-            "Comandos locais: ‘abrir calculadora’, ‘digitar: texto’ e ‘pressionar: enter’. "
-            "Use também ‘abrir exe: caminho completo’. Ações locais pedem confirmação."))
+            "Comandos: ‘abrir calculadora’, ‘digitar: texto’, ‘pressionar: enter’ e "
+            "‘agir: pedido na tela’. Use ‘abrir exe: caminho completo’ para outros apps. "
+            "Ações locais pedem confirmação."))
         self.load_older_button = QPushButton("Carregar mensagens anteriores")
         self.load_older_button.clicked.connect(self.load_older_history)
         self.load_older_button.hide()
@@ -553,8 +561,9 @@ class JarvisWindow(QMainWindow):
                 "<div style='font-size:22px;font-weight:700;color:#e8fff8'>Olá, Matheus.</div>"
                 "<p>Este é seu espaço de conversa contínua. Escreva uma mensagem ou escolha "
                 "<b>Falar</b> para enviar um comando por voz.</p>"
-                "<p>Use <b>Analisar minha tela</b> para uma captura pontual; a visão contínua "
-                "só começa depois da sua confirmação.</p>"
+                "<p>Use <b>Analisar minha tela</b> para uma captura pontual ou escreva "
+                "<b>agir: clique no botão Salvar</b> para revisar uma ação visual. "
+                "A visão contínua só começa depois da sua confirmação.</p>"
                 "<p style='color:#7f91aa'>As conversas ficam na memória local. Comandos que "
                 "alteram o computador pedem confirmação antes de agir.</p></div>"
             )
@@ -630,6 +639,29 @@ class JarvisWindow(QMainWindow):
                         prompt, open_user_selected_executable(path))
                 except Exception as exc:
                     self.error(str(exc))
+            return True
+
+        if lowered.startswith("agir:"):
+            request = normalized[len("agir:"):].strip()
+            if not request:
+                QMessageBox.information(
+                    self, "Ação na tela", "Descreva o que você quer que o JARVIS faça.")
+                return True
+            if not get_secret("gemini"):
+                QMessageBox.warning(
+                    self, "Gemini necessário",
+                    "Cadastre a chave Gemini em Configurações para planejar uma ação na tela.")
+                return True
+            consent = QMessageBox.warning(
+                self, "Enviar captura para planejar uma ação",
+                "A captura atual da tela será enviada ao Gemini para propor uma única ação. "
+                "O JARVIS não fará nada antes de mostrar a proposta e pedir outra confirmação. "
+                "Continuar?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if consent == QMessageBox.StandardButton.Yes:
+                self._start(request, "plan")
             return True
 
         if lowered == "clicar":
@@ -972,6 +1004,45 @@ class JarvisWindow(QMainWindow):
             self.pending_voice_command = value[len("__VOICE_COMMAND__"):]
         elif value.startswith("__ANSWER__"):
             self.reply(value[10:])
+        elif value.startswith("__PLAN__"):
+            self._review_screen_action(value[len("__PLAN__"):])
+
+    def _review_screen_action(self, payload: str):
+        """Revalida a proposta e pede aprovação humana antes de tocar mouse/teclado."""
+        from .computer import describe_screen_action, validate_screen_action
+        try:
+            action = validate_screen_action(json.loads(payload))
+            description = describe_screen_action(action)
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            self.error(f"Proposta de ação rejeitada: {exc}")
+            return
+        if action["action"] == "none":
+            result = "Não encontrei uma ação de tela segura para esse pedido. Nada foi executado."
+            self._append("assistant", result); memory.add("assistant", result)
+            self.input.setEnabled(True)
+            return
+        answer = QMessageBox.question(
+            self, "Revisar ação proposta", description + "\n\nExecutar agora?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            result = "Ação cancelada. Nenhum clique ou tecla foi enviado."
+            self._append("assistant", result); memory.add("assistant", result)
+            self.input.setEnabled(True)
+            return
+        self._yield_focus_to_active_app()
+        QTimer.singleShot(500, lambda action=action: self._run_screen_action(action))
+
+    def _run_screen_action(self, action: dict):
+        from .computer import perform_screen_action
+        try:
+            result = perform_screen_action(action)
+            self._append("assistant", result); memory.add("assistant", result)
+        except Exception as exc:
+            self._report_control_failure("executar a ação de tela", exc)
+        finally:
+            self.input.setEnabled(True)
 
     def reply(self, text: str):
         memory.add("assistant", text); self._append("assistant", text); self.input.setEnabled(True); self.input.setFocus()
