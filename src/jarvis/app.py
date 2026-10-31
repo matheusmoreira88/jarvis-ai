@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QL
 from PySide6.QtWidgets import (QCheckBox, QTextBrowser, QSystemTrayIcon, QMenu, QStyle,
                                QStackedWidget, QTabWidget)
 from PySide6.QtWidgets import QInputDialog, QPlainTextEdit
+from PySide6.QtWidgets import QDialogButtonBox
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEnginePermission
@@ -1346,8 +1347,9 @@ class JarvisWindow(QMainWindow):
         to, title, text = recipient.text().strip(), subject.text().strip(), body.toPlainText().strip()
         if not to or not title or not text:
             QMessageBox.warning(self, "E-mail", "Preencha destinatário, assunto e mensagem."); return
-        preview = f"Para: {to}\nAssunto: {title}\n\n{text[:800]}"
-        if QMessageBox.question(self, "Confirmar envio", preview) != QMessageBox.StandardButton.Yes:
+        summary = f"Destinatário: {to}\nAssunto: {title}"
+        if not self._review_full_message(
+                "Revisar e-mail completo", summary, text, "Confirmar e enviar"):
             return
         self.gmail_worker = GmailWorker(to, title, text)
         self._track_worker(self.gmail_worker)
@@ -1372,8 +1374,10 @@ class JarvisWindow(QMainWindow):
             QMessageBox.warning(self, "WhatsApp", "Escolha um contato e escreva a mensagem.")
             return
         contact = next((c["name"] for c in dialog.items if c["phone"] == dialog.phone), "Contato")
-        preview = f"Para: {contact} (+{dialog.phone})\n\n{dialog.message_text[:800]}"
-        if QMessageBox.question(self, "Revisar mensagem", preview) != QMessageBox.StandardButton.Yes:
+        summary = f"Contato autorizado: {contact} (+{dialog.phone})"
+        if not self._review_full_message(
+                "Revisar mensagem WhatsApp completa", summary,
+                dialog.message_text, "Continuar para o WhatsApp"):
             return
         url = draft_url(dialog.phone, dialog.message_text)
         try:
@@ -1384,6 +1388,27 @@ class JarvisWindow(QMainWindow):
                 self, "WhatsApp Web indisponível",
                 f"Não foi possível abrir o WhatsApp dentro do JARVIS: {exc}\n"
                 "Confira se Qt WebEngine está instalado e tente novamente.")
+
+    def _review_full_message(self, title: str, summary: str,
+                             body: str, confirm_label: str) -> bool:
+        """Mostra o conteúdo inteiro num campo rolável antes de um envio externo."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+        dialog.resize(700, 560)
+        layout = QVBoxLayout(dialog)
+        heading = QLabel(summary); heading.setWordWrap(True)
+        layout.addWidget(heading)
+        layout.addWidget(QLabel("Conteúdo completo:"))
+        preview = QTextEdit(dialog); preview.setReadOnly(True); preview.setPlainText(body)
+        layout.addWidget(preview, 1)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok,
+            parent=dialog)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(confirm_label)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        return dialog.exec() == QDialog.DialogCode.Accepted
 
 
 def main():

@@ -89,7 +89,7 @@ Clique em **Ativar início automático** e confirme. O aplicativo abre minimizad
 1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto e habilite a Gmail API.
 2. Configure a tela de consentimento OAuth e crie um OAuth Client ID do tipo **Aplicativo para computador**.
 3. Baixe o JSON desse cliente e clique em **Configurar Gmail OAuth…** no JARVIS para importá-lo.
-4. Ao enviar o primeiro e-mail, o navegador abrirá a autorização Google. Confira o destinatário e o conteúdo na confirmação antes de cada envio.
+4. Ao enviar o primeiro e-mail, o navegador abrirá a autorização Google. Confira o destinatário e leia o conteúdo completo na janela rolável de revisão antes de cada envio.
 
 A integração solicita somente a permissão de envio (`gmail.send`). Ela não lê a caixa de entrada nem atende chamadas telefônicas.
 
@@ -97,7 +97,7 @@ A integração solicita somente a permissão de envio (`gmail.send`). Ela não l
 
 1. Abra **Contatos permitidos…** e cadastre nome e telefone no formato internacional, incluindo DDI (por exemplo, `5521999999999`).
 2. Clique em **Preparar mensagem WhatsApp…**, selecione um contato autorizado e escreva a mensagem.
-3. Revise e confirme. O WhatsApp Web abre no HUD; entre na sua conta, confira a conversa e pressione **Enviar** manualmente.
+3. Leia a mensagem completa na janela rolável e confirme. O WhatsApp Web abre no HUD; entre na sua conta, confira a conversa e pressione **Enviar** manualmente.
 
 O aplicativo não lê mensagens nem envia sem a ação final do usuário. Em uma chamada, use os controles oficiais exibidos no WhatsApp Web. O JARVIS não atende automaticamente. O microfone e a câmera só são liberados depois de uma confirmação para `web.whatsapp.com`, e também dependem das permissões do Windows. Chamadas dentro do HUD dependem da compatibilidade do WhatsApp Web com o Qt WebEngine instalado.
 
@@ -216,7 +216,7 @@ Click **Ativar início automático** (Enable automatic startup) and confirm. The
 1. Create a project in [Google Cloud Console](https://console.cloud.google.com/) and enable the Gmail API.
 2. Configure the OAuth consent screen and create an OAuth Client ID of type **Desktop app**.
 3. Download the client JSON and import it in JARVIS using **Configurar Gmail OAuth…** (Configure Gmail OAuth).
-4. The browser opens Google authorization when you send the first email. Review the recipient and message in the confirmation dialog before each send.
+4. The browser opens Google authorization when you send the first email. Review the recipient and read the full message in the scrollable review window before each send.
 
 The integration requests only the send permission (`gmail.send`). It does not read the inbox or answer phone calls.
 
@@ -224,7 +224,7 @@ The integration requests only the send permission (`gmail.send`). It does not re
 
 1. Open **Contatos permitidos…** (Allowed contacts) and add a name and an international phone number, including the country calling code (for example, `5521999999999`).
 2. Click **Preparar mensagem WhatsApp…** (Prepare WhatsApp message), select an allowed contact, and write the message.
-3. Review and confirm. WhatsApp Web opens in the HUD; sign in, check the conversation, and press **Send** manually.
+3. Read the full message in the scrollable review window and confirm. WhatsApp Web opens in the HUD; sign in, check the conversation, and press **Send** manually.
 
 The app does not read messages or send without the user's final action. For calls, use the official controls shown in WhatsApp Web. JARVIS does not auto-answer. Microphone and camera access are granted only after confirmation for `web.whatsapp.com`, and also depend on Windows permissions. Calls in the HUD depend on WhatsApp Web compatibility with the installed Qt WebEngine version.
 
