@@ -80,6 +80,7 @@ def wait_for_spoken_utterance(
     pause_requested: Callable[[], bool],
     *,
     max_seconds: int = MAX_UTTERANCE_SECONDS,
+    start_timeout: int = START_TIMEOUT_SECONDS,
 ) -> bytes | None:
     """Escuta em espera local e retorna só um segmento que contenha fala detectada."""
     chunks: list[np.ndarray] = []
@@ -88,6 +89,7 @@ def wait_for_spoken_utterance(
     speech_blocks = 0
     last_speech_at: float | None = None
     capture_started_at: float | None = None
+    waiting_started_at = time.monotonic()
 
     # O áudio ambiente só permanece em buffers curtos em memória; nada é enviado em espera.
     with sd.InputStream(
@@ -119,12 +121,42 @@ def wait_for_spoken_utterance(
                 if len(pre_roll) > 5:
                     pre_roll.pop(0)
 
+            if not speech_started and time.monotonic() - waiting_started_at >= start_timeout:
+                return None
             if capture_started_at and time.monotonic() - capture_started_at >= max_seconds:
                 break
 
     if stop_requested() or pause_requested() or not speech_started or speech_blocks < 3:
         return None
     return _to_wav_bytes(chunks)
+
+
+def wait_for_wake_word(
+    stop_requested: Callable[[], bool],
+    pause_requested: Callable[[], bool],
+    *,
+    threshold: float = 0.55,
+) -> bool:
+    """Detecta “Hey Jarvis” localmente; nunca grava ou envia áudio durante a espera.
+
+    O modelo pré-treinado é baixado na primeira ativação e armazenado pelo próprio
+    openWakeWord. Blocos PCM transitam apenas pela memória enquanto se aguarda.
+    """
+    from openwakeword.model import Model
+    from openwakeword.utils import download_models
+
+    # Faz o download pontual dos pesos públicos necessários à detecção offline.
+    download_models(model_names=["hey_jarvis_v0.1"])
+    detector = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
+    with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, blocksize=1_280, dtype="int16") as stream:
+        while not stop_requested() and not pause_requested():
+            frame, _overflowed = stream.read(1_280)
+            frame = np.asarray(frame, dtype=np.int16).reshape(-1)
+            # openWakeWord recommends 80 ms frames at 16 kHz.
+            prediction = detector.predict(frame)
+            if prediction and max(float(score) for score in prediction.values()) >= threshold:
+                return True
+    return False
 
 
 def _to_wav_bytes(chunks: list[np.ndarray]) -> bytes:

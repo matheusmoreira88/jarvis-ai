@@ -1,5 +1,5 @@
 #define AppName "JARVIS AI"
-#define AppVersion "0.2.0"
+#define AppVersion "0.3.0"
 #define AppPublisher "Matheus Moreira"
 #define AppExeName "JarvisAI.exe"
 
@@ -17,6 +17,8 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName={#AppName}
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"

@@ -2,6 +2,7 @@ name: Build Windows installer
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -9,6 +10,8 @@ permissions:
 
 jobs:
   windows-installer:
+    permissions:
+      contents: write
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,3 +35,10 @@ jobs:
           name: JARVIS-AI-Windows-Setup
           path: dist/installer/JARVIS-AI-Setup-*.exe
           if-no-files-found: error
+
+      - name: Publish installer as a GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/installer/JARVIS-AI-Setup-*.exe
+          generate_release_notes: true

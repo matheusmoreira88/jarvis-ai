@@ -86,13 +86,14 @@ class ReplyWorker(QThread):
 
 
 class VoiceActivationWorker(QThread):
-    """Detecta fala localmente e transcreve somente frases após silêncio."""
+    """Detecta a palavra-chave localmente ou aguarda fala, conforme a preferência."""
     phrase = Signal(str)
     state_changed = Signal(str)
     failed = Signal(str)
 
-    def __init__(self):
+    def __init__(self, wake_word: bool = False):
         super().__init__()
+        self.wake_word = wake_word
         self._stop_event = Event()
         self._pause_event = Event()
 
@@ -113,14 +114,26 @@ class VoiceActivationWorker(QThread):
                 time.sleep(0.08)
                 continue
             try:
-                self.state_changed.emit("escutando")
+                if self.wake_word:
+                    from .voice import wait_for_wake_word
+                    self.state_changed.emit("palavra-chave")
+                    detected = wait_for_wake_word(
+                        self._stop_event.is_set, self._pause_event.is_set)
+                    if not detected:
+                        continue
+                    self.state_changed.emit("comando")
+                else:
+                    self.state_changed.emit("escutando")
                 audio = wait_for_spoken_utterance(
-                    self._stop_event.is_set, self._pause_event.is_set)
+                    self._stop_event.is_set, self._pause_event.is_set,
+                    start_timeout=8 if self.wake_word else 12)
                 if audio is None:
                     continue
                 self._pause_event.set()
                 self.state_changed.emit("transcrevendo")
                 phrase = transcribe_groq(audio).strip()
+                if self.wake_word:
+                    phrase = re.sub(r"^\s*(?:hey\s)?jarvis[,.:;!\s-]*", "", phrase, flags=re.I)
                 if phrase:
                     self.phrase.emit(phrase)
                 else:
@@ -141,6 +154,24 @@ class DownloadWorker(QThread):
         try:
             from .media import download_audio
             self.completed.emit(download_audio(self.url, self.folder))
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
+
+class UpdateWorker(QThread):
+    """Checks the public GitHub releases API without blocking the HUD."""
+    latest = Signal(str, str)
+    failed = Signal(str)
+
+    def run(self):
+        try:
+            from urllib.request import Request, urlopen
+            request = Request(
+                "https://api.github.com/repos/matheusmoreira88/jarvis-ai/releases/latest",
+                headers={"User-Agent": "JARVIS-AI-Desktop"})
+            with urlopen(request, timeout=12) as response:
+                release = json.loads(response.read().decode("utf-8"))
+            self.latest.emit(release.get("tag_name", ""), release.get("html_url", ""))
         except Exception as exc:
             self.failed.emit(str(exc))
 
@@ -616,11 +647,12 @@ class JarvisWindow(QMainWindow):
             card_layout.addWidget(heading_label); card_layout.addWidget(value_label); card_layout.addWidget(hint_label)
             self.dashboard_metrics[heading.lower()] = value_label
             return card
-        status_row.addWidget(make_status_card("IA", provider_name, "Provedor principal"))
-        status_row.addWidget(make_status_card("Voz", "Desligada", "Escuta automática"))
-        status_row.addWidget(make_status_card("Tela", "Sob demanda", "Visão contínua"))
+        status_row.addWidget(make_status_card("IA", provider_name, "Chave " + ("configurada" if get_secret(provider_name.lower()) else "pendente")))
+        status_row.addWidget(make_status_card("Voz", "Desligada", "Microfone · palavra-chave local ou fala contínua"))
+        status_row.addWidget(make_status_card("Tela", "Desligada", "Captura pontual ou Gemini Live"))
         status_row.addWidget(make_status_card("Mídia", "Parada", "Player do HUD"))
         status_row.addWidget(make_status_card("Memória", "Ativa", "Conversa local"))
+        status_row.addWidget(make_status_card("Privacidade", "Manual", "Perfil ativo"))
         dashboard_layout.addLayout(status_row)
 
         lower_row = QHBoxLayout(); lower_row.setSpacing(14)
@@ -640,6 +672,9 @@ class JarvisWindow(QMainWindow):
         open_media = QPushButton("Abrir mídia"); open_media.clicked.connect(lambda: self.tabs.setCurrentIndex(2))
         open_settings = QPushButton("Abrir configurações"); open_settings.clicked.connect(lambda: self.tabs.setCurrentIndex(3))
         quick_layout.addWidget(open_chat); quick_layout.addWidget(open_media); quick_layout.addWidget(open_settings)
+        self.quick_action_layout = QVBoxLayout()
+        self.quick_action_layout.setContentsMargins(0, 4, 0, 0)
+        quick_layout.addLayout(self.quick_action_layout)
         lower_row.addWidget(feed, 3); lower_row.addWidget(quick, 2)
         dashboard_layout.addLayout(lower_row, 1)
         self.tabs.addTab(dashboard_page, "Painel")
@@ -771,6 +806,42 @@ class JarvisWindow(QMainWindow):
             "somente frases detectadas são enviadas à Groq para transcrição.")
         self.voice_activation_button.toggled.connect(self.toggle_voice_activation)
         voice_row.addWidget(self.voice_activation_button, 1)
+        self.activation_mode = QComboBox()
+        self.activation_mode.addItem("Fala contínua", "continuous")
+        self.activation_mode.addItem("Palavra-chave · Hey Jarvis", "wake_word")
+        mode_index = self.activation_mode.findData(load_settings().get("activation_mode", "continuous"))
+        self.activation_mode.setCurrentIndex(max(0, mode_index))
+        self.activation_mode.currentIndexChanged.connect(self._save_activation_mode)
+        integrations_layout.addWidget(QLabel("Modo de ativação do microfone"))
+        integrations_layout.addWidget(self.activation_mode)
+        privacy_row = QHBoxLayout()
+        self.privacy_profile = QComboBox()
+        for label, key in (("Manual · cada recurso separado", "manual"),
+                            ("Privado · microfone e tela desligados", "private"),
+                            ("Voz · ativação escolhida acima", "voice"),
+                            ("Tela · visão só após consentimento", "screen")):
+            self.privacy_profile.addItem(label, key)
+        profile_index = self.privacy_profile.findData(load_settings().get("privacy_profile", "manual"))
+        self.privacy_profile.setCurrentIndex(max(0, profile_index))
+        apply_profile = QPushButton("Aplicar perfil de privacidade")
+        apply_profile.clicked.connect(self.apply_privacy_profile)
+        privacy_row.addWidget(self.privacy_profile, 1); privacy_row.addWidget(apply_profile)
+        integrations_layout.addWidget(QLabel("PERFIS DE PRIVACIDADE"))
+        integrations_layout.addLayout(privacy_row)
+        integrations_layout.addWidget(QLabel(
+            "A palavra-chave é processada localmente. Visão contínua e comandos de voz usam as APIs configuradas."))
+        quick_row = QHBoxLayout()
+        quick_manage = QPushButton("Configurar ações rápidas…")
+        quick_manage.clicked.connect(self.manage_quick_actions)
+        self.quick_action_hint = QLabel("Nenhuma ação personalizada")
+        quick_row.addWidget(quick_manage); quick_row.addWidget(self.quick_action_hint, 1)
+        integrations_layout.addLayout(quick_row)
+        update_row = QHBoxLayout()
+        check_update = QPushButton("Verificar atualizações")
+        check_update.clicked.connect(self.check_for_updates)
+        self.update_state_label = QLabel("Atualizações pela página de releases")
+        update_row.addWidget(check_update); update_row.addWidget(self.update_state_label, 1)
+        integrations_layout.addLayout(update_row)
         analyze_screen_button = QPushButton("Analisar minha tela…")
         analyze_screen_button.clicked.connect(self.analyze_screen)
         voice_row.addWidget(analyze_screen_button, 1)
@@ -842,6 +913,8 @@ class JarvisWindow(QMainWindow):
         self.clap_worker = None
         self.voice_activation_worker = None
         self.installed_apps_cache = None
+        self._refresh_privacy_indicators()
+        self._refresh_quick_action_buttons()
         self.live_vision_worker = None
         self.pending_voice_command = None
         self._close_when_vision_stops = False
@@ -867,11 +940,156 @@ class JarvisWindow(QMainWindow):
             selected_provider = self.provider_setting.currentData()
             save_settings({**load_settings(), "provider": selected_provider})
             self._set_dashboard_metric("ia", selected_provider.upper())
+            self.dashboard_metrics["ia"].setToolTip(
+                "Chave configurada" if get_secret(selected_provider) else "Chave pendente")
             self.provider_hint.setText(
                 f"Provedor ativo  ·  {selected_provider.upper()}\nMemória local  ·  conversa única")
             QMessageBox.information(self, "Configurações", "Preferências e chaves salvas neste computador.")
         except Exception as exc:
             QMessageBox.warning(self, "Configurações não salvas", str(exc))
+
+    def _save_activation_mode(self, *_):
+        """Guarda o modo de escuta e reinicia o worker, se o microfone estiver ativo."""
+        mode = self.activation_mode.currentData()
+        save_settings({**load_settings(), "activation_mode": mode})
+        if self.voice_activation_button.isChecked():
+            worker = self.voice_activation_worker
+            if worker and worker.isRunning():
+                worker.stop()
+                self.voice_activation_button.setChecked(False)
+                worker.finished.connect(lambda: QTimer.singleShot(
+                    0, lambda: self.voice_activation_button.setChecked(True)))
+            else:
+                self.voice_activation_button.setChecked(False)
+                self.voice_activation_button.setChecked(True)
+        self._refresh_privacy_indicators()
+
+    def _refresh_privacy_indicators(self):
+        """Sincroniza cartões de voz, tela e privacidade com o estado real da aplicação."""
+        settings = load_settings()
+        mode = settings.get("activation_mode", "continuous")
+        label = "Hey Jarvis" if mode == "wake_word" else "Fala contínua"
+        state = "Ativa" if getattr(self, "voice_activation_button", None) and self.voice_activation_button.isChecked() else "Desligada"
+        self._set_dashboard_metric("voz", f"{state} · {label}")
+        vision = "Ao vivo" if getattr(self, "live_vision_worker", None) else "Desligada"
+        self._set_dashboard_metric("tela", vision)
+        profile = settings.get("privacy_profile", "manual").capitalize()
+        if "privacidade" not in self.dashboard_metrics:
+            return
+        self._set_dashboard_metric("privacidade", profile)
+
+    def apply_privacy_profile(self):
+        """Aplica preferências conhecidas sem iniciar captura de tela silenciosamente."""
+        profile = self.privacy_profile.currentData()
+        save_settings({**load_settings(), "privacy_profile": profile})
+        if profile == "private":
+            self.voice_activation_button.setChecked(False)
+            self.live_vision_button.setChecked(False)
+            self.clap_button.setChecked(False)
+            self.status.setText("Perfil privado · microfone e tela desligados")
+        elif profile == "voice":
+            self.live_vision_button.setChecked(False)
+            self.voice_activation_button.setChecked(True)
+        elif profile == "screen":
+            self.voice_activation_button.setChecked(False)
+            self.live_vision_button.setChecked(True)  # Mantém a caixa de consentimento existente.
+        else:
+            self.status.setText("Perfil manual · cada recurso é controlado separadamente")
+        self._refresh_privacy_indicators()
+
+    def manage_quick_actions(self):
+        """Cria aliases para comandos locais já validados pelo despachante do JARVIS."""
+        settings = load_settings()
+        actions = settings.get("quick_actions", [])
+        if actions:
+            choice, ok = QInputDialog.getItem(
+                self, "Ações rápidas", "O que deseja fazer?",
+                ["Adicionar ação", "Remover ação"], 0, False)
+            if not ok:
+                return
+            if choice == "Remover ação":
+                names = [f"{index + 1}. {item.get('title', 'Atalho')} — {item.get('phrase', '')}"
+                         for index, item in enumerate(actions) if isinstance(item, dict)]
+                selected, ok = QInputDialog.getItem(self, "Remover ação", "Selecione o atalho:", names, 0, False)
+                if ok and selected:
+                    index = int(selected.split(".", 1)[0]) - 1
+                    if 0 <= index < len(actions):
+                        actions.pop(index)
+                        save_settings({**settings, "quick_actions": actions})
+                        self._refresh_quick_action_buttons()
+                return
+        title, ok = QInputDialog.getText(self, "Ação rápida", "Nome visível do atalho:")
+        if not ok or not title.strip():
+            return
+        phrase, ok = QInputDialog.getText(self, "Ação rápida", "Frase para reconhecer:")
+        if not ok or not phrase.strip():
+            return
+        command, ok = QInputDialog.getText(
+            self, "Ação rápida", "Comando local (ex.: abrir calculadora, abrir conversa, abrir mídia):")
+        if not ok or not command.strip():
+            return
+        allowed = ("abrir ", "abrir aplicativo:", "abrir exe:", "abrir conversa", "abrir mídia")
+        if not command.strip().lower().startswith(allowed):
+            QMessageBox.warning(self, "Comando não permitido",
+                "Atalhos só podem chamar comandos locais reconhecidos pelo JARVIS.")
+            return
+        actions.append({"title": title.strip(), "phrase": phrase.strip(), "command": command.strip()})
+        save_settings({**settings, "quick_actions": actions})
+        self._refresh_quick_action_buttons()
+
+    def _refresh_quick_action_buttons(self):
+        """Mostra ações personalizadas no painel sem recriar outras páginas."""
+        if not hasattr(self, "quick_action_hint"):
+            return
+        actions = load_settings().get("quick_actions", [])
+        names = [item.get("title", "Atalho") for item in actions if isinstance(item, dict)]
+        self.quick_action_hint.setText(" · ".join(names) if names else "Nenhuma ação personalizada")
+        while self.quick_action_layout.count():
+            item = self.quick_action_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+        for action in actions:
+            if not isinstance(action, dict):
+                continue
+            button = QPushButton(str(action.get("title", "Ação rápida")))
+            command = str(action.get("command", ""))
+            button.clicked.connect(lambda checked=False, command=command:
+                                   self._dispatch_computer_command(command))
+            self.quick_action_layout.addWidget(button)
+
+    def check_for_updates(self):
+        """Consulta a versão publicada e oferece abrir o instalador se houver novidade."""
+        if getattr(self, "update_worker", None) and self.update_worker.isRunning():
+            return
+        self.update_state_label.setText("Consultando GitHub…")
+        self.update_worker = UpdateWorker()
+        self.update_worker.latest.connect(self._update_check_completed)
+        self.update_worker.failed.connect(self._update_check_failed)
+        self.update_worker.start()
+
+    def _update_check_completed(self, tag: str, release_url: str):
+        """Compara versões e deixa a instalação final sob controle da pessoa."""
+        from . import __version__
+        from PySide6.QtGui import QDesktopServices
+        current = tuple(int(part) for part in re.findall(r"\d+", __version__))
+        latest = tuple(int(part) for part in re.findall(r"\d+", tag))
+        if not tag or not release_url:
+            self.update_state_label.setText("Não foi encontrada uma release publicada")
+        elif latest <= current:
+            self.update_state_label.setText(f"Você está na versão atual ({__version__})")
+            QMessageBox.information(self, "Atualizações", "Esta instalação já está atualizada.")
+        else:
+            self.update_state_label.setText(f"Nova versão disponível: {tag}")
+            answer = QMessageBox.question(
+                self, "Atualização disponível",
+                f"A versão {tag} está disponível. Abrir a página do instalador agora?")
+            if answer == QMessageBox.StandardButton.Yes:
+                QDesktopServices.openUrl(QUrl(release_url))
+
+    def _update_check_failed(self, message: str):
+        self.update_state_label.setText("Falha ao consultar atualizações")
+        QMessageBox.warning(self, "Atualizações", f"Não foi possível consultar o GitHub: {message}")
 
     def _update_navigation(self, index: int):
         """Mantém o menu lateral e o título sincronizados com a página ativa."""
@@ -940,6 +1158,17 @@ class JarvisWindow(QMainWindow):
         lowered = normalized.lower()
         if self._handle_media_command(normalized):
             return True
+        destinations = {"abrir painel": 0, "abrir conversa": 1,
+                        "abrir mídia": 2, "abrir configuracoes": 3,
+                        "abrir configurações": 3}
+        if lowered in destinations:
+            self.tabs.setCurrentIndex(destinations[lowered])
+            return True
+        for action in load_settings().get("quick_actions", []):
+            if not isinstance(action, dict):
+                continue
+            if lowered == str(action.get("phrase", "")).strip().lower():
+                return self._dispatch_computer_command(str(action.get("command", "")))
 
         if lowered.startswith("abrir aplicativo:"):
             requested = normalized[len("abrir aplicativo:"):].strip()
@@ -1274,7 +1503,8 @@ class JarvisWindow(QMainWindow):
         self._stop_clap_worker()
         self.voice_activation_button.setText("Desligar escuta automática")
         self.voice_state.setText("Abrindo microfone…")
-        worker = VoiceActivationWorker()
+        worker = VoiceActivationWorker(
+            wake_word=self.activation_mode.currentData() == "wake_word")
         self.voice_activation_worker = worker
         worker.phrase.connect(self._handle_spoken_phrase)
         worker.state_changed.connect(self._voice_activation_state)
@@ -1289,9 +1519,12 @@ class JarvisWindow(QMainWindow):
             "transcrevendo": "Fala detectada · transcrevendo com Groq",
             "erro": "Falha no microfone",
             "desligado": "Microfone desligado",
+            "palavra-chave": "Microfone ativo · aguardando Hey Jarvis localmente",
+            "comando": "Palavra-chave detectada · fale seu comando",
         }
         self.voice_state.setText(labels.get(state, state))
-        values = {"escutando": "Escutando", "transcrevendo": "Transcrevendo",
+        values = {"escutando": "Escutando", "palavra-chave": "Aguardando Hey Jarvis",
+                  "comando": "Palavra-chave detectada", "transcrevendo": "Transcrevendo",
                   "erro": "Erro", "desligado": "Desligada"}
         self._set_dashboard_metric("voz", values.get(state, state))
 
@@ -1305,6 +1538,7 @@ class JarvisWindow(QMainWindow):
             self.voice_activation_worker = None
         if not self.voice_activation_button.isChecked():
             self.voice_state.setText("Microfone desligado")
+        self._refresh_privacy_indicators()
 
     def _pause_voice_activation(self):
         worker = self.voice_activation_worker
@@ -1675,6 +1909,7 @@ class JarvisWindow(QMainWindow):
             self._set_dashboard_metric("tela", "Ao vivo")
         else:
             self._stop_live_vision()
+        self._refresh_privacy_indicators()
 
     def _live_observation(self, text: str):
         self._append("assistant", "[Observação da tela] " + text)
@@ -1686,7 +1921,8 @@ class JarvisWindow(QMainWindow):
         self.live_vision_button.setEnabled(True)
         self.live_vision_worker = None
         self.status.setText("Visão contínua parada")
-        self._set_dashboard_metric("tela", "Sob demanda")
+        self._set_dashboard_metric("tela", "Desligada")
+        self._refresh_privacy_indicators()
         if self._close_when_vision_stops:
             QTimer.singleShot(0, self.close)
 

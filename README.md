@@ -269,3 +269,29 @@ py -3.11 -m venv .venv
 python -m pip install -e .
 python -m jarvis
 ```
+
+
+## Ativação por palavra-chave, privacidade e atualizações
+
+Em **Configurações → Voz, visão e HUD**, escolha “Palavra-chave · Hey Jarvis” e ligue a escuta. O detector openWakeWord processa o áudio localmente e busca a frase “Hey Jarvis”; no primeiro uso, baixa os modelos necessários para detecção offline. Depois da detecção, o trecho do comando é enviado à Groq para transcrição. A opção “Fala contínua” permanece disponível.
+
+Os perfis de privacidade são **Manual**, **Privado**, **Voz** e **Tela**. O perfil Privado desliga microfone, visão e detecção de aplausos. Tela continua pedindo o consentimento já exibido pelo aplicativo. Os indicadores no painel refletem o estado ativo e o provedor.
+
+Crie ações rápidas em Configurações. Cada frase configurada chama o mesmo despachante de comandos locais do aplicativo, preservando suas confirmações e validações.
+
+Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.3.0`.
+
+O modo de palavra-chave usa openWakeWord, cujos modelos pré-treinados são descritos no [repositório oficial](https://github.com/dscripka/openWakeWord).
+
+
+### English: wake-word activation, privacy and updates
+
+In **Settings → Voice, vision and HUD**, choose “Wake word · Hey Jarvis” and enable listening. The openWakeWord detector processes audio locally and looks for “Hey Jarvis”; on first use, it downloads the required models for offline detection. After detection, the spoken command is sent to Groq for transcription. “Continuous speech” remains available.
+
+Privacy profiles are **Manual**, **Private**, **Voice** and **Screen**. Private turns off the microphone, screen vision and clap detection. Screen mode still shows the app’s consent prompt before continuous viewing starts. Dashboard indicators show the active states and provider configuration.
+
+Create, use and remove configurable quick actions in Settings. Each phrase calls the app’s existing local command dispatcher, preserving its checks and confirmations.
+
+To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.3.0.
+
+Wake-word detection uses [openWakeWord](https://github.com/dscripka/openWakeWord).
