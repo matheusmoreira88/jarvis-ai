@@ -4,15 +4,18 @@ from __future__ import annotations
 import sys
 import html
 import re
-from PySide6.QtCore import QThread, Signal, QUrl, QTimer
+from pathlib import Path
+from threading import Event
+from PySide6.QtCore import QThread, Signal, QUrl, QTimer, QUrlQuery, QStandardPaths, Qt
 from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QLabel,
                                QMainWindow, QPushButton, QTextEdit, QVBoxLayout, QWidget,
                                QMessageBox, QHBoxLayout, QFileDialog, QComboBox)
-from PySide6.QtWidgets import (QCheckBox, QTextBrowser, QSystemTrayIcon, QMenu, QStyle)
+from PySide6.QtWidgets import (QCheckBox, QTextBrowser, QSystemTrayIcon, QMenu, QStyle,
+                               QStackedWidget, QTabWidget)
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
-from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage
+from PySide6.QtMultimediaWidgets import QVideoWidget
+from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEnginePermission
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtCore import QStandardPaths
 
 from . import memory
 from .providers import analyze_image, ask_assistant, transcribe_groq
@@ -28,11 +31,18 @@ class ReplyWorker(QThread):
     finished_text = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, prompt: str, mode: str = "text", search_web: bool = False):
+    def __init__(self, prompt: str, mode: str = "text", search_web: bool = False,
+                 history: list[tuple[str, str]] | None = None):
         super().__init__()
         self.prompt = prompt
         self.mode = mode
         self.search_web = search_web
+        self.history = history or []
+        self.stop_event = Event()
+
+    def stop_recording(self):
+        """Ask a voice capture to finish now; other worker modes ignore this signal."""
+        self.stop_event.set()
 
     def run(self):
         try:
@@ -40,10 +50,11 @@ class ReplyWorker(QThread):
             image = None
             if self.mode == "voice":
                 self.finished_text.emit("__REC__")
-                prompt = transcribe_groq(record_utterance())
+                prompt = transcribe_groq(record_utterance(self.stop_event.is_set))
                 if not prompt:
                     raise RuntimeError("Não detectei fala. Tente novamente.")
-                self.finished_text.emit("__USER__" + prompt)
+                self.finished_text.emit("__VOICE_COMMAND__" + prompt)
+                return
             elif self.mode == "screen":
                 image = capture_primary_screen()
                 self.finished_text.emit("__USER__" + prompt)
@@ -51,8 +62,8 @@ class ReplyWorker(QThread):
                 answer = analyze_image(prompt, image)
                 self.finished_text.emit("__ANSWER__" + answer)
                 return
-            answer = ask_assistant(prompt, memory.recent(), self.search_web)
-            if self.mode == "voice":
+            answer = ask_assistant(prompt, self.history, self.search_web)
+            if self.mode == "spoken":
                 self.finished_text.emit("__ANSWER__" + answer)
                 speak(answer)
             else:
@@ -89,30 +100,73 @@ class GmailWorker(QThread):
 
 
 class LiveVisionWorker(QThread):
-    """Observa a tela em intervalos e envia capturas ao Gemini após consentimento."""
+    """Transmite quadros da tela à Gemini Live enquanto a pessoa consentir."""
     observation = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, interval_seconds: int = 10):
+    def __init__(self):
         super().__init__()
-        self.interval_seconds = interval_seconds
         self._active = True
 
     def run(self):
         try:
-            while self._active:
-                image = capture_primary_screen()
-                text = analyze_image(
-                    "Observe esta captura recente da tela. Resuma somente mudanças ou itens "
-                    "importantes visíveis; se não houver algo relevante, diga isso brevemente.", image)
-                if self._active:
-                    self.observation.emit(text)
-                for _ in range(self.interval_seconds * 10):
-                    if not self._active:
-                        break
-                    self.msleep(100)
+            import asyncio
+            from google import genai
+            from google.genai import types
+            from .settings import get_secret
+
+            asyncio.run(self._stream(genai, types, get_secret("gemini")))
         except Exception as exc:
             self.failed.emit(str(exc))
+
+    async def _stream(self, genai, types, api_key: str | None):
+        """Envia imagens pela sessão Live e renova a sessão antes do limite de duração."""
+        import asyncio
+
+        if not api_key:
+            raise RuntimeError("Configure a chave Gemini para usar visão contínua.")
+        client = genai.Client(api_key=api_key)
+        try:
+            while self._active:
+                async with client.aio.live.connect(
+                    model="gemini-3.1-flash-live-preview",
+                    config={"response_modalities": ["AUDIO"], "output_audio_transcription": {}},
+                ) as session:
+                    await session.send_realtime_input(text=(
+                        "Observe continuamente as imagens da tela que eu enviar. Em português, "
+                        "avise apenas quando houver uma mudança relevante ou eu parecer precisar "
+                        "de ajuda. Nunca execute ações no computador."
+                    ))
+
+                    async def receive_updates():
+                        async for message in session.receive():
+                            if not self._active:
+                                break
+                            content = getattr(message, "server_content", None)
+                            transcript = getattr(content, "output_transcription", None) if content else None
+                            text = getattr(transcript, "text", "").strip() if transcript else ""
+                            if text:
+                                self.observation.emit(text)
+
+                    receiver = asyncio.create_task(receive_updates())
+                    try:
+                        # A Live API aceita até um quadro de vídeo por segundo.
+                        for _ in range(110):
+                            if not self._active or receiver.done():
+                                break
+                            await session.send_realtime_input(video=types.Blob(
+                                data=capture_primary_screen(), mime_type="image/png"))
+                            await asyncio.sleep(1)
+                    finally:
+                        receiver.cancel()
+                        try:
+                            await receiver
+                        except asyncio.CancelledError:
+                            pass
+                if self._active:
+                    await asyncio.sleep(0.2)
+        finally:
+            await client.aio.aclose()
 
     def stop(self):
         self._active = False
@@ -129,8 +183,40 @@ class WhatsAppWebDialog(QDialog):
         storage = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
         profile.setPersistentStoragePath(storage + "/whatsapp-profile")
         profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
-        self.web.setPage(QWebEnginePage(profile, self.web)); self.web.setUrl(QUrl(url))
+        page = QWebEnginePage(profile, self.web)
+        page.permissionRequested.connect(self._handle_web_permission)
+        self.web.setPage(page); self.web.setUrl(QUrl(url))
         layout.addWidget(self.web, 1)
+
+    def _handle_web_permission(self, permission):
+        """Ask every time before WhatsApp Web uses this app's microphone or camera."""
+        allowed_hosts = {"web.whatsapp.com", "www.whatsapp.com"}
+        permission_types = QWebEnginePermission.PermissionType
+        media_types = {
+            permission_types.MediaAudioCapture,
+            permission_types.MediaVideoCapture,
+            permission_types.MediaAudioVideoCapture,
+        }
+        if (not permission.isValid()
+                or permission.origin().host().lower() not in allowed_hosts
+                or permission.permissionType() not in media_types):
+            permission.deny()
+            return
+        label = {
+            permission_types.MediaAudioCapture: "microfone",
+            permission_types.MediaVideoCapture: "câmera",
+            permission_types.MediaAudioVideoCapture: "microfone e câmera",
+        }[permission.permissionType()]
+        choice = QMessageBox.question(
+            self, "Permissão do WhatsApp Web",
+            f"Permitir que web.whatsapp.com use seu {label} para uma chamada iniciada "
+            "ou atendida por você? Essa autorização vale para esta solicitação.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if choice == QMessageBox.StandardButton.Yes:
+            permission.grant()
+        else:
+            permission.deny()
 
 
 class ContactsDialog(QDialog):
@@ -206,7 +292,7 @@ class SetupDialog(QDialog):
         self.provider.setCurrentIndex(0 if load_settings().get("provider", "gemini") == "gemini" else 1)
         form.addRow("Provedor de conversa", self.provider)
         form.addRow("Chave Gemini", self.gemini)
-        form.addRow("Chave Groq (opcional)", self.groq)
+        form.addRow("Chave Groq", self.groq)
         form.addRow("E-mail (opcional, local)", self.email)
         form.addRow("Telefone (opcional, local)", self.phone)
         save = QPushButton("Salvar neste computador")
@@ -222,7 +308,9 @@ class SetupDialog(QDialog):
             save_settings({**load_settings(), "provider": self.provider.currentData()})
             self.accept()
         except Exception as exc:
-            QLabel(f"Não foi possível acessar o cofre do sistema: {exc}", self).show()
+            QMessageBox.warning(
+                self, "Configurações não salvas",
+                f"Não foi possível acessar o cofre de credenciais do sistema: {exc}")
 
 
 class JarvisWindow(QMainWindow):
@@ -235,79 +323,116 @@ class JarvisWindow(QMainWindow):
         head = QLabel("JARVIS  /  ASSISTENTE PESSOAL")
         head.setStyleSheet("font-size:22px;font-weight:700;color:#9fb2ff;padding:8px")
         layout.addWidget(head)
-        self.chat = QTextBrowser(); self.chat.setOpenExternalLinks(True); layout.addWidget(self.chat, 1)
+        self.tabs = QTabWidget(); layout.addWidget(self.tabs, 1)
+
+        assistant_page = QWidget(); assistant_layout = QVBoxLayout(assistant_page)
+        assistant_layout.addWidget(QLabel(
+            "Comandos locais: ‘abrir calculadora’, ‘digitar: texto’ e ‘pressionar: enter’. "
+            "Digitação e teclas pedem confirmação."))
+        self.chat = QTextBrowser(); self.chat.setOpenExternalLinks(True)
+        assistant_layout.addWidget(self.chat, 1)
         self.search_checkbox = QCheckBox("Pesquisar na web com Gemini nesta solicitação")
         self.search_checkbox.setToolTip("Ativa Google Search grounding; a API pode consumir cota adicional.")
-        layout.addWidget(self.search_checkbox)
+        assistant_layout.addWidget(self.search_checkbox)
+        assistant_actions = QHBoxLayout()
+        self.talk_button = QPushButton("🎙 Falar")
+        self.talk_button.clicked.connect(self.talk); assistant_actions.addWidget(self.talk_button)
+        vision = QPushButton("▣ Analisar minha tela…")
+        vision.clicked.connect(self.analyze_screen); assistant_actions.addWidget(vision)
+        self.live_vision_button = QPushButton("Iniciar visão contínua")
+        self.live_vision_button.setCheckable(True)
+        self.live_vision_button.clicked.connect(self.toggle_live_vision)
+        assistant_actions.addWidget(self.live_vision_button)
+        self.clap_button = QPushButton("👏 Ativar duplo aplauso")
+        self.clap_button.setCheckable(True)
+        self.clap_button.clicked.connect(self.toggle_clap_detection)
+        assistant_actions.addWidget(self.clap_button)
+        assistant_layout.addLayout(assistant_actions)
+        chat_row = QHBoxLayout()
+        self.input = QLineEdit(); self.input.setPlaceholderText("Escreva um comando…")
+        self.input.returnPressed.connect(self.send); chat_row.addWidget(self.input, 1)
+        send = QPushButton("Enviar"); send.clicked.connect(self.send); chat_row.addWidget(send)
+        assistant_layout.addLayout(chat_row)
+        self.tabs.addTab(assistant_page, "Assistente")
+
         self.media_panel = QWidget(); media_layout = QVBoxLayout(self.media_panel)
         media_layout.setContentsMargins(6, 4, 6, 4)
         media_header = QHBoxLayout()
-        media_header.addWidget(QLabel("MÍDIA · reprodução local ou URL"))
+        media_header.addWidget(QLabel("MÍDIA · arquivos, URLs e YouTube"))
         self.media_title = QLabel("Parado"); media_header.addWidget(self.media_title, 1)
         self.compact_button = QPushButton("Minimizar")
         self.compact_button.clicked.connect(self.toggle_compact_media)
         media_header.addWidget(self.compact_button); media_layout.addLayout(media_header)
+        self.media_view = QStackedWidget(self.media_panel)
+        self.media_idle = QLabel("Escolha um arquivo, URL ou pesquise uma música no YouTube.")
+        self.media_idle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.video_widget = QVideoWidget(self.media_view); self.video_widget.setMinimumHeight(260)
+        self.youtube_view = QWebEngineView(self.media_view); self.youtube_view.setMinimumHeight(300)
+        profile = QWebEngineProfile("jarvis-youtube", self)
+        storage = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
+        profile.setPersistentStoragePath(storage + "/youtube-profile")
+        profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
+        self.youtube_view.setPage(QWebEnginePage(profile, self.youtube_view))
+        self.media_view.addWidget(self.media_idle)
+        self.media_view.addWidget(self.video_widget)
+        self.media_view.addWidget(self.youtube_view)
+        media_layout.addWidget(self.media_view, 1)
         self.media_controls = QWidget(); media_controls_layout = QHBoxLayout(self.media_controls)
-        self.media_source = QLineEdit(); self.media_source.setPlaceholderText("URL de mídia")
+        self.media_source = QLineEdit(); self.media_source.setPlaceholderText("URL ou nome da música no YouTube")
         media_controls_layout.addWidget(self.media_source, 1)
         file_button = QPushButton("Arquivo…"); file_button.clicked.connect(self.open_media_file)
         media_controls_layout.addWidget(file_button)
-        play_button = QPushButton("▶ Tocar"); play_button.clicked.connect(self.play_media)
+        play_button = QPushButton("▶ Tocar / buscar"); play_button.clicked.connect(self.play_media)
         media_controls_layout.addWidget(play_button)
         pause_button = QPushButton("⏸ Pausar"); pause_button.clicked.connect(self.pause_media)
         media_controls_layout.addWidget(pause_button)
         download_button = QPushButton("Baixar áudio…"); download_button.clicked.connect(self.download_media)
         media_controls_layout.addWidget(download_button); media_layout.addWidget(self.media_controls)
-        layout.addWidget(self.media_panel)
+        self.tabs.addTab(self.media_panel, "Mídia")
         self.player = QMediaPlayer(self); self.audio_output = QAudioOutput(self)
         self.player.setAudioOutput(self.audio_output)
+        self.player.setVideoOutput(self.video_widget)
         self.player.errorOccurred.connect(lambda *_: self.media_title.setText("Falha ao abrir mídia"))
-        controls = QVBoxLayout()
+
         self.status = QLabel("Pronto · microfone fechado")
         self.status.setStyleSheet("color:#aebce0;padding:4px")
-        controls.addWidget(self.status)
-        actions = QHBoxLayout()
-        talk = QPushButton("🎙 Gravar comando (até 15 s)")
-        talk.clicked.connect(self.talk); actions.addWidget(talk)
-        vision = QPushButton("▣ Analisar minha tela…")
-        vision.clicked.connect(self.analyze_screen); actions.addWidget(vision)
-        self.live_vision_button = QPushButton("Iniciar visão contínua")
-        self.live_vision_button.setCheckable(True)
-        self.live_vision_button.clicked.connect(self.toggle_live_vision)
-        actions.addWidget(self.live_vision_button)
-        self.clap_button = QPushButton("👏 Ativar duplo aplauso")
-        self.clap_button.setCheckable(True)
-        self.clap_button.clicked.connect(self.toggle_clap_detection)
-        actions.addWidget(self.clap_button)
-        controls.addLayout(actions); layout.addLayout(controls)
-        row = QVBoxLayout(); self.input = QLineEdit(); self.input.setPlaceholderText("Escreva um comando…")
-        self.input.returnPressed.connect(self.send); row.addWidget(self.input)
-        send = QPushButton("Enviar"); send.clicked.connect(self.send); row.addWidget(send)
-        layout.addLayout(row)
-        settings = QPushButton("Configurações"); settings.clicked.connect(self.setup); layout.addWidget(settings)
+        layout.addWidget(self.status)
+
+        integrations_page = QWidget(); integrations_layout = QVBoxLayout(integrations_page)
+        settings_row = QHBoxLayout()
+        settings = QPushButton("Configurações"); settings.clicked.connect(self.setup)
+        settings_row.addWidget(settings, 1)
+        clear_memory = QPushButton("Apagar memória local…")
+        clear_memory.clicked.connect(self.clear_local_memory); settings_row.addWidget(clear_memory, 1)
+        integrations_layout.addLayout(settings_row)
         gmail_row = QHBoxLayout()
         configure_gmail = QPushButton("Configurar Gmail OAuth…")
-        configure_gmail.clicked.connect(self.configure_gmail); gmail_row.addWidget(configure_gmail)
+        configure_gmail.clicked.connect(self.configure_gmail); gmail_row.addWidget(configure_gmail, 1)
         compose_gmail = QPushButton("Escrever e-mail…")
-        compose_gmail.clicked.connect(self.compose_gmail); gmail_row.addWidget(compose_gmail)
-        layout.addLayout(gmail_row)
+        compose_gmail.clicked.connect(self.compose_gmail); gmail_row.addWidget(compose_gmail, 1)
+        integrations_layout.addLayout(gmail_row)
         wa_row = QHBoxLayout()
         manage_contacts = QPushButton("Contatos permitidos…")
-        manage_contacts.clicked.connect(self.manage_whatsapp_contacts)
-        wa_row.addWidget(manage_contacts)
+        manage_contacts.clicked.connect(self.manage_whatsapp_contacts); wa_row.addWidget(manage_contacts, 1)
         send_whatsapp = QPushButton("Preparar mensagem WhatsApp…")
-        send_whatsapp.clicked.connect(self.compose_whatsapp)
-        wa_row.addWidget(send_whatsapp)
-        layout.addLayout(wa_row)
+        send_whatsapp.clicked.connect(self.compose_whatsapp); wa_row.addWidget(send_whatsapp, 1)
+        integrations_layout.addLayout(wa_row)
+        startup_row = QHBoxLayout()
         autostart = QPushButton("Ativar início automático")
-        autostart.clicked.connect(self.enable_autostart); layout.addWidget(autostart)
+        autostart.clicked.connect(self.enable_autostart); startup_row.addWidget(autostart, 1)
         disable_autostart = QPushButton("Desativar início automático")
-        disable_autostart.clicked.connect(self.disable_autostart); layout.addWidget(disable_autostart)
+        disable_autostart.clicked.connect(self.disable_autostart); startup_row.addWidget(disable_autostart, 1)
+        integrations_layout.addLayout(startup_row)
+        integrations_layout.addStretch(1)
+        self.tabs.addTab(integrations_page, "Integrações")
         for role, body in memory.recent(30): self._append(role, body)
         self.clap_worker = None
         self.live_vision_worker = None
+        self.pending_voice_command = None
         self._close_when_vision_stops = False
         self._quit_requested = False
+        self._waiting_for_workers = False
+        self.background_workers: set[QThread] = set()
         self.tray_icon = None
         if QSystemTrayIcon.isSystemTrayAvailable():
             self._create_tray_icon()
@@ -327,41 +452,176 @@ class JarvisWindow(QMainWindow):
         prompt = self.input.text().strip()
         if not prompt: return
         self.input.clear()
-        if prompt.lower().startswith("abrir "):
-            target = prompt[6:].strip().lower()
-            if target in {"bloco de notas", "calculadora", "explorador de arquivos"}:
-                answer = QMessageBox.question(
-                    self, "Confirmar ação local", f"Permitir que o JARVIS abra {target}?")
-                if answer == QMessageBox.StandardButton.Yes:
-                    try:
-                        result = open_known_app(target)
-                        self._append("user", prompt); memory.add("user", prompt)
-                        self._append("assistant", result); memory.add("assistant", result)
-                    except Exception as exc:
-                        self.error(str(exc))
-                return
+        if self._dispatch_computer_command(prompt):
+            return
         self._start(prompt, "text")
 
+    def _dispatch_computer_command(self, prompt: str) -> bool:
+        """Executa apenas ações locais explícitas; nunca interpreta saída do modelo como ação."""
+        normalized = prompt.strip()
+        lowered = normalized.lower()
+        if lowered == "clicar":
+            from .computer import click_pointer
+            answer = QMessageBox.question(
+                self, "Confirmar clique",
+                "Clicar uma vez na posição atual do ponteiro no aplicativo ativo?")
+            if answer == QMessageBox.StandardButton.Yes:
+                self._record_control_action(prompt, "Clique enviado na posição atual do ponteiro.")
+                self._yield_focus_to_active_app()
+                QTimer.singleShot(500, lambda: self._run_pointer_action(click_pointer))
+            return True
+
+        if lowered in {"rolar: cima", "rolar: baixo"}:
+            from .computer import scroll_page
+            direction = lowered.split(":", 1)[1].strip()
+            answer = QMessageBox.question(
+                self, "Confirmar rolagem",
+                f"Rolar a página para {direction} no aplicativo ativo?")
+            if answer == QMessageBox.StandardButton.Yes:
+                self._record_control_action(prompt, f"Página rolada para {direction}.")
+                self._yield_focus_to_active_app()
+                QTimer.singleShot(500, lambda: self._run_pointer_action(
+                    lambda: scroll_page(direction)))
+            return True
+
+        if lowered.startswith("abrir "):
+            target = normalized[6:].strip().lower()
+            if target not in {"bloco de notas", "calculadora", "explorador de arquivos"}:
+                return False
+            answer = QMessageBox.question(
+                self, "Confirmar ação local", f"Permitir que o JARVIS abra {target}?")
+            if answer == QMessageBox.StandardButton.Yes:
+                try:
+                    result = open_known_app(target)
+                    self._record_control_action(prompt, result)
+                except Exception as exc:
+                    self.error(str(exc))
+            return True
+
+        if lowered.startswith("digitar:"):
+            text = normalized.split(":", 1)[1].strip()
+            if not text:
+                QMessageBox.information(self, "Digitar texto", "Use ‘digitar: seu texto’.")
+                return True
+            answer = QMessageBox.question(
+                self, "Confirmar digitação",
+                "O texto temporariamente substituirá a área de transferência; o HUD será ocultado "
+                "e ele será colado no aplicativo que estiver ativo. "
+                "Deixe o cursor no campo de destino antes de confirmar.\n\n" + text[:1200])
+            if answer == QMessageBox.StandardButton.Yes:
+                QApplication.clipboard().setText(text)
+                self._append("user", "[Comando para digitar; conteúdo omitido do histórico]")
+                memory.add("user", "[Comando para digitar; conteúdo omitido do histórico]")
+                self._append("assistant", "Texto colado no aplicativo ativo.")
+                memory.add("assistant", "Texto colado no aplicativo ativo.")
+                self._yield_focus_to_active_app()
+                QTimer.singleShot(500, self._paste_into_active_app)
+            return True
+
+        if lowered.startswith("pressionar:"):
+            key = normalized.split(":", 1)[1].strip().lower().replace(" ", "")
+            from .computer import SAFE_KEYS, SAFE_SHORTCUTS
+            if key not in SAFE_KEYS | SAFE_SHORTCUTS:
+                self.error("Tecla fora da lista permitida; consulte a seção de controle local no README.")
+                return True
+            answer = QMessageBox.question(
+                self, "Confirmar tecla",
+                f"Pressionar ‘{key}’ no aplicativo ativo depois de ocultar o HUD?")
+            if answer == QMessageBox.StandardButton.Yes:
+                self._record_control_action(prompt, f"Tecla {key} enviada ao aplicativo ativo.")
+                self._yield_focus_to_active_app()
+                QTimer.singleShot(500, lambda: self._press_in_active_app(key))
+            return True
+        return False
+
+    def _run_pointer_action(self, action):
+        """Mostra no HUD erros do mouse, em vez de deixar a exceção escapar do timer."""
+        try:
+            result = action()
+            self.status.setText(result)
+        except Exception as exc:
+            self.error(f"Não foi possível controlar o mouse: {exc}")
+
+    def _record_control_action(self, prompt: str, result: str):
+        self._append("user", prompt); memory.add("user", prompt)
+        self._append("assistant", result); memory.add("assistant", result)
+
+    def _track_worker(self, worker: QThread):
+        """Keep a thread alive until Qt tells us its background task has finished."""
+        self.background_workers.add(worker)
+        worker.finished.connect(lambda worker=worker: self.background_workers.discard(worker))
+
+    def _yield_focus_to_active_app(self):
+        if self.tray_icon and self.tray_icon.isVisible():
+            self.hide()
+        else:
+            self.showMinimized()
+
+    def _paste_into_active_app(self):
+        try:
+            import pyautogui
+            chord = ("command", "v") if sys.platform == "darwin" else ("ctrl", "v")
+            pyautogui.hotkey(*chord)
+        except Exception as exc:
+            self._report_control_failure("colar texto", exc)
+
+    def _press_in_active_app(self, key: str):
+        try:
+            from .computer import press_key
+            press_key(key)
+        except Exception as exc:
+            self._report_control_failure("pressionar tecla", exc)
+
+    def _report_control_failure(self, action: str, error: Exception):
+        message = f"Falha ao {action}: {error}"
+        if self.tray_icon:
+            self.tray_icon.showMessage("JARVIS", message)
+        self.show_from_tray()
+        self.error(message)
+
     def _start(self, prompt: str, mode: str):
-        search_web = self.search_checkbox.isChecked() and mode in {"text", "voice"}
+        search_web = self.search_checkbox.isChecked() and mode in {"text", "spoken"}
         if search_web and not get_secret("gemini"):
             self.error("Pesquisa na web usa Gemini. Cadastre uma chave Gemini em Configurações.")
             return
-        if mode == "voice": self._stop_clap_worker()
-        if mode != "screen":
+        if mode in {"voice", "spoken"}: self._stop_clap_worker()
+        if mode not in {"screen", "spoken", "voice"}:
             self._append("user", prompt); memory.add("user", prompt)
+        history = memory.recent()
+        if mode in {"text", "spoken"} and history and history[-1] == ("user", prompt):
+            history.pop()  # The provider adapter appends the current prompt itself.
         self.input.setEnabled(False); self.status.setText("Capturando/transmitindo somente a solicitação atual…")
-        self.worker = ReplyWorker(prompt, mode, search_web)
+        self.worker = ReplyWorker(prompt, mode, search_web, history)
+        self._track_worker(self.worker)
+        self.talk_button.setEnabled(mode == "voice")
+        if mode == "voice":
+            self.talk_button.setText("Parar gravação")
+        else:
+            self.talk_button.setText("🎙 Falar")
         self.worker.finished_text.connect(self._worker_event); self.worker.failed.connect(self.error)
         self.worker.finished.connect(lambda: self.status.setText("Pronto · microfone fechado"))
-        if mode == "voice": self.worker.finished.connect(self._resume_clap_worker)
+        if mode == "voice":
+            self.worker.finished.connect(self._finish_voice_button)
+            self.worker.finished.connect(self._after_voice_recording)
+        elif mode == "spoken": self.worker.finished.connect(self._resume_clap_worker)
+        else: self.worker.finished.connect(lambda: self.talk_button.setEnabled(True))
         self.worker.start()
 
     def talk(self):
+        worker = getattr(self, "worker", None)
+        if worker and worker.isRunning() and worker.mode == "voice":
+            self.talk_button.setText("Encerrando gravação…")
+            self.talk_button.setEnabled(False)
+            worker.stop_recording()
+            return
         if not get_secret("groq"):
             self.error("Cadastre a chave Groq em Configurações para ativar a transcrição push-to-talk.")
             return
         self._start("", "voice")
+
+    def _finish_voice_button(self):
+        self.talk_button.setText("🎙 Falar")
+        self.talk_button.setEnabled(True)
 
     def open_media_file(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -369,19 +629,56 @@ class JarvisWindow(QMainWindow):
             "Áudio e vídeo (*.mp3 *.wav *.m4a *.mp4 *.mkv);;Todos os arquivos (*)")
         if path:
             self.media_source.setText(path)
-            self._play_source(QUrl.fromLocalFile(path), path.rsplit("/", 1)[-1])
+            self._play_source(QUrl.fromLocalFile(path), Path(path).name)
 
     def play_media(self):
         source = self.media_source.text().strip()
         if not source:
             self.open_media_file(); return
-        url = QUrl.fromUserInput(source)
-        self._play_source(url, url.fileName() or url.host() or source)
+        if Path(source).is_file():
+            self._play_source(QUrl.fromLocalFile(str(Path(source).resolve())), Path(source).name)
+            return
+
+        candidate = source
+        if not candidate.lower().startswith(("http://", "https://")) and any(
+                host in candidate.lower() for host in ("youtube.com/", "youtu.be/")):
+            candidate = "https://" + candidate
+        candidate_url = QUrl.fromUserInput(candidate)
+        youtube_hosts = {"youtube.com", "www.youtube.com", "music.youtube.com", "youtu.be"}
+        if candidate_url.host().lower() in youtube_hosts:
+            self._play_youtube(candidate_url)
+            return
+        if not candidate.lower().startswith(("http://", "https://")):
+            # A plain song name opens YouTube search; playback remains under user control.
+            search_url = QUrl("https://www.youtube.com/results")
+            query = QUrlQuery()
+            query.addQueryItem("search_query", source)
+            search_url.setQuery(query)
+            self._play_youtube(search_url)
+            return
+        self._play_source(candidate_url, candidate_url.fileName() or candidate_url.host() or source)
+
+    def _play_youtube(self, url: QUrl):
+        self.player.stop()
+        self.media_view.setCurrentWidget(self.youtube_view)
+        self.youtube_view.setUrl(url)
+        self.media_title.setText("YouTube · use os controles da página para reproduzir")
 
     def _play_source(self, url: QUrl, title: str):
-        self.player.setSource(url); self.player.play(); self.media_title.setText(title or "Reproduzindo")
+        video_suffixes = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4v"}
+        is_video = Path(url.path()).suffix.lower() in video_suffixes
+        self.youtube_view.setUrl(QUrl("about:blank"))
+        self.media_view.setCurrentWidget(self.video_widget if is_video else self.media_idle)
+        self.player.setSource(url)
+        self.player.play()
+        self.media_title.setText(title or "Reproduzindo")
 
     def pause_media(self):
+        if self.media_view.currentWidget() is self.youtube_view:
+            self.youtube_view.page().runJavaScript(
+                "(() => { const player = document.querySelector('video'); "
+                "if (player) player.paused ? player.play() : player.pause(); })()")
+            return
         if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.player.pause()
         else:
@@ -400,6 +697,7 @@ class JarvisWindow(QMainWindow):
         if not folder: return
         self.status.setText("Baixando mídia…")
         self.download_worker = DownloadWorker(source, folder)
+        self._track_worker(self.download_worker)
         self.download_worker.completed.connect(self._download_done)
         self.download_worker.failed.connect(self.error)
         self.download_worker.start()
@@ -411,6 +709,7 @@ class JarvisWindow(QMainWindow):
     def toggle_compact_media(self):
         compact = self.media_controls.isVisible()
         self.media_controls.setVisible(not compact)
+        self.media_view.setVisible(not compact)
         self.compact_button.setText("Expandir" if compact else "Minimizar")
 
     def analyze_screen(self):
@@ -427,9 +726,10 @@ class JarvisWindow(QMainWindow):
                 return
             answer = QMessageBox.warning(
                 self, "Visão contínua da tela",
-                "A cada 10 segundos, uma captura do monitor principal será enviada ao Gemini "
-                "para análise. Isso pode consumir cota da API e expõe o conteúdo visível ao "
-                "provedor. Você pode parar a qualquer momento. Iniciar?",
+                "O JARVIS transmitirá imagens do monitor principal à Gemini Live, em até um "
+                "quadro por segundo. As observações transcritas aparecerão no histórico do HUD. "
+                "As imagens e o áudio gerado passam pelo serviço Google e podem consumir cota. A conexão "
+                "será renovada periodicamente; você pode parar a qualquer momento. Iniciar?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No)
             if answer != QMessageBox.StandardButton.Yes:
@@ -441,7 +741,7 @@ class JarvisWindow(QMainWindow):
             self.live_vision_worker.finished.connect(self._live_vision_finished)
             self.live_vision_worker.start()
             self.live_vision_button.setText("Parar visão contínua")
-            self.status.setText("Visão contínua ativa · capturas a cada 10 segundos")
+            self.status.setText("Visão Gemini Live ativa · até 1 quadro por segundo")
         else:
             self._stop_live_vision()
 
@@ -461,21 +761,42 @@ class JarvisWindow(QMainWindow):
     def _stop_live_vision(self):
         worker = self.live_vision_worker
         if worker and worker.isRunning():
+            self.live_vision_button.setEnabled(False)
+            self.live_vision_button.setText("Parando após a solicitação atual…")
             worker.stop()
 
     def _worker_event(self, value: str):
         if value == "__REC__":
-            self.status.setText("Gravando até 15 s… aguarde o fim da gravação.")
+            self.status.setText("Ouvindo em tempo real · encerra após silêncio ou pelo botão (máx. 3 min).")
         elif value == "__BUSY__":
             self.status.setText("Analisando a captura enviada ao Gemini…")
         elif value.startswith("__USER__"):
             text = value[8:]
             self._append("user", text); memory.add("user", text)
+        elif value.startswith("__VOICE_COMMAND__"):
+            self.pending_voice_command = value[len("__VOICE_COMMAND__"):]
         elif value.startswith("__ANSWER__"):
             self.reply(value[10:])
 
     def reply(self, text: str):
         memory.add("assistant", text); self._append("assistant", text); self.input.setEnabled(True); self.input.setFocus()
+
+    def _after_voice_recording(self):
+        if self._quit_requested:
+            self.pending_voice_command = None
+            return
+        prompt = (self.pending_voice_command or "").strip()
+        self.pending_voice_command = None
+        if not prompt:
+            self.input.setEnabled(True)
+            self._resume_clap_worker()
+            return
+        if self._dispatch_computer_command(prompt):
+            self.input.setEnabled(True)
+            self._resume_clap_worker()
+            return
+        self._append("user", prompt); memory.add("user", prompt)
+        self._start(prompt, "spoken")
 
     def error(self, text: str):
         self.chat.append(f"<span style='color:#ff8998'>Falha: {html.escape(text)}</span>")
@@ -488,6 +809,23 @@ class JarvisWindow(QMainWindow):
         dialog.email.setText(get_secret("user_email") or "")
         dialog.phone.setText(get_secret("user_phone") or "")
         dialog.exec()
+
+    def clear_local_memory(self):
+        worker = getattr(self, "worker", None)
+        vision = self.live_vision_worker
+        if ((worker and worker.isRunning()) or (vision and vision.isRunning())):
+            QMessageBox.information(
+                self, "Memória em uso",
+                "Aguarde a conversa e a visão contínua terminarem antes de apagar o histórico.")
+            return
+        answer = QMessageBox.question(
+            self, "Apagar memória local",
+            "Apagar permanentemente o histórico de conversa salvo neste computador?")
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        memory.clear()
+        self.chat.clear()
+        QMessageBox.information(self, "Memória", "Histórico local apagado.")
 
     def enable_autostart(self):
         answer = QMessageBox.question(self, "Início automático",
@@ -579,6 +917,9 @@ class JarvisWindow(QMainWindow):
         self.close()
 
     def closeEvent(self, event):
+        worker = getattr(self, "worker", None)
+        if self._quit_requested and worker and worker.isRunning() and worker.mode == "voice":
+            worker.stop_recording()
         if self.live_vision_worker and self.live_vision_worker.isRunning():
             self._close_when_vision_stops = True
             self.live_vision_button.setEnabled(False)
@@ -594,10 +935,25 @@ class JarvisWindow(QMainWindow):
                 QSystemTrayIcon.MessageIcon.Information, 2500)
             event.ignore()
             return
+        active_workers = [worker for worker in self.background_workers if worker.isRunning()]
+        if active_workers:
+            self.status.setText("Encerrando após terminar os trabalhos em andamento…")
+            if not self._waiting_for_workers:
+                self._waiting_for_workers = True
+                for worker in active_workers:
+                    worker.finished.connect(self._close_after_background_workers)
+            event.ignore()
+            return
         self._stop_clap_worker()
         if self.tray_icon:
             self.tray_icon.hide()
         super().closeEvent(event)
+
+    def _close_after_background_workers(self):
+        if any(worker.isRunning() for worker in self.background_workers):
+            return
+        self._waiting_for_workers = False
+        QTimer.singleShot(0, self.close)
 
     def configure_gmail(self):
         path, _ = QFileDialog.getOpenFileName(self, "Selecionar OAuth Client JSON", "",
@@ -626,6 +982,7 @@ class JarvisWindow(QMainWindow):
         if QMessageBox.question(self, "Confirmar envio", preview) != QMessageBox.StandardButton.Yes:
             return
         self.gmail_worker = GmailWorker(to, title, text)
+        self._track_worker(self.gmail_worker)
         self.gmail_worker.completed.connect(lambda msg: QMessageBox.information(self, "Gmail", msg))
         self.gmail_worker.failed.connect(self.error)
         self.gmail_worker.start()
@@ -666,7 +1023,8 @@ def main():
     app.setApplicationName("JARVIS AI")
     app.setOrganizationName("Matheus Moreira")
     selected_provider = load_settings().get("provider", "gemini")
-    if not get_secret(selected_provider):
+    # Peça as duas chaves na primeira configuração, para deixar os dois serviços prontos.
+    if not get_secret("gemini") or not get_secret("groq"):
         dialog = SetupDialog()
         dialog.gemini.setText(get_secret("gemini") or "")
         dialog.groq.setText(get_secret("groq") or "")
@@ -674,9 +1032,11 @@ def main():
         dialog.phone.setText(get_secret("user_phone") or "")
         if dialog.exec() != QDialog.DialogCode.Accepted: return
         selected_provider = load_settings().get("provider", "gemini")
-        if not get_secret(selected_provider):
+        missing = [name for name, label in (("gemini", "Gemini"), ("groq", "Groq"))
+                   if not get_secret(name)]
+        if missing:
             QMessageBox.critical(None, "Configuração necessária",
-                f"Cadastre uma chave {selected_provider.title()} para iniciar.")
+                "Cadastre as chaves de API para iniciar: " + ", ".join(missing) + ".")
             return
     window = JarvisWindow()
     if "--background" in sys.argv: window.showMinimized()

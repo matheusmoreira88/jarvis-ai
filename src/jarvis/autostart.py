@@ -28,8 +28,9 @@ def set_enabled(enabled: bool) -> None:
         entry = Path.home() / ".config" / "autostart" / "jarvis-ai.desktop"
         if enabled:
             entry.parent.mkdir(parents=True, exist_ok=True)
+            python_path = sys.executable.replace("\\", "\\\\").replace('"', '\\"')
             entry.write_text("[Desktop Entry]\nType=Application\nName=JARVIS AI\n"
-                             f"Exec={sys.executable} -m jarvis --background\n"
+                             f'Exec="{python_path}" -m jarvis --background\n'
                              "X-GNOME-Autostart-enabled=true\n", encoding="utf-8")
         else: entry.unlink(missing_ok=True)
         return
