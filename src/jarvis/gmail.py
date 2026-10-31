@@ -57,7 +57,11 @@ def send_email(to: str, subject: str, body: str) -> None:
         creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            refresh_request = Request()
+            try:
+                creds.refresh(refresh_request)
+            finally:
+                refresh_request.session.close()
         else:
             flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_FILE), SCOPES)
             creds = flow.run_local_server(port=0)
@@ -67,4 +71,7 @@ def send_email(to: str, subject: str, body: str) -> None:
     message.set_content(body)
     payload = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
     service = build("gmail", "v1", credentials=creds, cache_discovery=False)
-    service.users().messages().send(userId="me", body={"raw": payload}).execute()
+    try:
+        service.users().messages().send(userId="me", body={"raw": payload}).execute()
+    finally:
+        service.close()

@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import platform
+import json
+import os
+import re
 import subprocess
 from html import escape
 from pathlib import Path
@@ -39,6 +42,100 @@ def open_user_selected_executable(path: str) -> str:
         raise ValueError("Escolha um arquivo executável .exe.")
     subprocess.Popen([str(executable)], cwd=str(executable.parent), shell=False)
     return f"Solicitei ao Windows abrir {executable.name}."
+
+
+def list_installed_apps() -> list[dict[str, str]]:
+    """Lista apps do menu Iniciar e programas clássicos registrados no Windows."""
+    if platform.system() != "Windows":
+        raise NotImplementedError("A lista de aplicativos instalados está disponível no Windows.")
+
+    # O comando é fixo e somente de leitura; nenhum nome vindo do app vira código PowerShell.
+    script = r'''
+$ErrorActionPreference = 'SilentlyContinue'
+$apps = @{}
+foreach ($app in (Get-StartApps)) {
+    if ($app.Name -and $app.AppID) {
+        $key = ([string]$app.AppID).ToLowerInvariant()
+        $apps[$key] = [pscustomobject]@{ Name = [string]$app.Name; AppID = [string]$app.AppID; Path = '' }
+    }
+}
+$uninstallKeys = @(
+ 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+ 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+ 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+)
+foreach ($entry in (Get-ItemProperty $uninstallKeys)) {
+    if (-not $entry.DisplayName -or -not $entry.DisplayIcon) { continue }
+    $icon = ([string]$entry.DisplayIcon).Trim()
+    if ($icon -match '^"(?<path>.+?\.exe)"(?:,\s*-?\d+)?$') { $exe = $Matches.path }
+    elseif ($icon -match '^(?<path>.+?\.exe)(?:,\s*-?\d+)?$') { $exe = $Matches.path.Trim() }
+    else { continue }
+    if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { continue }
+    $key = $exe.ToLowerInvariant()
+    if (-not $apps.ContainsKey($key)) {
+        $apps[$key] = [pscustomobject]@{ Name = [string]$entry.DisplayName; AppID = ''; Path = $exe }
+    }
+}
+@($apps.Values | Sort-Object Name | ConvertTo-Json -Compress)
+'''
+    options = {
+        "capture_output": True,
+        "text": True,
+        "encoding": "utf-8",
+        "errors": "replace",
+        "timeout": 20,
+        "check": False,
+        "shell": False,
+    }
+    if os.name == "nt":
+        options["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    result = subprocess.run(
+        ["powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+        **options,
+    )
+    if result.returncode:
+        detail = (result.stderr or "").strip()
+        raise RuntimeError(detail or "O Windows não conseguiu consultar os aplicativos instalados.")
+    output = result.stdout.strip()
+    if not output:
+        return []
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("O Windows retornou uma lista de aplicativos inválida.") from exc
+    if isinstance(data, dict):
+        data = [data]
+    apps = []
+    for item in data if isinstance(data, list) else []:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("Name") or "").strip()
+        app_id = str(item.get("AppID") or "").strip()
+        path = str(item.get("Path") or "").strip()
+        if name and (app_id or path):
+            apps.append({"name": name[:160], "app_id": app_id[:512], "path": path[:2048]})
+    return sorted(apps, key=lambda app: app["name"].casefold())
+
+
+def launch_installed_app(app: dict[str, str]) -> str:
+    """Abre um item da lista Windows sem shell, validando novamente o destino."""
+    if platform.system() != "Windows":
+        raise NotImplementedError("A abertura desta lista está disponível no Windows.")
+    name = str(app.get("name") or "Aplicativo").strip()[:160]
+    path = str(app.get("path") or "").strip()
+    app_id = str(app.get("app_id") or "").strip()
+    if path:
+        # Programas clássicos só são aceitos como caminhos absolutos .exe existentes.
+        return open_user_selected_executable(path)
+    if (not app_id or len(app_id) > 512
+            or any(ord(char) < 32 for char in app_id)
+            or re.search(r'["<>|?*]', app_id)):
+        raise ValueError("O identificador deste aplicativo não é válido.")
+    explorer = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "explorer.exe")
+    if not Path(explorer).is_file():
+        explorer = "explorer.exe"
+    subprocess.Popen([explorer, f"shell:AppsFolder\\{app_id}"], shell=False)
+    return f"Solicitei ao Windows abrir {name}."
 
 
 def validate_screen_action(action: dict) -> dict:

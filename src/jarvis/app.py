@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (QCheckBox, QTextBrowser, QSystemTrayIcon, QMenu, 
                                QStackedWidget, QTabWidget)
 from PySide6.QtWidgets import QInputDialog, QPlainTextEdit
 from PySide6.QtWidgets import QDialogButtonBox
+from PySide6.QtWidgets import QListWidget, QListWidgetItem
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEnginePermission
@@ -315,6 +316,53 @@ class ContactsDialog(QDialog):
             save_contacts(self.items); self.refresh()
 
 
+class InstalledAppsDialog(QDialog):
+    """Busca e seleciona apps instalados; a janela não inicia nada por conta própria."""
+    def __init__(self, apps: list[dict[str, str]], parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Aplicativos instalados")
+        self.resize(620, 680)
+        self.apps = apps
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(
+            f"{len(apps)} aplicativos encontrados no menu Iniciar e nos registros do Windows. "
+            "Escolha um item e selecione Abrir para iniciar."))
+        self.search = QLineEdit(); self.search.setPlaceholderText("Buscar aplicativo pelo nome…")
+        self.search.textChanged.connect(self._filter)
+        layout.addWidget(self.search)
+        self.listing = QListWidget(); self.listing.itemDoubleClicked.connect(lambda *_: self.accept())
+        layout.addWidget(self.listing, 1)
+        self._items: list[QListWidgetItem] = []
+        for app in apps:
+            item = QListWidgetItem(app["name"])
+            item.setData(Qt.ItemDataRole.UserRole, app)
+            self.listing.addItem(item); self._items.append(item)
+        if self._items:
+            self.listing.setCurrentItem(self._items[0])
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Open,
+            parent=self)
+        buttons.button(QDialogButtonBox.StandardButton.Open).setText("Abrir aplicativo")
+        buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _filter(self, text: str):
+        query = text.casefold().strip()
+        first_visible = None
+        for item in self._items:
+            visible = query in item.text().casefold()
+            item.setHidden(not visible)
+            if visible and first_visible is None:
+                first_visible = item
+        if self.listing.currentItem() is None or self.listing.currentItem().isHidden():
+            self.listing.setCurrentItem(first_visible)
+
+    @property
+    def selected_app(self) -> dict[str, str] | None:
+        item = self.listing.currentItem()
+        return item.data(Qt.ItemDataRole.UserRole) if item else None
+
+
 class WhatsAppComposeDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -520,9 +568,12 @@ class JarvisWindow(QMainWindow):
         clear_memory.clicked.connect(self.clear_local_memory); settings_row.addWidget(clear_memory, 1)
         integrations_layout.addLayout(settings_row)
         add_section_title("APLICATIVOS DO COMPUTADOR")
-        launch_app = QPushButton("Escolher e abrir aplicativo .exe…")
-        launch_app.clicked.connect(self.select_and_open_executable)
+        launch_app = QPushButton("Ver todos os aplicativos instalados…")
+        launch_app.clicked.connect(self.open_installed_apps)
         integrations_layout.addWidget(launch_app)
+        launch_exe = QPushButton("Escolher um arquivo .exe…")
+        launch_exe.clicked.connect(self.select_and_open_executable)
+        integrations_layout.addWidget(launch_exe)
         add_section_title("COMUNICAÇÃO · GMAIL E WHATSAPP")
         gmail_row = QHBoxLayout()
         configure_gmail = QPushButton("Configurar Gmail OAuth…")
@@ -628,20 +679,25 @@ class JarvisWindow(QMainWindow):
         """Executa apenas ações locais explícitas; nunca interpreta saída do modelo como ação."""
         normalized = prompt.strip()
         lowered = normalized.lower()
+        if lowered.startswith("abrir aplicativo:"):
+            requested = normalized[len("abrir aplicativo:"):].strip()
+            if not requested:
+                QMessageBox.information(self, "Abrir aplicativo", "Diga o nome do aplicativo.")
+                return True
+            self._launch_installed_by_name(requested, prompt)
+            return True
+
         if lowered.startswith("abrir exe:"):
             path = normalized[len("abrir exe:"):].strip()
             if not path:
                 QMessageBox.information(self, "Abrir aplicativo", "Informe o caminho completo do .exe.")
                 return True
-            if QMessageBox.question(
-                    self, "Confirmar abertura",
-                    f"Permitir que o JARVIS abra este aplicativo?\n\n{path}") == QMessageBox.StandardButton.Yes:
-                try:
-                    from .computer import open_user_selected_executable
-                    self._record_private_control_action(
-                        prompt, open_user_selected_executable(path))
-                except Exception as exc:
-                    self.error(str(exc))
+            try:
+                from .computer import open_user_selected_executable
+                self._record_private_control_action(
+                    prompt, open_user_selected_executable(path))
+            except Exception as exc:
+                self.error(str(exc))
             return True
 
         if lowered.startswith("agir:"):
@@ -693,16 +749,14 @@ class JarvisWindow(QMainWindow):
 
         if lowered.startswith("abrir "):
             target = normalized[6:].strip().lower()
-            if target not in {"bloco de notas", "calculadora", "explorador de arquivos"}:
-                return False
-            answer = QMessageBox.question(
-                self, "Confirmar ação local", f"Permitir que o JARVIS abra {target}?")
-            if answer == QMessageBox.StandardButton.Yes:
+            if target in {"bloco de notas", "calculadora", "explorador de arquivos"}:
                 try:
                     result = open_known_app(target)
                     self._record_control_action(prompt, result)
                 except Exception as exc:
                     self.error(str(exc))
+                return True
+            self._launch_installed_by_name(normalized[6:].strip(), prompt)
             return True
 
         if lowered.startswith("digitar:"):
@@ -792,14 +846,10 @@ class JarvisWindow(QMainWindow):
         self.error(message)
 
     def select_and_open_executable(self):
-        """Deixa a pessoa escolher um .exe no Windows e confirma antes de abri-lo."""
+        """Abre o .exe que a pessoa escolheu explicitamente no seletor do Windows."""
         path, _ = QFileDialog.getOpenFileName(
             self, "Escolher aplicativo", "", "Aplicativos Windows (*.exe)")
         if not path:
-            return
-        if QMessageBox.question(
-                self, "Confirmar abertura",
-                f"Permitir que o JARVIS abra este aplicativo?\n\n{path}") != QMessageBox.StandardButton.Yes:
             return
         try:
             from .computer import open_user_selected_executable
@@ -807,6 +857,51 @@ class JarvisWindow(QMainWindow):
                 f"abrir exe: {path}", open_user_selected_executable(path))
         except Exception as exc:
             self.error(str(exc))
+
+    def open_installed_apps(self):
+        """Carrega apps do Windows; abrir é a ação direta escolhida pela pessoa."""
+        try:
+            from .computer import list_installed_apps, launch_installed_app
+            apps = list_installed_apps()
+            if not apps:
+                QMessageBox.information(self, "Aplicativos instalados", "Não encontrei aplicativos inicializáveis.")
+                return
+            dialog = InstalledAppsDialog(apps, self)
+            if dialog.exec() != QDialog.DialogCode.Accepted or not dialog.selected_app:
+                return
+            selected = dialog.selected_app
+            result = launch_installed_app(selected)
+            self._record_control_action(f"abrir aplicativo: {selected['name']}", result)
+        except Exception as exc:
+            self.error(f"Não foi possível listar ou abrir os aplicativos: {exc}")
+
+    def _launch_installed_by_name(self, requested: str, prompt: str):
+        """Abre um resultado único direto ou deixa escolher entre nomes parecidos."""
+        requested = requested.strip()
+        if not requested:
+            QMessageBox.information(self, "Abrir aplicativo", "Informe o nome do aplicativo.")
+            return
+        try:
+            from .computer import list_installed_apps, launch_installed_app
+            apps = list_installed_apps()
+            exact = [app for app in apps if app["name"].casefold() == requested.casefold()]
+            matches = exact or [app for app in apps if requested.casefold() in app["name"].casefold()]
+            if not matches:
+                self.error(f"Não encontrei um aplicativo instalado chamado ‘{requested}’.")
+                return
+            selected = matches[0] if len(matches) == 1 else self._choose_installed_app(matches, requested)
+            if selected:
+                self._record_control_action(prompt, launch_installed_app(selected))
+        except Exception as exc:
+            self.error(f"Não foi possível abrir o aplicativo: {exc}")
+
+    def _choose_installed_app(self, apps: list[dict[str, str]], query: str):
+        """Quando um nome tem mais de uma correspondência, deixa a pessoa escolher."""
+        dialog = InstalledAppsDialog(apps, self)
+        dialog.search.setText(query)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return dialog.selected_app
 
     def _start(self, prompt: str, mode: str):
         search_web = self.search_checkbox.isChecked() and mode in {"text", "spoken"}
