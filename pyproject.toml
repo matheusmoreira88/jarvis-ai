@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis-ai-desktop"
+version = "0.1.0"
+description = "Assistente pessoal para desktop em português"
+requires-python = ">=3.11"
+dependencies = ["PySide6>=6.7", "google-genai>=1.0", "keyring>=25", "platformdirs>=4"]
+
+[project.scripts]
+jarvis-ai = "jarvis.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
