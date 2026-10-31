@@ -11,6 +11,8 @@ Contato: [matheusmoreiradossantos88@gmail.com](mailto:matheusmoreiradossantos88@
 
 Se o projeto for útil, [deixe uma estrela no GitHub](https://github.com/matheusmoreira88/jarvis-ai) e compartilhe sugestões ou problemas pela área de Issues.
 
+Licença: [MIT](LICENSE).
+
 ### Recursos
 
 - Conversa por texto com Gemini ou Groq, selecionável nas configurações, e pesquisa na web com Gemini com fontes retornadas pela busca.
@@ -130,6 +132,8 @@ Creator's Instagram: [@mthz.mm](https://www.instagram.com/mthz.mm/)<br>
 Contact: [matheusmoreiradossantos88@gmail.com](mailto:matheusmoreiradossantos88@gmail.com)
 
 If you find the project useful, [leave a star on GitHub](https://github.com/matheusmoreira88/jarvis-ai) and share suggestions or issues in the Issues section.
+
+License: [MIT](LICENSE).
 
 ### Features
 
