@@ -15,10 +15,14 @@ def _connect():
     if os.name == "posix":
         os.chmod(DB_FILE.parent, 0o700)
     db = sqlite3.connect(DB_FILE)
-    if os.name == "posix":
-        os.chmod(DB_FILE, 0o600)
-    db.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, role TEXT, body TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
-    return db
+    try:
+        if os.name == "posix":
+            os.chmod(DB_FILE, 0o600)
+        db.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, role TEXT, body TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+        return db
+    except Exception:
+        db.close()
+        raise
 
 
 @contextmanager
