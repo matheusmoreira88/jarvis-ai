@@ -114,7 +114,7 @@ O aplicativo não lê mensagens nem envia sem a ação final do usuário. Em uma
 
 ### Limitações conhecidas
 
-O controle do computador está limitado aos aplicativos e ações confirmadas. A visão Live transmite quadros individuais (não vídeo de alta taxa de quadros) e depende da disponibilidade da Gemini Live API; as sessões são renovadas periodicamente. Chamadas não são atendidas automaticamente. A reprodução de arquivos e URLs depende dos formatos suportados pelo Qt Multimedia. Downloads devem respeitar direitos autorais e termos do site. Alterações no próprio código exigem revisão explícita e reinício do aplicativo.
+O controle do computador está limitado aos aplicativos que o Windows consegue enumerar e às ações implementadas. Abrir um aplicativo após pedido explícito não pede confirmação extra; ações de clique, rolagem, tecla e digitação ainda pedem. A visão Live transmite quadros individuais (até um por segundo; não vídeo de alta taxa de quadros) e depende da disponibilidade da Gemini Live API; as sessões são renovadas periodicamente. Chamadas não são atendidas automaticamente. A reprodução de arquivos e URLs depende dos formatos suportados pelo Qt Multimedia. Downloads devem respeitar direitos autorais e termos do site. Alterações no próprio código exigem revisão explícita e reinício do aplicativo.
 
 ### Desenvolvimento
 
@@ -241,7 +241,7 @@ The app does not read messages or send without the user's final action. For call
 
 ### Known limitations
 
-Computer control is limited to the listed apps and confirmed actions. Live vision streams individual frames (not high-frame-rate video) and depends on Gemini Live API availability; sessions are renewed periodically. Calls are not answered automatically. Playback of files and URLs depends on formats supported by Qt Multimedia. Downloads must comply with copyright and site terms. Source changes require explicit review and an app restart.
+Computer control is limited to apps Windows can enumerate and implemented actions. Opening an app after an explicit request does not ask for extra confirmation; clicks, scrolling, key presses, and typing still do. Live vision streams individual frames (up to one per second, not high-frame-rate video) and depends on Gemini Live API availability; sessions are renewed periodically. Calls are not answered automatically. Playback of files and URLs depends on formats supported by Qt Multimedia. Downloads must comply with copyright and site terms. Source changes require explicit review and an app restart.
 
 ### Development
 
