@@ -25,7 +25,7 @@ Licença: [MIT](LICENSE).
 - Player no HUD para arquivos locais e URLs, além do YouTube incorporado: cole uma URL ou pesquise o nome de uma música, escolha um resultado e reproduza na página oficial sem baixar a faixa. O painel pode ser recolhido enquanto o áudio toca. Baixar áudio por URL é uma opção separada que pede confirmação.
 - Gmail por OAuth de desktop, com permissão limitada a enviar mensagens e confirmação antes de cada envio.
 - WhatsApp Web dentro do HUD, contatos permitidos guardados localmente e mensagens preparadas para revisão. A interface de chamadas do WhatsApp Web pode ser usada no HUD se o serviço e o Qt WebEngine forem compatíveis; o usuário atende e encerra pela própria interface, após permitir o microfone ou a câmera quando solicitado.
-- Opção para iniciar minimizado com o login do Windows ou Linux e permanecer na bandeja do sistema.
+- Opção para iniciar minimizado com o login do Windows ou Linux e permanecer na bandeja do sistema. Um bloqueio por usuário evita abrir duas instâncias e disputar microfone ou memória.
 - Atalho opcional de duas palmas para alternar a tela cheia. A detecção é local, requer ativação expressa e mantém o microfone aberto enquanto estiver ligada.
 - Ferramenta para propor mudanças no próprio código: escolhe um módulo, pede uma proposta ao Gemini, exibe o arquivo para revisão e só grava após duas confirmações. Valida sintaxe, cria backup antes de substituir e permite restaurar uma versão salva pela interface.
 
@@ -152,7 +152,7 @@ License: [MIT](LICENSE).
 - HUD player for local files and URLs, plus YouTube embedded in the interface: paste a URL or search for a song, choose a result, and play it on the official page without downloading the track. The panel can be collapsed while audio plays. Downloading audio from a URL is a separate option that asks for confirmation.
 - Gmail desktop OAuth integration, limited to sending messages, with confirmation before each send.
 - WhatsApp Web inside the HUD, with an allowlist stored locally and messages prepared for review. WhatsApp Web's call interface can also be used in the HUD if the service and Qt WebEngine are compatible; the user answers and ends calls in that interface, after granting microphone or camera access when requested.
-- Option to start minimized at Windows or Linux login and remain in the system tray.
+- Option to start minimized at Windows or Linux login and remain in the system tray. A per-user lock prevents duplicate instances from competing for the microphone or memory.
 - Optional double-clap shortcut to toggle full screen. Detection runs locally, requires explicit activation, and keeps the microphone open while enabled.
 - Tool for proposing changes to its own source: select a module, ask Gemini for a proposal, review the complete file, and confirm twice before writing. Syntax is checked, a backup is created before replacement, and a saved version can be restored from the interface.
 

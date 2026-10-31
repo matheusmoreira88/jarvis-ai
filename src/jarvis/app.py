@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 from threading import Event
-from PySide6.QtCore import QThread, Signal, QUrl, QTimer, QUrlQuery, QStandardPaths, Qt
+from PySide6.QtCore import QThread, Signal, QUrl, QTimer, QUrlQuery, QStandardPaths, Qt, QLockFile
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QLabel,
                                QMainWindow, QPushButton, QTextEdit, QVBoxLayout, QWidget,
@@ -1416,23 +1416,33 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("JARVIS AI")
     app.setOrganizationName("Matheus Moreira")
-    selected_provider = load_settings().get("provider", "gemini")
-    # Peça as duas chaves na primeira configuração, para deixar os dois serviços prontos.
-    if not get_secret("gemini") or not get_secret("groq"):
-        dialog = SetupDialog()
-        dialog.gemini.setText(get_secret("gemini") or "")
-        dialog.groq.setText(get_secret("groq") or "")
-        dialog.email.setText(get_secret("user_email") or "")
-        dialog.phone.setText(get_secret("user_phone") or "")
-        if dialog.exec() != QDialog.DialogCode.Accepted: return
-        selected_provider = load_settings().get("provider", "gemini")
-        missing = [name for name, label in (("gemini", "Gemini"), ("groq", "Groq"))
-                   if not get_secret(name)]
-        if missing:
-            QMessageBox.critical(None, "Configuração necessária",
-                "Cadastre as chaves de API para iniciar: " + ", ".join(missing) + ".")
-            return
-    window = JarvisWindow()
-    if "--background" in sys.argv: window.showMinimized()
-    else: window.show()
-    sys.exit(app.exec())
+    lock_directory = Path(QStandardPaths.writableLocation(
+        QStandardPaths.StandardLocation.AppDataLocation))
+    lock_directory.mkdir(parents=True, exist_ok=True)
+    instance_lock = QLockFile(str(lock_directory / "jarvis-instance.lock"))
+    if not instance_lock.tryLock(100):
+        QMessageBox.information(
+            None, "JARVIS já está aberto",
+            "Já existe uma instância do JARVIS em execução. Abra-a pela bandeja do sistema.")
+        return
+    try:
+        # Peça as duas chaves na primeira configuração, para deixar os dois serviços prontos.
+        if not get_secret("gemini") or not get_secret("groq"):
+            dialog = SetupDialog()
+            dialog.gemini.setText(get_secret("gemini") or "")
+            dialog.groq.setText(get_secret("groq") or "")
+            dialog.email.setText(get_secret("user_email") or "")
+            dialog.phone.setText(get_secret("user_phone") or "")
+            if dialog.exec() != QDialog.DialogCode.Accepted: return
+            missing = [name for name, label in (("gemini", "Gemini"), ("groq", "Groq"))
+                       if not get_secret(name)]
+            if missing:
+                QMessageBox.critical(None, "Configuração necessária",
+                    "Cadastre as chaves de API para iniciar: " + ", ".join(missing) + ".")
+                return
+        window = JarvisWindow()
+        if "--background" in sys.argv: window.showMinimized()
+        else: window.show()
+        return app.exec()
+    finally:
+        instance_lock.unlock()
