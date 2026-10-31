@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import os
+import tempfile
 from email.message import EmailMessage
 from pathlib import Path
 from platformdirs import user_config_path, user_data_path
@@ -16,17 +17,23 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 def _write_private(path: Path, content: str) -> None:
     """Grava credenciais por substituição atômica e restringe permissões em POSIX."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
+    if os.name != "nt":
+        path.parent.chmod(0o700)
+    temporary: Path | None = None
     try:
-        temporary.write_text(content, encoding="utf-8")
-        if os.name != "nt":
-            temporary.chmod(0o600)
-            path.parent.chmod(0o700)
+        # NamedTemporaryFile (mkstemp) creates mode 0600 on POSIX from the outset.
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=f".{path.name}.", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(content)
         temporary.replace(path)
         if os.name != "nt":
             path.chmod(0o600)
     finally:
-        temporary.unlink(missing_ok=True)
+        if temporary:
+            temporary.unlink(missing_ok=True)
 
 
 def install_client_file(source: str) -> None:
