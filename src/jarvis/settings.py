@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 
 from platformdirs import user_config_path
@@ -19,9 +21,29 @@ def load_settings() -> dict:
 
 
 def save_settings(values: dict) -> None:
-    """Grava só preferências pessoais e contato; permissões ficam restritas ao usuário."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(values, ensure_ascii=False, indent=2), encoding="utf-8")
+    """Salva preferências sem deixar um JSON meio escrito após uma interrupção."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if os.name == "posix":
+        os.chmod(CONFIG_DIR, 0o700)
+
+    # O arquivo temporário fica ao lado do definitivo para que a troca seja atômica.
+    descriptor, temp_name = tempfile.mkstemp(prefix=".settings-", dir=CONFIG_DIR)
+    temp_file = Path(temp_name)
+    try:
+        if os.name == "posix":
+            os.chmod(temp_file, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(values, stream, ensure_ascii=False, indent=2)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp_file, CONFIG_FILE)
+    except Exception:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        temp_file.unlink(missing_ok=True)
+        raise
 
 
 def save_secret(name: str, value: str) -> None:

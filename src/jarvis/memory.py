@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+import os
 from contextlib import contextmanager
 from platformdirs import user_data_path
 
@@ -9,8 +10,13 @@ DB_FILE = user_data_path("JarvisAI", "Matheus") / "memory.sqlite3"
 
 
 def _connect():
-    DB_FILE.parent.mkdir(parents=True, exist_ok=True)
+    # O histórico pode guardar detalhes pessoais; no Unix, só a conta atual deve lê-lo.
+    DB_FILE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if os.name == "posix":
+        os.chmod(DB_FILE.parent, 0o700)
     db = sqlite3.connect(DB_FILE)
+    if os.name == "posix":
+        os.chmod(DB_FILE, 0o600)
     db.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, role TEXT, body TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
     return db
 

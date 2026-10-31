@@ -38,7 +38,15 @@ def ask_gemini(prompt: str, history: list[tuple[str, str]], search_web: bool = F
     config = types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, tools=tools)
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash", contents=contents, config=config)
+            model="gemini-3.8-flash", contents=contents, config=config)
+    except Exception as exc:
+        if search_web:
+            raise RuntimeError(
+                "A pesquisa com Google Search não foi concluída. Confira conexão, cota e "
+                "acesso ao Search Grounding; esse recurso não está disponível no nível "
+                "gratuito da Gemini API. Nenhuma fonte foi consultada."
+            ) from exc
+        raise
     finally:
         client.close()
     answer = response.text or "Não recebi uma resposta em texto."
@@ -86,7 +94,7 @@ def analyze_image(prompt: str, image_bytes: bytes) -> str:
     image = types.Part.from_bytes(data=image_bytes, mime_type="image/png")
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash", contents=[prompt, image])
+            model="gemini-3.8-flash", contents=[prompt, image])
     finally:
         client.close()
     return response.text or "Não consegui interpretar a captura."

@@ -29,7 +29,7 @@ def propose_file_update(path: str, request: str) -> str:
     client = genai.Client(api_key=key)
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.8-flash",
             contents=(
                 "Edite o módulo Python abaixo para atender ao pedido. Retorne somente o "
                 "arquivo completo, sem cercas Markdown, explicações ou comandos. Preserve "

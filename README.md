@@ -20,7 +20,7 @@ Licença: [MIT](LICENSE).
 - Uma conversa única, sem sessões separadas. Todo o histórico é persistido em SQLite entre inicializações, com botão para apagar a memória local.
 - Comando por voz: o microfone abre somente após pressionar **Falar**, acompanha a fala e encerra após cerca de 1,15 segundo de silêncio ou pelo botão de parada. Groq/Whisper transcreve e uma voz sintetizada localmente lê a resposta. Há um limite de segurança de três minutos por gravação.
 - Comandos por voz ou texto para abrir aplicativos autorizados, digitar texto e pressionar teclas comuns, sempre com confirmação e escopo limitado.
-- Análise da tela por captura explícita ou observação contínua opcional com Gemini Live, até um quadro por segundo. Depois de cada cinco quadros, envia um pedido de análise; as observações são exibidas no histórico e a voz é reproduzida localmente. A observação pede consentimento, transmite imagens e pode consumir cota da API; a conexão é renovada periodicamente.
+- Análise da tela por captura explícita ou observação contínua opcional com Gemini 3.8 Live, até um quadro por segundo. Depois de cada cinco quadros, envia um pedido de análise; as observações são exibidas no histórico e o áudio de resposta é reproduzido localmente. A observação pede consentimento, transmite imagens e pode consumir cota da API; a conexão é renovada periodicamente.
 - Abertura confirmada de aplicativos numa lista fixa: Bloco de Notas, Calculadora e Explorador de Arquivos.
 - Player no HUD para arquivos locais e URLs, além do YouTube incorporado: cole uma URL ou pesquise o nome de uma música, escolha um resultado e reproduza na página oficial sem baixar a faixa. O painel pode ser recolhido enquanto o áudio toca. Baixar áudio por URL é uma opção separada que pede confirmação.
 - Gmail por OAuth de desktop, com permissão limitada a enviar mensagens e confirmação antes de cada envio.
@@ -37,7 +37,7 @@ Licença: [MIT](LICENSE).
 - Chave Gemini: [Google AI Studio](https://aistudio.google.com/app/api-keys).
 - Chave Groq: [Groq Console](https://console.groq.com/keys). Groq pode ser usado para conversa e é necessário para transcrição de voz.
 
-O uso das APIs depende dos limites, disponibilidade, termos e eventual cobrança de cada provedor. Confira os respectivos painéis antes de habilitar faturamento.
+O uso das APIs depende dos limites, disponibilidade, termos e eventual cobrança de cada provedor. O Gemini 3.8 Flash oferece uso gratuito dentro da cota indicada pelo Google, mas a pesquisa Google (Search Grounding) não está incluída no nível gratuito. Confira a [página oficial de preços](https://ai.google.dev/gemini-api/docs/pricing) e os painéis antes de usar recursos pagos.
 
 ### Instalação no Windows
 
@@ -80,7 +80,7 @@ Clique em **Ativar início automático** e confirme. O aplicativo abre minimizad
 
 1. Crie uma chave Gemini no [Google AI Studio](https://aistudio.google.com/app/api-keys) e/ou uma chave Groq em [Groq Console](https://console.groq.com/keys).
 2. Insira as chaves na janela inicial ou em **Configurações**.
-3. Escolha Gemini ou Groq como provedor de conversa. Marque **Pesquisar na web com Gemini nesta solicitação** para ativar a pesquisa Google; ela pode consumir cota adicional. A análise de imagem usa Gemini e a transcrição de voz usa Groq/Whisper.
+3. Escolha Gemini ou Groq como provedor de conversa. Marque **Pesquisar na web com Gemini nesta solicitação** para ativar a pesquisa Google. O Search Grounding não está disponível no nível gratuito da Gemini API e pode gerar cobrança no nível pago; confira a página de preços antes de usar. A análise de imagem usa Gemini e a transcrição de voz usa Groq/Whisper.
 
 #### Gmail
 
@@ -104,6 +104,7 @@ O aplicativo não lê mensagens nem envia sem a ação final do usuário. Em uma
 - Gemini e Groq recebem somente o conteúdo encaminhado para cada solicitação: prompts, capturas de tela após ação ou consentimento, e áudio gravado para transcrição.
 - A detecção de palmas analisa áudio localmente e não grava nem transmite os blocos de microfone.
 - Chaves de API e contatos ficam no cofre de credenciais do usuário. Tokens OAuth e configurações ficam nas pastas privadas de dados do aplicativo, fora do repositório.
+- O histórico SQLite permanece no computador e não é criptografado; no Linux/macOS, o JARVIS restringe as permissões dos arquivos e pastas à conta atual. No Windows, usa a pasta de dados do perfil do usuário.
 - E-mails exigem confirmação. Mensagens do WhatsApp são preparadas para revisão; o envio final é manual.
 - As ações no computador usam uma lista limitada e pedem confirmação. O JARVIS não executa comandos arbitrários gerados pelo modelo.
 - Não publique arquivos OAuth, tokens nem chaves. Se uma chave for exposta, revogue-a no painel do provedor.
@@ -143,7 +144,7 @@ License: [MIT](LICENSE).
 - One ongoing conversation, with no separate sessions. The full history is stored in SQLite between app launches, with a button to clear local memory.
 - Voice commands: the microphone opens only after pressing **Speak**, follows the user's speech, and stops after about 1.15 seconds of silence or when the stop button is pressed. Groq/Whisper transcribes the recording and a local speech synthesizer reads the response. Each recording has a three-minute safety limit.
 - Voice or text commands to open allowed apps, type text, and press common keys, always with confirmation and limited scope.
-- Screen analysis on demand or optional continuous observation with Gemini Live, up to one frame per second. It sends an analysis prompt after every five frames; observations appear in the history and speech is played locally. Observation asks for consent, streams images, and may use API quota; the connection is renewed periodically.
+- Screen analysis on demand or optional continuous observation with Gemini 3.8 Live, up to one frame per second. It sends an analysis prompt after every five frames; observations appear in the history and response audio is played locally. Observation asks for consent, streams images, and may use API quota; the connection is renewed periodically.
 - Confirmed opening of a fixed list of apps: Notepad, Calculator, and File Explorer.
 - HUD player for local files and URLs, plus YouTube embedded in the interface: paste a URL or search for a song, choose a result, and play it on the official page without downloading the track. The panel can be collapsed while audio plays. Downloading audio from a URL is a separate option that asks for confirmation.
 - Gmail desktop OAuth integration, limited to sending messages, with confirmation before each send.
@@ -160,7 +161,7 @@ License: [MIT](LICENSE).
 - Gemini API key: [Google AI Studio](https://aistudio.google.com/app/api-keys).
 - Groq API key: [Groq Console](https://console.groq.com/keys). Groq can be used for chat and is required for voice transcription.
 
-API use is subject to each provider's limits, availability, terms, and any charges. Check each provider's dashboard before enabling billing.
+API use is subject to each provider's limits, availability, terms, and any charges. Gemini 3.8 Flash offers free use within Google's published free quota, but Google Search grounding is not included in the free tier. Check the [official pricing page](https://ai.google.dev/gemini-api/docs/pricing) and provider dashboards before using paid features.
 
 ### Windows installation
 
@@ -203,7 +204,7 @@ Click **Ativar início automático** (Enable automatic startup) and confirm. The
 
 1. Create a Gemini key in [Google AI Studio](https://aistudio.google.com/app/api-keys) and/or a Groq key in [Groq Console](https://console.groq.com/keys).
 2. Enter the keys in the first-run window or in **Settings**.
-3. Choose Gemini or Groq for chat. Select **Pesquisar na web com Gemini nesta solicitação** (Search the web with Gemini for this request) to enable Google Search; this can use additional quota. Image analysis uses Gemini, and voice transcription uses Groq/Whisper.
+3. Choose Gemini or Groq for chat. Select **Pesquisar na web com Gemini nesta solicitação** (Search the web with Gemini for this request) to enable Google Search. Search Grounding is not available on the free Gemini API tier and may incur charges on a paid tier; check the pricing page before using it. Image analysis uses Gemini, and voice transcription uses Groq/Whisper.
 
 #### Gmail
 
@@ -227,6 +228,7 @@ The app does not read messages or send without the user's final action. For call
 - Gemini and Groq receive only the content routed to them: prompts, screenshots after an explicit action or consent, and recorded audio for transcription.
 - Clap detection analyzes audio locally and does not record or transmit microphone blocks.
 - API keys and contacts are stored in the user's credential vault. OAuth tokens and settings are stored in private application-data folders outside the repository.
+- SQLite history stays on the computer and is not encrypted; on Linux/macOS, JARVIS restricts file and directory permissions to the current account. On Windows, it uses the current user's application-data folder.
 - Emails require confirmation. WhatsApp messages are prepared for review; the final send is manual.
 - Computer actions use a limited list and require confirmation. JARVIS does not execute arbitrary commands generated by the model.
 - Do not publish OAuth files, tokens, or keys. If a key is exposed, revoke it in the provider dashboard.

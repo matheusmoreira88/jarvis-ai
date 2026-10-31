@@ -114,6 +114,7 @@ class LiveVisionWorker(QThread):
             import asyncio
             from google import genai
             from google.genai import types
+            from .providers import SYSTEM_INSTRUCTION
             from .settings import get_secret
 
             asyncio.run(self._stream(genai, types, get_secret("gemini")))
@@ -133,8 +134,12 @@ class LiveVisionWorker(QThread):
         try:
             while self._active:
                 async with client.aio.live.connect(
-                    model="gemini-3.1-flash-live-preview",
-                    config={"response_modalities": ["AUDIO"], "output_audio_transcription": {}},
+                    model="gemini-3.8-live",
+                    config={
+                        "response_modalities": ["AUDIO"],
+                        "output_audio_transcription": {},
+                        "system_instruction": SYSTEM_INSTRUCTION,
+                    },
                 ) as session:
                     async def receive_updates():
                         nonlocal audio_output, audio_error_reported
