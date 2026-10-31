@@ -133,12 +133,6 @@ class LiveVisionWorker(QThread):
                     model="gemini-3.1-flash-live-preview",
                     config={"response_modalities": ["AUDIO"], "output_audio_transcription": {}},
                 ) as session:
-                    await session.send_realtime_input(text=(
-                        "Observe continuamente as imagens da tela que eu enviar. Em português, "
-                        "avise apenas quando houver uma mudança relevante ou eu parecer precisar "
-                        "de ajuda. Nunca execute ações no computador."
-                    ))
-
                     async def receive_updates():
                         async for message in session.receive():
                             if not self._active:
@@ -152,11 +146,18 @@ class LiveVisionWorker(QThread):
                     receiver = asyncio.create_task(receive_updates())
                     try:
                         # A Live API aceita até um quadro de vídeo por segundo.
-                        for _ in range(110):
+                        for frame_number in range(110):
                             if not self._active or receiver.done():
                                 break
                             await session.send_realtime_input(video=types.Blob(
                                 data=capture_primary_screen(), mime_type="image/png"))
+                            # Vídeo sozinho não inicia uma resposta: peça uma leitura após cinco quadros.
+                            if frame_number % 5 == 4:
+                                await session.send_realtime_input(text=(
+                                    "Analise as imagens recentes da tela. Em português, informe "
+                                    "somente mudanças importantes ou algo que pareça exigir ajuda. "
+                                    "Não execute ações no computador."
+                                ))
                             await asyncio.sleep(1)
                     finally:
                         receiver.cancel()
