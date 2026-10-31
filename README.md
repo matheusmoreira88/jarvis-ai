@@ -33,8 +33,9 @@ O e-mail e telefone são opcionais e permanecem no armazenamento local. As chave
 - Download de áudio por URL para uma pasta escolhida, após confirmação.
 - Opção para abrir minimizado junto com o login do Windows ou Linux.
 - Envio de e-mail Gmail por OAuth de desktop, usando escopo limitado a envio e confirmação do destinatário/conteúdo antes de cada envio.
+- Detecção opcional de duas palmas para alternar tela cheia. Exige habilitação explícita e mantém o microfone aberto; o detector processa os blocos localmente e não grava áudio.
 
-WhatsApp dentro do HUD, lista de contatos autorizados, atendimento de chamadas e ativação por duas palmas ainda não estão implementados. O e-mail e o telefone cadastrados são apenas dados locais; eles não concedem acesso aos serviços. O Gmail requer ativar a Gmail API num projeto Google Cloud e importar um OAuth Client ID do tipo desktop; o usuário autoriza a conta no navegador na primeira utilização.
+WhatsApp dentro do HUD, lista de contatos autorizados e atendimento de chamadas ainda não estão implementados. O e-mail e o telefone cadastrados são apenas dados locais; eles não concedem acesso aos serviços. O Gmail requer ativar a Gmail API num projeto Google Cloud e importar um OAuth Client ID do tipo desktop; o usuário autoriza a conta no navegador na primeira utilização.
 
 ## Privacidade e controle
 

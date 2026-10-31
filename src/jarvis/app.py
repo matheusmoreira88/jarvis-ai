@@ -10,11 +10,12 @@ from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 
 from . import memory
 from .providers import analyze_image, ask_gemini, transcribe_groq
-from .settings import get_secret, save_secret
+from .settings import get_secret, save_secret, load_settings, save_settings
 from .vision import capture_primary_screen
 from .voice import record_utterance, speak
 from .computer import open_known_app
 from .autostart import set_enabled
+from .claps import ClapWorker
 
 
 class ReplyWorker(QThread):
@@ -150,6 +151,10 @@ class JarvisWindow(QMainWindow):
         talk.clicked.connect(self.talk); actions.addWidget(talk)
         vision = QPushButton("▣ Analisar minha tela…")
         vision.clicked.connect(self.analyze_screen); actions.addWidget(vision)
+        self.clap_button = QPushButton("👏 Ativar duplo aplauso")
+        self.clap_button.setCheckable(True)
+        self.clap_button.clicked.connect(self.toggle_clap_detection)
+        actions.addWidget(self.clap_button)
         controls.addLayout(actions); layout.addLayout(controls)
         row = QVBoxLayout(); self.input = QLineEdit(); self.input.setPlaceholderText("Escreva um comando…")
         self.input.returnPressed.connect(self.send); row.addWidget(self.input)
@@ -165,6 +170,10 @@ class JarvisWindow(QMainWindow):
         autostart = QPushButton("Ativar início automático")
         autostart.clicked.connect(self.enable_autostart); layout.addWidget(autostart)
         for role, body in memory.recent(30): self._append(role, body)
+        self.clap_worker = None
+        if load_settings().get("clap_enabled", False):
+            self.clap_button.setChecked(True)
+            self._start_clap_worker()
 
     def _append(self, role: str, body: str):
         label = "Você" if role == "user" else "JARVIS"
@@ -190,12 +199,14 @@ class JarvisWindow(QMainWindow):
         self._start(prompt, "text")
 
     def _start(self, prompt: str, mode: str):
+        if mode == "voice": self._stop_clap_worker()
         if mode != "screen":
             self._append("user", prompt); memory.add("user", prompt)
         self.input.setEnabled(False); self.status.setText("Capturando/transmitindo somente a solicitação atual…")
         self.worker = ReplyWorker(prompt, mode)
         self.worker.finished_text.connect(self._worker_event); self.worker.failed.connect(self.error)
         self.worker.finished.connect(lambda: self.status.setText("Pronto · microfone fechado"))
+        if mode == "voice": self.worker.finished.connect(self._resume_clap_worker)
         self.worker.start()
 
     def talk(self):
@@ -292,6 +303,53 @@ class JarvisWindow(QMainWindow):
             QMessageBox.information(self, "JARVIS", "Início automático ativado.")
         except Exception as exc:
             self.error(str(exc))
+
+    def toggle_clap_detection(self, enabled: bool):
+        if enabled:
+            answer = QMessageBox.warning(
+                self, "Escuta local por palmas",
+                "Enquanto ativado, o microfone permanece aberto e o áudio é analisado localmente para detectar duas palmas. O áudio ambiente não é salvo nem enviado. Ativar?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No)
+            if answer != QMessageBox.StandardButton.Yes:
+                self.clap_button.setChecked(False)
+                return
+            save_settings({**load_settings(), "clap_enabled": True})
+            self._start_clap_worker()
+        else:
+            save_settings({**load_settings(), "clap_enabled": False})
+            self._stop_clap_worker()
+
+    def _start_clap_worker(self):
+        if self.clap_worker and self.clap_worker.isRunning(): return
+        self.clap_worker = ClapWorker()
+        self.clap_worker.double_clap.connect(self._toggle_fullscreen)
+        self.clap_worker.error.connect(self._clap_error)
+        self.clap_worker.start()
+        self.status.setText("Escutando palmas localmente · microfone aberto")
+
+    def _stop_clap_worker(self):
+        worker = self.clap_worker
+        if worker and worker.isRunning():
+            worker.stop(); worker.wait(2000)
+        self.clap_worker = None
+
+    def _resume_clap_worker(self):
+        if self.clap_button.isChecked(): self._start_clap_worker()
+
+    def _clap_error(self, message: str):
+        self.clap_button.setChecked(False)
+        save_settings({**load_settings(), "clap_enabled": False})
+        self.status.setText("Detecção de palmas desativada")
+        QMessageBox.warning(self, "Microfone indisponível", message)
+
+    def _toggle_fullscreen(self):
+        if self.isFullScreen(): self.showNormal()
+        else: self.showFullScreen()
+
+    def closeEvent(self, event):
+        self._stop_clap_worker()
+        super().closeEvent(event)
 
     def configure_gmail(self):
         path, _ = QFileDialog.getOpenFileName(self, "Selecionar OAuth Client JSON", "",
