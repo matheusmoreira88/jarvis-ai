@@ -17,10 +17,10 @@ Licença: [MIT](license).
 
 - Conversa por texto com Gemini ou Groq, selecionável nas configurações, e pesquisa na web com Gemini com fontes retornadas pela busca.
 - Os dois provedores recebem instruções para reconhecer Matheus Moreira como criador, responder em português e não alegar ações que o aplicativo não executou.
-- Uma conversa única, sem sessões separadas. Todo o histórico é persistido em SQLite entre inicializações e pode ser percorrido por páginas no HUD, com botão para apagar a memória local.
-- Comandos de voz em modo mãos livres: ative **Ligar escuta automática** uma vez; o JARVIS detecta o início e o fim da fala pelo silêncio, sem botões para iniciar ou pausar gravações. A escuta pode ser mantida entre inicializações e é pausada durante respostas para evitar captar a própria voz. Os buffers de espera são processados localmente; somente a frase detectada é enviada à Groq/Whisper para transcrição. A resposta pode ser lida em voz sintetizada localmente.
+- Uma conversa única, sem sessões separadas. O histórico é persistido em SQLite. Lembranças permanentes e lembretes com datas de vencimento também ficam no banco local; o JARVIS pode avisar no horário configurado, inclusive ao iniciar. O mapa visual do cérebro cresce com as lembranças; o limite mostrado é só um marco visual, sem limitar o banco. Em Configurações é possível impedir que lembranças entrem no contexto enviado ao provedor.
+- Comandos de voz mãos livres com a palavra-chave local **Hey Jarvis**: a escuta é iniciada automaticamente quando configurada, sem botão para começar ou pausar gravações. O detector guarda o trecho falado após a palavra-chave e encerra após uma pausa. Os buffers de espera ficam locais; a fala reconhecida é enviada à Groq/Whisper. A resposta pode ser lida por síntese local.
 - Comandos por voz ou texto para abrir aplicativos instalados sem uma confirmação extra depois do pedido explícito. Digitar texto, pressionar teclas, clicar e rolar continuam exigindo confirmação. O comando `agir: pedido` envia uma captura ao Gemini, que pode propor uma única ação; a pessoa revisa e confirma antes da execução.
-- Análise da tela por captura explícita ou observação contínua opcional com Gemini 3.8 Live, até um quadro por segundo. Depois de cada cinco quadros, envia um pedido de análise; as observações são exibidas no histórico e o áudio de resposta é reproduzido localmente. A observação pede consentimento, transmite imagens e pode consumir cota da API; a conexão é renovada periodicamente.
+- Análise por captura explícita ou visão contínua consentida: o HUD mostra uma prévia local fluida da tela (cerca de 10 atualizações/s) enquanto a Gemini Live recebe até 1 imagem/s, limite documentado da API. As observações aparecem no histórico. O envio à nuvem pode consumir cota; a visão pode ser desligada a qualquer momento.
 - Busca por nome entre os aplicativos disponíveis no menu Iniciar e os programas clássicos registrados no Windows; um pedido explícito abre o app sem uma confirmação extra. Também permite escolher manualmente um arquivo `.exe`.
 - Player no HUD para arquivos locais e URLs, além do YouTube incorporado: cole uma URL ou pesquise o nome de uma música, escolha um resultado e reproduza na página oficial sem baixar a faixa. O painel pode ser recolhido enquanto o áudio toca. Baixar áudio por URL é uma opção separada que pede confirmação.
 - Gmail por OAuth de desktop, com permissão limitada a enviar mensagens e confirmação antes de cada envio.
@@ -115,6 +115,7 @@ O aplicativo não lê mensagens nem envia sem a ação final do usuário. Em uma
 - Para conversas por texto ou voz, o provedor escolhido recebe a mensagem atual e até 20 mensagens anteriores da conversa. O áudio gravado é enviado à Groq para transcrição; depois, a transcrição e o contexto recente seguem ao provedor escolhido.
 - Capturas pontuais e propostas de ação enviam a imagem e o pedido atual à Gemini após a solicitação/consentimento; não enviam o histórico da conversa. A visão contínua envia quadros e pedidos de análise à Gemini Live somente enquanto estiver ativa e consentida. Capturas não são guardadas no SQLite.
 - A detecção de palmas analisa áudio localmente e não grava nem transmite os blocos de microfone.
+- Por padrão, até 12 lembranças e lembretes futuros entram no contexto de conversas por texto ou voz. Desmarque “Incluir lembranças salvas no contexto enviado à IA” nas configurações para mantê-los locais. O SQLite não é criptografado.
 - Chaves de API e contatos ficam no cofre de credenciais do usuário. Tokens OAuth e configurações ficam nas pastas privadas de dados do aplicativo, fora do repositório.
 - O histórico SQLite permanece no computador e não é criptografado; no Linux/macOS, o JARVIS restringe as permissões dos arquivos e pastas à conta atual. No Windows, usa a pasta de dados do perfil do usuário.
 - E-mails exigem confirmação. Mensagens do WhatsApp são preparadas para revisão; o envio final é manual.
@@ -153,10 +154,10 @@ License: [MIT](license).
 
 - Text chat with Gemini or Groq, selectable in Settings, plus Gemini web search with returned source links.
 - Both providers are instructed to recognize Matheus Moreira as the creator, answer in Portuguese, and never claim actions the app did not perform.
-- One ongoing conversation, with no separate sessions. The full history is stored in SQLite between app launches and can be browsed in pages in the HUD, with a button to clear local memory.
-- Hands-free voice commands: turn on **Enable automatic listening** once; JARVIS detects speech start and end from silence, with no record or pause buttons. Listening can persist across launches and pauses during replies to avoid capturing its own speech. Waiting audio buffers stay local; only detected speech is sent to Groq/Whisper for transcription. Replies can be read using local speech synthesis.
+- One ongoing conversation, with no separate sessions. Chat history, permanent memories, and dated reminders are stored in local SQLite. JARVIS can notify at the chosen time, including when it starts. The brain map fills as memories grow; its visual milestone does not cap database storage. Settings can prevent saved memories from being included in provider context.
+- Hands-free voice commands: turn on **hands-free voice** once; JARVIS detects speech start and end from silence, with no record or pause buttons. Listening can persist across launches and pauses during replies to avoid capturing its own speech. Waiting audio buffers stay local; only detected speech is sent to Groq/Whisper for transcription. Replies can be read using local speech synthesis.
 - Voice or text commands to open installed apps without an extra confirmation after an explicit request. Typing text, pressing keys, clicking, and scrolling still require confirmation. The `agir: request` command sends a screenshot to Gemini, which may suggest one action; the user reviews and confirms before execution.
-- Screen analysis on demand or optional continuous observation with Gemini 3.8 Live, up to one frame per second. It sends an analysis prompt after every five frames; observations appear in the history and response audio is played locally. Observation asks for consent, streams images, and may use API quota; the connection is renewed periodically.
+- On-demand screen analysis or consented continuous viewing: the HUD shows a smooth local screen preview (about 10 updates/s locally) while Gemini Live receives up to 1 image/s, the API documented limit. Observations appear in chat history. Cloud transmission may use API quota, and viewing can be stopped at any time.
 - Search by name through apps available in Start and classic programs registered in Windows; an explicit request opens the app without an extra confirmation. Manual `.exe` selection is also available.
 - HUD player for local files and URLs, plus YouTube embedded in the interface: paste a URL or search for a song, choose a result, and play it on the official page without downloading the track. The panel can be collapsed while audio plays. Downloading audio from a URL is a separate option that asks for confirmation.
 - Gmail desktop OAuth integration, limited to sending messages, with confirmation before each send.
@@ -251,6 +252,7 @@ The app does not read messages or send without the user's final action. For call
 - For text or voice conversations, the selected provider receives the current message and up to 20 previous conversation messages. Recorded audio is sent to Groq for transcription; then the transcript and recent context go to the selected chat provider.
 - On-demand captures and action proposals send the image and current request to Gemini after the user requests/consents; they do not include conversation history. Continuous vision sends frames and analysis prompts to Gemini Live only while it is enabled with consent. Captures are not saved to SQLite.
 - Clap detection analyzes audio locally and does not record or transmit microphone blocks.
+- By default, up to 12 saved memories and future reminders are included in text or spoken chat context. Turn off “Incluir lembranças salvas no contexto enviado à IA” in Settings to keep them local. SQLite history and memories are not encrypted.
 - API keys and contacts are stored in the user's credential vault. OAuth tokens and settings are stored in private application-data folders outside the repository.
 - SQLite history stays on the computer and is not encrypted; on Linux/macOS, JARVIS restricts file and directory permissions to the current account. On Windows, it uses the current user's application-data folder.
 - Emails require confirmation. WhatsApp messages are prepared for review; the final send is manual.
@@ -273,20 +275,20 @@ python -m jarvis
 
 ## Ativação por palavra-chave, privacidade e atualizações
 
-Em **Configurações → Voz, visão e HUD**, escolha “Palavra-chave · Hey Jarvis” e ligue a escuta. O detector openWakeWord processa o áudio localmente e busca a frase “Hey Jarvis”; no primeiro uso, baixa os modelos necessários para detecção offline. Depois da detecção, o trecho do comando é enviado à Groq para transcrição. A opção “Fala contínua” permanece disponível.
+Em **Configurações → Voz, visão e HUD**, escolha “Palavra-chave · Hey Jarvis” e ligue a escuta. O detector openWakeWord processa o áudio localmente e busca “Hey Jarvis”; no primeiro uso, baixa o modelo para detecção offline. O comando continua sendo capturado até uma pausa de silêncio e então é enviado à Groq para transcrição. A opção “Fala contínua” permanece disponível.
 
 Os perfis de privacidade são **Manual**, **Privado**, **Voz** e **Tela**. O perfil Privado desliga microfone, visão e detecção de aplausos. Tela continua pedindo o consentimento já exibido pelo aplicativo. Os indicadores no painel refletem o estado ativo e o provedor.
 
 Crie ações rápidas em Configurações. Cada frase configurada chama o mesmo despachante de comandos locais do aplicativo, preservando suas confirmações e validações.
 
-Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.3.0`.
+Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.4.0`.
 
 O modo de palavra-chave usa openWakeWord, cujos modelos pré-treinados são descritos no [repositório oficial](https://github.com/dscripka/openWakeWord).
 
 
 ### English: wake-word activation, privacy and updates
 
-In **Settings → Voice, vision and HUD**, choose “Wake word · Hey Jarvis” and enable listening. The openWakeWord detector processes audio locally and looks for “Hey Jarvis”; on first use, it downloads the required models for offline detection. After detection, the spoken command is sent to Groq for transcription. “Continuous speech” remains available.
+In **Settings → Voice, vision and HUD**, choose “Wake word · Hey Jarvis” and enable listening. The openWakeWord detector processes audio locally and looks for “Hey Jarvis”; on first use, it downloads the model for offline detection. The command is captured until a pause in speech, then sent to Groq for transcription. “Continuous speech” remains available.
 
 Privacy profiles are **Manual**, **Private**, **Voice** and **Screen**. Private turns off the microphone, screen vision and clap detection. Screen mode still shows the app’s consent prompt before continuous viewing starts. Dashboard indicators show the active states and provider configuration.
 
@@ -295,3 +297,12 @@ Create, use and remove configurable quick actions in Settings. Each phrase calls
 To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.3.0.
 
 Wake-word detection uses [openWakeWord](https://github.com/dscripka/openWakeWord).
+
+
+## Versão 0.4.0 · painel e memória permanente
+
+A versão 0.4.0 traz o painel simplificado inspirado no conceito visual enviado: versão atual no núcleo, monitor real de CPU/RAM/disco, mapa visual de memória e prévia local ao vivo da tela. A área “Active Agents” e cartões demonstrativos foram removidos. Voz mãos livres usa “Hey Jarvis” por padrão quando ativada nas preferências. Para salvar uma informação, diga ou escreva “Jarvis, lembra que meu planejamento escolar está no caderno azul”. Para criar um prazo, use uma data: “Jarvis, me lembra 1 dia antes de entregar o trabalho dia 18/11/2027”. No próximo início do JARVIS em que o horário do alerta já tiver chegado, ele mostra o lembrete. As lembranças ficam no SQLite local e podem ser revisadas ou excluídas em **Painel → Ver lembranças e lembretes**.
+
+## Version 0.4.0 · dashboard and long-term memory
+
+Version 0.4.0 adds the streamlined dashboard inspired by the supplied visual: current app version, real CPU/RAM/disk monitor, memory map, and a live local screen preview. The “Active Agents” area and sample cards were removed. Hands-free voice uses “Hey Jarvis” by default when enabled in Settings. To save a fact, say or type “Jarvis, remember that my school plan is in the blue notebook.” To set a due date, include a date: “Jarvis, me lembra 1 dia antes de entregar o trabalho dia 18/11/2027.” JARVIS displays the reminder the next time it starts after the alert time. Memories stay in local SQLite and can be reviewed or deleted from **Dashboard → View memories and reminders**.
