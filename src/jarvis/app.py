@@ -123,10 +123,13 @@ class LiveVisionWorker(QThread):
     async def _stream(self, genai, types, api_key: str | None):
         """Envia imagens pela sessão Live e renova a sessão antes do limite de duração."""
         import asyncio
+        import sounddevice as sd
 
         if not api_key:
             raise RuntimeError("Configure a chave Gemini para usar visão contínua.")
         client = genai.Client(api_key=api_key)
+        audio_output = None
+        audio_error_reported = False
         try:
             while self._active:
                 async with client.aio.live.connect(
@@ -134,6 +137,7 @@ class LiveVisionWorker(QThread):
                     config={"response_modalities": ["AUDIO"], "output_audio_transcription": {}},
                 ) as session:
                     async def receive_updates():
+                        nonlocal audio_output, audio_error_reported
                         async for message in session.receive():
                             if not self._active:
                                 break
@@ -142,6 +146,27 @@ class LiveVisionWorker(QThread):
                             text = getattr(transcript, "text", "").strip() if transcript else ""
                             if text:
                                 self.observation.emit(text)
+                            model_turn = getattr(content, "model_turn", None) if content else None
+                            for part in (getattr(model_turn, "parts", ()) if model_turn else ()):
+                                audio = getattr(part, "inline_data", None)
+                                data = getattr(audio, "data", None) if audio else None
+                                if data and audio_output is not False:
+                                    try:
+                                        if audio_output is None:
+                                            audio_output = sd.RawOutputStream(
+                                                samplerate=24_000, channels=1, dtype="int16")
+                                            audio_output.start()
+                                        # Este worker já roda fora da UI; a escrita bloqueante não congela o HUD.
+                                        audio_output.write(data)
+                                    except Exception as exc:
+                                        if audio_output is not None:
+                                            audio_output.stop()
+                                            audio_output.close()
+                                        audio_output = False
+                                        if not audio_error_reported:
+                                            self.failed.emit(
+                                                f"Não foi possível reproduzir a voz da Gemini Live: {exc}")
+                                            audio_error_reported = True
 
                     receiver = asyncio.create_task(receive_updates())
                     try:
@@ -168,6 +193,9 @@ class LiveVisionWorker(QThread):
                 if self._active:
                     await asyncio.sleep(0.2)
         finally:
+            if audio_output not in (None, False):
+                audio_output.stop()
+                audio_output.close()
             await client.aio.aclose()
 
     def stop(self):
@@ -735,8 +763,9 @@ class JarvisWindow(QMainWindow):
             answer = QMessageBox.warning(
                 self, "Visão contínua da tela",
                 "O JARVIS transmitirá imagens do monitor principal à Gemini Live, em até um "
-                "quadro por segundo. As observações transcritas aparecerão no histórico do HUD. "
-                "As imagens e o áudio gerado passam pelo serviço Google e podem consumir cota. A conexão "
+                "quadro por segundo. As observações transcritas aparecerão no histórico do HUD e "
+                "a voz será reproduzida no computador. Imagens e áudio gerado passam pelo Google "
+                "e podem consumir cota. A conexão "
                 "será renovada periodicamente; você pode parar a qualquer momento. Iniciar?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No)

@@ -20,7 +20,7 @@ Licença: [MIT](LICENSE).
 - Uma conversa única, sem sessões separadas. Todo o histórico é persistido em SQLite entre inicializações, com botão para apagar a memória local.
 - Comando por voz: o microfone abre somente após pressionar **Falar**, acompanha a fala e encerra após cerca de 1,15 segundo de silêncio ou pelo botão de parada. Groq/Whisper transcreve e uma voz sintetizada localmente lê a resposta. Há um limite de segurança de três minutos por gravação.
 - Comandos por voz ou texto para abrir aplicativos autorizados, digitar texto e pressionar teclas comuns, sempre com confirmação e escopo limitado.
-- Análise da tela por captura explícita ou observação contínua opcional com Gemini Live, até um quadro por segundo. Depois de cada cinco quadros, envia um pedido de análise. A observação pede consentimento, transmite imagens e pode consumir cota da API; a conexão é renovada periodicamente.
+- Análise da tela por captura explícita ou observação contínua opcional com Gemini Live, até um quadro por segundo. Depois de cada cinco quadros, envia um pedido de análise; as observações são exibidas no histórico e a voz é reproduzida localmente. A observação pede consentimento, transmite imagens e pode consumir cota da API; a conexão é renovada periodicamente.
 - Abertura confirmada de aplicativos numa lista fixa: Bloco de Notas, Calculadora e Explorador de Arquivos.
 - Player no HUD para arquivos locais e URLs, além do YouTube incorporado: cole uma URL ou pesquise o nome de uma música, escolha um resultado e reproduza na página oficial sem baixar a faixa. O painel pode ser recolhido enquanto o áudio toca. Baixar áudio por URL é uma opção separada que pede confirmação.
 - Gmail por OAuth de desktop, com permissão limitada a enviar mensagens e confirmação antes de cada envio.
@@ -143,7 +143,7 @@ License: [MIT](LICENSE).
 - One ongoing conversation, with no separate sessions. The full history is stored in SQLite between app launches, with a button to clear local memory.
 - Voice commands: the microphone opens only after pressing **Speak**, follows the user's speech, and stops after about 1.15 seconds of silence or when the stop button is pressed. Groq/Whisper transcribes the recording and a local speech synthesizer reads the response. Each recording has a three-minute safety limit.
 - Voice or text commands to open allowed apps, type text, and press common keys, always with confirmation and limited scope.
-- Screen analysis on demand or optional continuous observation with Gemini Live, up to one frame per second. It sends an analysis prompt after every five frames. Observation asks for consent, streams images, and may use API quota; the connection is renewed periodically.
+- Screen analysis on demand or optional continuous observation with Gemini Live, up to one frame per second. It sends an analysis prompt after every five frames; observations appear in the history and speech is played locally. Observation asks for consent, streams images, and may use API quota; the connection is renewed periodically.
 - Confirmed opening of a fixed list of apps: Notepad, Calculator, and File Explorer.
 - HUD player for local files and URLs, plus YouTube embedded in the interface: paste a URL or search for a song, choose a result, and play it on the official page without downloading the track. The panel can be collapsed while audio plays. Downloading audio from a URL is a separate option that asks for confirmation.
 - Gmail desktop OAuth integration, limited to sending messages, with confirmation before each send.
