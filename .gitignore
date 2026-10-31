@@ -5,6 +5,10 @@
 *.key
 settings.json
 *.sqlite3
+gmail-oauth-client.json
+gmail-token.json
+credentials*.json
+token*.json
 __pycache__/
 *.py[cod]
 .venv/

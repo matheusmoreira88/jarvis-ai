@@ -2,14 +2,20 @@
 from __future__ import annotations
 
 import sys
-from PySide6.QtCore import QThread, Signal, QUrl
+import html
+import re
+from PySide6.QtCore import QThread, Signal, QUrl, QTimer
 from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QLabel,
                                QMainWindow, QPushButton, QTextEdit, QVBoxLayout, QWidget,
-                               QMessageBox, QHBoxLayout, QFileDialog)
+                               QMessageBox, QHBoxLayout, QFileDialog, QComboBox)
+from PySide6.QtWidgets import (QCheckBox, QTextBrowser, QSystemTrayIcon, QMenu, QStyle)
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtCore import QStandardPaths
 
 from . import memory
-from .providers import analyze_image, ask_gemini, transcribe_groq
+from .providers import analyze_image, ask_assistant, transcribe_groq
 from .settings import get_secret, save_secret, load_settings, save_settings
 from .vision import capture_primary_screen
 from .voice import record_utterance, speak
@@ -22,10 +28,11 @@ class ReplyWorker(QThread):
     finished_text = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, prompt: str, mode: str = "text"):
+    def __init__(self, prompt: str, mode: str = "text", search_web: bool = False):
         super().__init__()
         self.prompt = prompt
         self.mode = mode
+        self.search_web = search_web
 
     def run(self):
         try:
@@ -44,7 +51,7 @@ class ReplyWorker(QThread):
                 answer = analyze_image(prompt, image)
                 self.finished_text.emit("__ANSWER__" + answer)
                 return
-            answer = ask_gemini(prompt, memory.recent())
+            answer = ask_assistant(prompt, memory.recent(), self.search_web)
             if self.mode == "voice":
                 self.finished_text.emit("__ANSWER__" + answer)
                 speak(answer)
@@ -81,6 +88,111 @@ class GmailWorker(QThread):
             self.failed.emit(str(exc))
 
 
+class LiveVisionWorker(QThread):
+    """Observa a tela em intervalos e envia capturas ao Gemini após consentimento."""
+    observation = Signal(str)
+    failed = Signal(str)
+
+    def __init__(self, interval_seconds: int = 10):
+        super().__init__()
+        self.interval_seconds = interval_seconds
+        self._active = True
+
+    def run(self):
+        try:
+            while self._active:
+                image = capture_primary_screen()
+                text = analyze_image(
+                    "Observe esta captura recente da tela. Resuma somente mudanças ou itens "
+                    "importantes visíveis; se não houver algo relevante, diga isso brevemente.", image)
+                if self._active:
+                    self.observation.emit(text)
+                for _ in range(self.interval_seconds * 10):
+                    if not self._active:
+                        break
+                    self.msleep(100)
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
+    def stop(self):
+        self._active = False
+
+
+class WhatsAppWebDialog(QDialog):
+    def __init__(self, url: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("WhatsApp · JARVIS HUD"); self.resize(1080, 760)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Revise a conversa e pressione Enviar no WhatsApp Web."))
+        self.web = QWebEngineView(self)
+        profile = QWebEngineProfile("jarvis-whatsapp", self)
+        storage = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
+        profile.setPersistentStoragePath(storage + "/whatsapp-profile")
+        profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
+        self.web.setPage(QWebEnginePage(profile, self.web)); self.web.setUrl(QUrl(url))
+        layout.addWidget(self.web, 1)
+
+
+class ContactsDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        from .whatsapp import contacts
+        self.setWindowTitle("Contatos permitidos · WhatsApp"); self.items = contacts()
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Somente estes contatos podem receber mensagens preparadas pelo JARVIS."))
+        self.listing = QComboBox(); layout.addWidget(self.listing)
+        row = QHBoxLayout(); self.name = QLineEdit(); self.name.setPlaceholderText("Nome")
+        self.phone = QLineEdit(); self.phone.setPlaceholderText("Telefone internacional com DDI")
+        add = QPushButton("Adicionar"); remove = QPushButton("Remover selecionado")
+        add.clicked.connect(self.add_contact); remove.clicked.connect(self.remove_contact)
+        row.addWidget(self.name); row.addWidget(self.phone); row.addWidget(add); row.addWidget(remove)
+        layout.addLayout(row); self.refresh()
+
+    def refresh(self):
+        self.listing.clear()
+        for contact in self.items:
+            self.listing.addItem(f"{contact['name']} · +{contact['phone']}")
+        if not self.items:
+            self.listing.addItem("Lista vazia")
+
+    def add_contact(self):
+        name, phone = self.name.text().strip(), "".join(c for c in self.phone.text() if c.isdigit())
+        if not name or len(phone) < 8:
+            QMessageBox.warning(self, "Contato", "Informe nome e telefone com DDI."); return
+        self.items.append({"name": name, "phone": phone})
+        from .whatsapp import save_contacts
+        save_contacts(self.items); self.name.clear(); self.phone.clear(); self.refresh()
+
+    def remove_contact(self):
+        if self.items:
+            index = self.listing.currentIndex()
+            if index < 0 or index >= len(self.items):
+                return
+            self.items.pop(index)
+            from .whatsapp import save_contacts
+            save_contacts(self.items); self.refresh()
+
+
+class WhatsAppComposeDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        from .whatsapp import contacts
+        self.items = contacts(); self.setWindowTitle("Preparar mensagem WhatsApp")
+        layout = QFormLayout(self); self.recipient = QComboBox(); self.message = QTextEdit()
+        for contact in self.items:
+            self.recipient.addItem(contact["name"], contact["phone"])
+        layout.addRow("Contato permitido", self.recipient); layout.addRow("Mensagem", self.message)
+        button = QPushButton("Revisar mensagem"); button.clicked.connect(self.accept); layout.addRow(button)
+
+    @property
+    def phone(self) -> str:
+        return str(self.recipient.currentData() or "")
+
+    @property
+    def message_text(self) -> str:
+        return self.message.toPlainText().strip()
+
+
 class SetupDialog(QDialog):
     def __init__(self):
         super().__init__()
@@ -89,6 +201,10 @@ class SetupDialog(QDialog):
         self.gemini = QLineEdit(); self.gemini.setEchoMode(QLineEdit.EchoMode.Password)
         self.groq = QLineEdit(); self.groq.setEchoMode(QLineEdit.EchoMode.Password)
         self.email = QLineEdit(); self.phone = QLineEdit()
+        self.provider = QComboBox(); self.provider.addItem("Gemini", "gemini")
+        self.provider.addItem("Groq", "groq")
+        self.provider.setCurrentIndex(0 if load_settings().get("provider", "gemini") == "gemini" else 1)
+        form.addRow("Provedor de conversa", self.provider)
         form.addRow("Chave Gemini", self.gemini)
         form.addRow("Chave Groq (opcional)", self.groq)
         form.addRow("E-mail (opcional, local)", self.email)
@@ -103,6 +219,7 @@ class SetupDialog(QDialog):
             save_secret("groq", self.groq.text())
             save_secret("user_email", self.email.text())
             save_secret("user_phone", self.phone.text())
+            save_settings({**load_settings(), "provider": self.provider.currentData()})
             self.accept()
         except Exception as exc:
             QLabel(f"Não foi possível acessar o cofre do sistema: {exc}", self).show()
@@ -118,7 +235,10 @@ class JarvisWindow(QMainWindow):
         head = QLabel("JARVIS  /  ASSISTENTE PESSOAL")
         head.setStyleSheet("font-size:22px;font-weight:700;color:#9fb2ff;padding:8px")
         layout.addWidget(head)
-        self.chat = QTextEdit(); self.chat.setReadOnly(True); layout.addWidget(self.chat, 1)
+        self.chat = QTextBrowser(); self.chat.setOpenExternalLinks(True); layout.addWidget(self.chat, 1)
+        self.search_checkbox = QCheckBox("Pesquisar na web com Gemini nesta solicitação")
+        self.search_checkbox.setToolTip("Ativa Google Search grounding; a API pode consumir cota adicional.")
+        layout.addWidget(self.search_checkbox)
         self.media_panel = QWidget(); media_layout = QVBoxLayout(self.media_panel)
         media_layout.setContentsMargins(6, 4, 6, 4)
         media_header = QHBoxLayout()
@@ -151,6 +271,10 @@ class JarvisWindow(QMainWindow):
         talk.clicked.connect(self.talk); actions.addWidget(talk)
         vision = QPushButton("▣ Analisar minha tela…")
         vision.clicked.connect(self.analyze_screen); actions.addWidget(vision)
+        self.live_vision_button = QPushButton("Iniciar visão contínua")
+        self.live_vision_button.setCheckable(True)
+        self.live_vision_button.clicked.connect(self.toggle_live_vision)
+        actions.addWidget(self.live_vision_button)
         self.clap_button = QPushButton("👏 Ativar duplo aplauso")
         self.clap_button.setCheckable(True)
         self.clap_button.clicked.connect(self.toggle_clap_detection)
@@ -167,17 +291,37 @@ class JarvisWindow(QMainWindow):
         compose_gmail = QPushButton("Escrever e-mail…")
         compose_gmail.clicked.connect(self.compose_gmail); gmail_row.addWidget(compose_gmail)
         layout.addLayout(gmail_row)
+        wa_row = QHBoxLayout()
+        manage_contacts = QPushButton("Contatos permitidos…")
+        manage_contacts.clicked.connect(self.manage_whatsapp_contacts)
+        wa_row.addWidget(manage_contacts)
+        send_whatsapp = QPushButton("Preparar mensagem WhatsApp…")
+        send_whatsapp.clicked.connect(self.compose_whatsapp)
+        wa_row.addWidget(send_whatsapp)
+        layout.addLayout(wa_row)
         autostart = QPushButton("Ativar início automático")
         autostart.clicked.connect(self.enable_autostart); layout.addWidget(autostart)
+        disable_autostart = QPushButton("Desativar início automático")
+        disable_autostart.clicked.connect(self.disable_autostart); layout.addWidget(disable_autostart)
         for role, body in memory.recent(30): self._append(role, body)
         self.clap_worker = None
+        self.live_vision_worker = None
+        self._close_when_vision_stops = False
+        self._quit_requested = False
+        self.tray_icon = None
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self._create_tray_icon()
         if load_settings().get("clap_enabled", False):
             self.clap_button.setChecked(True)
             self._start_clap_worker()
 
     def _append(self, role: str, body: str):
         label = "Você" if role == "user" else "JARVIS"
-        self.chat.append(f"<b>{label}</b><br>{body.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')}<br>")
+        safe_body = html.escape(body).replace("\n", "<br>")
+        safe_body = re.sub(
+            r"(https://[^\s&lt;&gt;]+)",
+            lambda match: f'<a href="{match.group(1)}">{match.group(1)}</a>', safe_body)
+        self.chat.append(f"<b>{label}</b><br>{safe_body}<br>")
 
     def send(self):
         prompt = self.input.text().strip()
@@ -199,11 +343,15 @@ class JarvisWindow(QMainWindow):
         self._start(prompt, "text")
 
     def _start(self, prompt: str, mode: str):
+        search_web = self.search_checkbox.isChecked() and mode in {"text", "voice"}
+        if search_web and not get_secret("gemini"):
+            self.error("Pesquisa na web usa Gemini. Cadastre uma chave Gemini em Configurações.")
+            return
         if mode == "voice": self._stop_clap_worker()
         if mode != "screen":
             self._append("user", prompt); memory.add("user", prompt)
         self.input.setEnabled(False); self.status.setText("Capturando/transmitindo somente a solicitação atual…")
-        self.worker = ReplyWorker(prompt, mode)
+        self.worker = ReplyWorker(prompt, mode, search_web)
         self.worker.finished_text.connect(self._worker_event); self.worker.failed.connect(self.error)
         self.worker.finished.connect(lambda: self.status.setText("Pronto · microfone fechado"))
         if mode == "voice": self.worker.finished.connect(self._resume_clap_worker)
@@ -270,6 +418,51 @@ class JarvisWindow(QMainWindow):
         self.input.clear()
         self._start(prompt, "screen")
 
+    def toggle_live_vision(self, enabled: bool):
+        if enabled:
+            if not get_secret("gemini"):
+                QMessageBox.warning(self, "Gemini necessário",
+                                    "A visão de tela usa Gemini. Cadastre a chave em Configurações.")
+                self.live_vision_button.setChecked(False)
+                return
+            answer = QMessageBox.warning(
+                self, "Visão contínua da tela",
+                "A cada 10 segundos, uma captura do monitor principal será enviada ao Gemini "
+                "para análise. Isso pode consumir cota da API e expõe o conteúdo visível ao "
+                "provedor. Você pode parar a qualquer momento. Iniciar?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No)
+            if answer != QMessageBox.StandardButton.Yes:
+                self.live_vision_button.setChecked(False)
+                return
+            self.live_vision_worker = LiveVisionWorker()
+            self.live_vision_worker.observation.connect(self._live_observation)
+            self.live_vision_worker.failed.connect(self.error)
+            self.live_vision_worker.finished.connect(self._live_vision_finished)
+            self.live_vision_worker.start()
+            self.live_vision_button.setText("Parar visão contínua")
+            self.status.setText("Visão contínua ativa · capturas a cada 10 segundos")
+        else:
+            self._stop_live_vision()
+
+    def _live_observation(self, text: str):
+        self._append("assistant", "[Observação da tela] " + text)
+        memory.add("assistant", "[Observação da tela] " + text)
+
+    def _live_vision_finished(self):
+        self.live_vision_button.setChecked(False)
+        self.live_vision_button.setText("Iniciar visão contínua")
+        self.live_vision_button.setEnabled(True)
+        self.live_vision_worker = None
+        self.status.setText("Visão contínua parada")
+        if self._close_when_vision_stops:
+            QTimer.singleShot(0, self.close)
+
+    def _stop_live_vision(self):
+        worker = self.live_vision_worker
+        if worker and worker.isRunning():
+            worker.stop()
+
     def _worker_event(self, value: str):
         if value == "__REC__":
             self.status.setText("Gravando até 15 s… aguarde o fim da gravação.")
@@ -285,11 +478,13 @@ class JarvisWindow(QMainWindow):
         memory.add("assistant", text); self._append("assistant", text); self.input.setEnabled(True); self.input.setFocus()
 
     def error(self, text: str):
-        self.chat.append(f"<span style='color:#ff8998'>Falha: {text}</span>")
+        self.chat.append(f"<span style='color:#ff8998'>Falha: {html.escape(text)}</span>")
         self.input.setEnabled(True)
 
     def setup(self):
         dialog = SetupDialog()
+        dialog.gemini.setText(get_secret("gemini") or "")
+        dialog.groq.setText(get_secret("groq") or "")
         dialog.email.setText(get_secret("user_email") or "")
         dialog.phone.setText(get_secret("user_phone") or "")
         dialog.exec()
@@ -301,6 +496,13 @@ class JarvisWindow(QMainWindow):
         try:
             set_enabled(True)
             QMessageBox.information(self, "JARVIS", "Início automático ativado.")
+        except Exception as exc:
+            self.error(str(exc))
+
+    def disable_autostart(self):
+        try:
+            set_enabled(False)
+            QMessageBox.information(self, "JARVIS", "Início automático desativado.")
         except Exception as exc:
             self.error(str(exc))
 
@@ -347,8 +549,54 @@ class JarvisWindow(QMainWindow):
         if self.isFullScreen(): self.showNormal()
         else: self.showFullScreen()
 
+    def _create_tray_icon(self):
+        """Mantém o HUD disponível na bandeja quando a janela é fechada."""
+        self.tray_icon = QSystemTrayIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon), self)
+        self.tray_icon.setToolTip("JARVIS AI · assistente em segundo plano")
+        menu = QMenu()
+        show_action = menu.addAction("Abrir JARVIS")
+        show_action.triggered.connect(self.show_from_tray)
+        menu.addSeparator()
+        exit_action = menu.addAction("Encerrar")
+        exit_action.triggered.connect(self.quit_from_tray)
+        self.tray_icon.setContextMenu(menu)
+        self.tray_icon.activated.connect(self._tray_activated)
+        self.tray_icon.show()
+
+    def _tray_activated(self, reason):
+        if reason in {QSystemTrayIcon.ActivationReason.Trigger,
+                      QSystemTrayIcon.ActivationReason.DoubleClick}:
+            self.show_from_tray()
+
+    def show_from_tray(self):
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def quit_from_tray(self):
+        self._quit_requested = True
+        self.close()
+
     def closeEvent(self, event):
+        if self.live_vision_worker and self.live_vision_worker.isRunning():
+            self._close_when_vision_stops = True
+            self.live_vision_button.setEnabled(False)
+            self.status.setText("Aguardando a análise atual terminar para fechar com segurança…")
+            self._stop_live_vision()
+            event.ignore()
+            return
+        self._stop_live_vision()
+        if self.tray_icon and self.tray_icon.isVisible() and not self._quit_requested:
+            self.hide()
+            self.tray_icon.showMessage(
+                "JARVIS AI", "O JARVIS continua ativo na bandeja do sistema.",
+                QSystemTrayIcon.MessageIcon.Information, 2500)
+            event.ignore()
+            return
         self._stop_clap_worker()
+        if self.tray_icon:
+            self.tray_icon.hide()
         super().closeEvent(event)
 
     def configure_gmail(self):
@@ -382,12 +630,54 @@ class JarvisWindow(QMainWindow):
         self.gmail_worker.failed.connect(self.error)
         self.gmail_worker.start()
 
+    def manage_whatsapp_contacts(self):
+        ContactsDialog(self).exec()
+
+    def compose_whatsapp(self):
+        from .whatsapp import draft_url
+
+        dialog = WhatsAppComposeDialog(self)
+        if not dialog.items:
+            QMessageBox.information(
+                self, "WhatsApp", "Adicione primeiro um contato permitido.")
+            return
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        if not dialog.phone or not dialog.message_text:
+            QMessageBox.warning(self, "WhatsApp", "Escolha um contato e escreva a mensagem.")
+            return
+        contact = next((c["name"] for c in dialog.items if c["phone"] == dialog.phone), "Contato")
+        preview = f"Para: {contact} (+{dialog.phone})\n\n{dialog.message_text[:800]}"
+        if QMessageBox.question(self, "Revisar mensagem", preview) != QMessageBox.StandardButton.Yes:
+            return
+        url = draft_url(dialog.phone, dialog.message_text)
+        try:
+            self.whatsapp_dialog = WhatsAppWebDialog(url, self)
+            self.whatsapp_dialog.exec()
+        except Exception as exc:
+            QMessageBox.warning(
+                self, "WhatsApp Web indisponível",
+                f"Não foi possível abrir o WhatsApp dentro do JARVIS: {exc}\n"
+                "Confira se Qt WebEngine está instalado e tente novamente.")
+
 
 def main():
     app = QApplication(sys.argv)
-    if not get_secret("gemini"):
+    app.setApplicationName("JARVIS AI")
+    app.setOrganizationName("Matheus Moreira")
+    selected_provider = load_settings().get("provider", "gemini")
+    if not get_secret(selected_provider):
         dialog = SetupDialog()
+        dialog.gemini.setText(get_secret("gemini") or "")
+        dialog.groq.setText(get_secret("groq") or "")
+        dialog.email.setText(get_secret("user_email") or "")
+        dialog.phone.setText(get_secret("user_phone") or "")
         if dialog.exec() != QDialog.DialogCode.Accepted: return
+        selected_provider = load_settings().get("provider", "gemini")
+        if not get_secret(selected_provider):
+            QMessageBox.critical(None, "Configuração necessária",
+                f"Cadastre uma chave {selected_provider.title()} para iniciar.")
+            return
     window = JarvisWindow()
     if "--background" in sys.argv: window.showMinimized()
     else: window.show()
