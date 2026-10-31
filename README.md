@@ -24,6 +24,7 @@ Se o projeto for útil, [deixe uma estrela no GitHub](https://github.com/matheus
 - WhatsApp Web dentro do HUD, contatos permitidos guardados localmente e mensagens preparadas para revisão. A interface de chamadas do WhatsApp Web pode ser usada no HUD se o serviço e o Qt WebEngine forem compatíveis; o usuário atende e encerra pela própria interface, após permitir o microfone ou a câmera quando solicitado.
 - Opção para iniciar minimizado com o login do Windows ou Linux e permanecer na bandeja do sistema.
 - Atalho opcional de duas palmas para alternar a tela cheia. A detecção é local, requer ativação expressa e mantém o microfone aberto enquanto estiver ligada.
+- Ferramenta para propor mudanças no próprio código: escolhe um módulo, pede uma proposta ao Gemini, exibe o arquivo para revisão e só grava após duas confirmações. Valida sintaxe e cria backup local antes de substituir o módulo.
 
 ### Requisitos
 
@@ -106,7 +107,7 @@ O aplicativo não lê mensagens nem envia sem a ação final do usuário. Em uma
 
 ### Limitações conhecidas
 
-O controle do computador está limitado aos aplicativos e ações confirmadas. A visão Live transmite quadros individuais (não vídeo de alta taxa de quadros) e depende da disponibilidade da Gemini Live API; as sessões são renovadas periodicamente. Chamadas não são atendidas automaticamente. A reprodução de arquivos e URLs depende dos formatos suportados pelo Qt Multimedia. Downloads devem respeitar direitos autorais e termos do site. O JARVIS ainda não altera o próprio código.
+O controle do computador está limitado aos aplicativos e ações confirmadas. A visão Live transmite quadros individuais (não vídeo de alta taxa de quadros) e depende da disponibilidade da Gemini Live API; as sessões são renovadas periodicamente. Chamadas não são atendidas automaticamente. A reprodução de arquivos e URLs depende dos formatos suportados pelo Qt Multimedia. Downloads devem respeitar direitos autorais e termos do site. Alterações no próprio código exigem revisão explícita e reinício do aplicativo.
 
 ### Desenvolvimento
 
@@ -143,6 +144,7 @@ If you find the project useful, [leave a star on GitHub](https://github.com/math
 - WhatsApp Web inside the HUD, with an allowlist stored locally and messages prepared for review. WhatsApp Web's call interface can also be used in the HUD if the service and Qt WebEngine are compatible; the user answers and ends calls in that interface, after granting microphone or camera access when requested.
 - Option to start minimized at Windows or Linux login and remain in the system tray.
 - Optional double-clap shortcut to toggle full screen. Detection runs locally, requires explicit activation, and keeps the microphone open while enabled.
+- Tool for proposing changes to its own source: select a module, ask Gemini for a proposal, review the complete file, and confirm twice before writing. Syntax is checked and a local backup is created before replacing the module.
 
 ### Requirements
 
@@ -225,7 +227,7 @@ The app does not read messages or send without the user's final action. For call
 
 ### Known limitations
 
-Computer control is limited to the listed apps and confirmed actions. Live vision streams individual frames (not high-frame-rate video) and depends on Gemini Live API availability; sessions are renewed periodically. Calls are not answered automatically. Playback of files and URLs depends on formats supported by Qt Multimedia. Downloads must comply with copyright and site terms. JARVIS does not modify its own source code yet.
+Computer control is limited to the listed apps and confirmed actions. Live vision streams individual frames (not high-frame-rate video) and depends on Gemini Live API availability; sessions are renewed periodically. Calls are not answered automatically. Playback of files and URLs depends on formats supported by Qt Multimedia. Downloads must comply with copyright and site terms. Source changes require explicit review and an app restart.
 
 ### Development
 

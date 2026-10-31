@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QL
                                QMessageBox, QHBoxLayout, QFileDialog, QComboBox)
 from PySide6.QtWidgets import (QCheckBox, QTextBrowser, QSystemTrayIcon, QMenu, QStyle,
                                QStackedWidget, QTabWidget)
+from PySide6.QtWidgets import QInputDialog, QPlainTextEdit
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEnginePermission
@@ -423,6 +424,9 @@ class JarvisWindow(QMainWindow):
         disable_autostart = QPushButton("Desativar início automático")
         disable_autostart.clicked.connect(self.disable_autostart); startup_row.addWidget(disable_autostart, 1)
         integrations_layout.addLayout(startup_row)
+        modify_source = QPushButton("Propor alteração no código do JARVIS…")
+        modify_source.clicked.connect(self.propose_source_change)
+        integrations_layout.addWidget(modify_source)
         integrations_layout.addStretch(1)
         self.tabs.addTab(integrations_page, "Integrações")
         for role, body in memory.recent(30): self._append(role, body)
@@ -809,6 +813,54 @@ class JarvisWindow(QMainWindow):
         dialog.email.setText(get_secret("user_email") or "")
         dialog.phone.setText(get_secret("user_phone") or "")
         dialog.exec()
+
+    def propose_source_change(self):
+        """Só altera o próprio programa após gerar, exibir e confirmar uma proposta."""
+        from .self_modify import SOURCE_ROOT, apply_file_update, propose_file_update
+
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Escolher módulo do JARVIS", str(SOURCE_ROOT), "Python (*.py)")
+        if not path:
+            return
+        request, accepted = QInputDialog.getMultiLineText(
+            self, "Descrever alteração", "O que você quer que o JARVIS mude neste arquivo?")
+        if not accepted or not request.strip():
+            return
+        try:
+            proposal = propose_file_update(path, request)
+        except Exception as exc:
+            self.error(str(exc))
+            return
+
+        preview = QDialog(self)
+        preview.setWindowTitle("Revisar proposta de alteração")
+        preview.resize(900, 700)
+        layout = QVBoxLayout(preview)
+        note = QLabel("Revise o arquivo completo. A aplicação cria um backup local antes de gravar.")
+        layout.addWidget(note)
+        editor = QPlainTextEdit()
+        editor.setPlainText(proposal)
+        editor.setReadOnly(True)
+        layout.addWidget(editor, 1)
+        controls = QHBoxLayout()
+        apply_button = QPushButton("Confirmar e aplicar")
+        cancel_button = QPushButton("Cancelar")
+        controls.addWidget(apply_button)
+        controls.addWidget(cancel_button)
+        layout.addLayout(controls)
+        apply_button.clicked.connect(preview.accept)
+        cancel_button.clicked.connect(preview.reject)
+        if preview.exec() != QDialog.DialogCode.Accepted:
+            return
+        if QMessageBox.question(
+            self, "Confirmar gravação",
+            "Aplicar esta versão revisada ao código? Reinicie o JARVIS para carregar a mudança.") != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            backup = apply_file_update(path, proposal)
+            QMessageBox.information(self, "Código atualizado", f"Backup salvo em:\n{backup}")
+        except Exception as exc:
+            self.error(str(exc))
 
     def clear_local_memory(self):
         worker = getattr(self, "worker", None)
