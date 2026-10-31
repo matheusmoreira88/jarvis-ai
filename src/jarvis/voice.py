@@ -80,6 +80,8 @@ def speak(text: str) -> None:
     import pyttsx3
 
     engine = pyttsx3.init()
-    engine.say(text)
-    engine.runAndWait()
-    engine.stop()
+    try:
+        engine.say(text)
+        engine.runAndWait()
+    finally:
+        engine.stop()
