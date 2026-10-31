@@ -160,8 +160,14 @@ class LiveVisionWorker(QThread):
                                         audio_output.write(data)
                                     except Exception as exc:
                                         if audio_output is not None:
-                                            audio_output.stop()
-                                            audio_output.close()
+                                            try:
+                                                audio_output.stop()
+                                            except Exception:
+                                                pass
+                                            try:
+                                                audio_output.close()
+                                            except Exception:
+                                                pass
                                         audio_output = False
                                         if not audio_error_reported:
                                             self.failed.emit(
@@ -193,10 +199,14 @@ class LiveVisionWorker(QThread):
                 if self._active:
                     await asyncio.sleep(0.2)
         finally:
-            if audio_output not in (None, False):
-                audio_output.stop()
-                audio_output.close()
-            await client.aio.aclose()
+            try:
+                if audio_output not in (None, False):
+                    try:
+                        audio_output.stop()
+                    finally:
+                        audio_output.close()
+            finally:
+                await client.aio.aclose()
 
     def stop(self):
         self._active = False
