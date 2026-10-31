@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from threading import Event
 from PySide6.QtCore import QThread, Signal, QUrl, QTimer, QUrlQuery, QStandardPaths, Qt
+from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QLabel,
                                QMainWindow, QPushButton, QTextEdit, QVBoxLayout, QWidget,
                                QMessageBox, QHBoxLayout, QFileDialog, QComboBox)
@@ -419,6 +420,10 @@ class JarvisWindow(QMainWindow):
         assistant_layout.addWidget(QLabel(
             "Comandos locais: ‘abrir calculadora’, ‘digitar: texto’ e ‘pressionar: enter’. "
             "Use também ‘abrir exe: caminho completo’. Ações locais pedem confirmação."))
+        self.load_older_button = QPushButton("Carregar mensagens anteriores")
+        self.load_older_button.clicked.connect(self.load_older_history)
+        self.load_older_button.hide()
+        assistant_layout.addWidget(self.load_older_button)
         self.chat = QTextBrowser(); self.chat.setOpenExternalLinks(True)
         assistant_layout.addWidget(self.chat, 1)
         self.search_checkbox = QCheckBox("Pesquisar na web com Gemini nesta solicitação")
@@ -536,9 +541,11 @@ class JarvisWindow(QMainWindow):
         integrations_layout.addWidget(restore_source)
         integrations_layout.addStretch(1)
         self.tabs.addTab(integrations_page, "Integrações")
-        saved_messages = memory.recent(30)
+        saved_messages = memory.history_page(limit=50)
+        self.oldest_message_id = saved_messages[0][0] if saved_messages else None
         if saved_messages:
-            for role, body in saved_messages: self._append(role, body)
+            for _message_id, role, body in saved_messages: self._append(role, body)
+            self.load_older_button.setVisible(len(saved_messages) == 50)
         else:
             # A tela inicial explica o HUD sem criar uma mensagem falsa no histórico.
             self.chat.setHtml(
@@ -565,13 +572,37 @@ class JarvisWindow(QMainWindow):
             self.clap_button.setChecked(True)
             self._start_clap_worker()
 
-    def _append(self, role: str, body: str):
+    def _message_markup(self, role: str, body: str) -> str:
         label = "Você" if role in {"user", "private_action"} else "JARVIS"
         safe_body = html.escape(body).replace("\n", "<br>")
         safe_body = re.sub(
             r"(https://[^\s&lt;&gt;]+)",
             lambda match: f'<a href="{match.group(1)}">{match.group(1)}</a>', safe_body)
-        self.chat.append(f"<b>{label}</b><br>{safe_body}<br>")
+        return f"<p style='margin:5px 0 14px'><b>{label}</b><br>{safe_body}</p>"
+
+    def _append(self, role: str, body: str):
+        self.chat.append(self._message_markup(role, body))
+
+    def load_older_history(self):
+        """Prepend an earlier page while keeping the current scroll position steady."""
+        if self.oldest_message_id is None:
+            self.load_older_button.hide()
+            return
+        older = memory.history_page(before_id=self.oldest_message_id, limit=50)
+        if not older:
+            self.load_older_button.hide()
+            return
+        bar = self.chat.verticalScrollBar()
+        distance_from_bottom = bar.maximum() - bar.value()
+        cursor = self.chat.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.Start)
+        cursor.insertHtml("".join(
+            self._message_markup(role, body) for _message_id, role, body in older))
+        self.chat.setTextCursor(cursor)
+        bar.setValue(bar.maximum() - distance_from_bottom)
+        self.oldest_message_id = older[0][0]
+        if len(older) < 50:
+            self.load_older_button.hide()
 
     def send(self):
         prompt = self.input.text().strip()

@@ -17,7 +17,7 @@ Licença: [MIT](LICENSE).
 
 - Conversa por texto com Gemini ou Groq, selecionável nas configurações, e pesquisa na web com Gemini com fontes retornadas pela busca.
 - Os dois provedores recebem instruções para reconhecer Matheus Moreira como criador, responder em português e não alegar ações que o aplicativo não executou.
-- Uma conversa única, sem sessões separadas. Todo o histórico é persistido em SQLite entre inicializações, com botão para apagar a memória local.
+- Uma conversa única, sem sessões separadas. Todo o histórico é persistido em SQLite entre inicializações e pode ser percorrido por páginas no HUD, com botão para apagar a memória local.
 - Comando por voz: o microfone abre somente após pressionar **Falar**, acompanha a fala e encerra após cerca de 1,15 segundo de silêncio ou pelo botão de parada. Groq/Whisper transcreve e uma voz sintetizada localmente lê a resposta. Há um limite de segurança de três minutos por gravação.
 - Comandos por voz ou texto para abrir aplicativos autorizados, digitar texto e pressionar teclas comuns, sempre com confirmação e escopo limitado.
 - Análise da tela por captura explícita ou observação contínua opcional com Gemini 3.8 Live, até um quadro por segundo. Depois de cada cinco quadros, envia um pedido de análise; as observações são exibidas no histórico e o áudio de resposta é reproduzido localmente. A observação pede consentimento, transmite imagens e pode consumir cota da API; a conexão é renovada periodicamente.
@@ -141,7 +141,7 @@ License: [MIT](LICENSE).
 
 - Text chat with Gemini or Groq, selectable in Settings, plus Gemini web search with returned source links.
 - Both providers are instructed to recognize Matheus Moreira as the creator, answer in Portuguese, and never claim actions the app did not perform.
-- One ongoing conversation, with no separate sessions. The full history is stored in SQLite between app launches, with a button to clear local memory.
+- One ongoing conversation, with no separate sessions. The full history is stored in SQLite between app launches and can be browsed in pages in the HUD, with a button to clear local memory.
 - Voice commands: the microphone opens only after pressing **Speak**, follows the user's speech, and stops after about 1.15 seconds of silence or when the stop button is pressed. Groq/Whisper transcribes the recording and a local speech synthesizer reads the response. Each recording has a three-minute safety limit.
 - Voice or text commands to open allowed apps, type text, and press common keys, always with confirmation and limited scope.
 - Screen analysis on demand or optional continuous observation with Gemini 3.8 Live, up to one frame per second. It sends an analysis prompt after every five frames; observations appear in the history and response audio is played locally. Observation asks for consent, streams images, and may use API quota; the connection is renewed periodically.
