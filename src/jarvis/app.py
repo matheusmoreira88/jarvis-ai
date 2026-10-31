@@ -26,7 +26,7 @@ from . import memory
 from .providers import analyze_image, ask_assistant, propose_screen_action, transcribe_groq
 from .settings import get_secret, save_secret, load_settings, save_settings
 from .vision import capture_primary_screen
-from .voice import record_utterance, speak
+from .voice import record_utterance, wait_for_spoken_utterance, speak
 from .computer import open_known_app
 from .autostart import set_enabled
 from .claps import ClapWorker
@@ -83,6 +83,53 @@ class ReplyWorker(QThread):
                 self.finished_text.emit("__ANSWER__" + answer)
         except Exception as exc:
             self.failed.emit(str(exc))
+
+
+class VoiceActivationWorker(QThread):
+    """Detecta fala localmente e transcreve somente frases após silêncio."""
+    phrase = Signal(str)
+    state_changed = Signal(str)
+    failed = Signal(str)
+
+    def __init__(self):
+        super().__init__()
+        self._stop_event = Event()
+        self._pause_event = Event()
+
+    def stop(self):
+        self._stop_event.set()
+        self._pause_event.clear()
+
+    def pause(self):
+        self._pause_event.set()
+
+    def resume(self):
+        self._pause_event.clear()
+
+    def run(self):
+        import time
+        while not self._stop_event.is_set():
+            if self._pause_event.is_set():
+                time.sleep(0.08)
+                continue
+            try:
+                self.state_changed.emit("escutando")
+                audio = wait_for_spoken_utterance(
+                    self._stop_event.is_set, self._pause_event.is_set)
+                if audio is None:
+                    continue
+                self._pause_event.set()
+                self.state_changed.emit("transcrevendo")
+                phrase = transcribe_groq(audio).strip()
+                if phrase:
+                    self.phrase.emit(phrase)
+                else:
+                    self._pause_event.clear()
+            except Exception as exc:
+                self.state_changed.emit("erro")
+                self.failed.emit(str(exc))
+                self._pause_event.set()
+        self.state_changed.emit("desligado")
 
 
 class DownloadWorker(QThread):
@@ -316,6 +363,19 @@ class ContactsDialog(QDialog):
             save_contacts(self.items); self.refresh()
 
 
+class AppCatalogWorker(QThread):
+    """Enumerates installed Windows applications without blocking the interface."""
+    loaded = Signal(list)
+    failed = Signal(str)
+
+    def run(self):
+        try:
+            from .computer import list_installed_apps
+            self.loaded.emit(list_installed_apps())
+        except Exception as exc:
+            self.failed.emit(f"Não foi possível listar os aplicativos: {exc}")
+
+
 class InstalledAppsDialog(QDialog):
     """Busca e seleciona apps instalados; a janela não inicia nada por conta própria."""
     def __init__(self, apps: list[dict[str, str]], parent=None):
@@ -424,54 +484,87 @@ class JarvisWindow(QMainWindow):
         self.resize(1280, 860)
         self.setMinimumSize(900, 640)
         self.setStyleSheet("""
-            QMainWindow, QWidget#centralSurface { background: #080d17; color: #e6edf7; }
-            QWidget { color: #e6edf7; font-family: 'Segoe UI'; font-size: 14px; }
+            QMainWindow, QWidget#centralSurface { background: #080b12; color: #edf2fb; }
+            QWidget { color: #edf2fb; font-family: 'Segoe UI'; font-size: 13px; }
             QLabel { background: transparent; }
-            QLabel#brandTitle { color: #f2f7ff; font-size: 27px; font-weight: 750; letter-spacing: 2px; }
-            QLabel#brandSubtitle { color: #7f91aa; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; }
-            QLabel#sectionLabel { color: #8ca0b9; font-size: 10px; font-weight: 750;
-                letter-spacing: 1.2px; padding: 4px 2px 0; }
-            QLabel#statusLabel { color: #86e3c3; background: #0d211f; border: 1px solid #19423b;
-                border-radius: 12px; padding: 9px 14px; }
-            QTabWidget#mainTabs::pane { background: #0d1420; border: 1px solid #1c293b;
-                border-radius: 16px; top: -1px; }
-            QTabWidget#mainTabs QTabBar::tab { background: transparent; color: #8493a8;
-                padding: 12px 22px; margin: 0 4px 8px 0; border-radius: 10px; font-weight: 650; }
-            QTabWidget#mainTabs QTabBar::tab:selected { color: #d8fff2; background: #12302e;
-                border: 1px solid #20534a; }
-            QTabWidget#mainTabs QTabBar::tab:hover:!selected { color: #d7e2f1; background: #111c2c; }
-            QTextBrowser, QTextEdit, QLineEdit, QPlainTextEdit, QComboBox {
-                background: #09111d; color: #e6edf7; border: 1px solid #26364b;
-                border-radius: 11px; padding: 12px; selection-background-color: #277b6b; }
-            QTextBrowser { padding: 16px; }
-            QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus {
-                border: 1px solid #41bca2; }
-            QPushButton { color: #dce7f5; background: #152235; border: 1px solid #283b53;
-                border-radius: 10px; padding: 10px 16px; font-weight: 650; }
-            QPushButton:hover { background: #1c3048; border-color: #3c5877; }
-            QPushButton:pressed { background: #102033; }
-            QPushButton:checked { color: #d8fff2; background: #12302e; border-color: #287563; }
-            QPushButton#primaryAction { color: #061713; background: #62d7b4; border-color: #62d7b4; }
-            QPushButton#primaryAction:hover { background: #82e7c9; }
-            QCheckBox { spacing: 9px; color: #aebbd0; }
-            QCheckBox::indicator { width: 17px; height: 17px; border-radius: 5px;
-                background: #0b1421; border: 1px solid #42536b; }
+            QWidget#sideRail { background: #0d121c; border: 1px solid #1b2635; border-radius: 20px; }
+            QLabel#brandTitle { color: #f5f8ff; font-size: 29px; font-weight: 800; letter-spacing: 2px; }
+            QLabel#brandSubtitle, QLabel#mutedLabel { color: #7d8ba0; font-size: 10px; font-weight: 650; letter-spacing: 1px; }
+            QLabel#pageTitle { color: #f2f6fd; font-size: 20px; font-weight: 700; }
+            QLabel#sectionLabel { color: #8c9bb1; font-size: 10px; font-weight: 750; letter-spacing: 1.1px; padding: 4px 2px 0; }
+            QLabel#statusLabel { color: #90a0b6; background: #101723; border: 1px solid #202c3d; border-radius: 13px; padding: 8px 13px; }
+            QLabel#voiceState { color: #8897ab; font-size: 11px; }
+            QTabWidget#mainTabs::pane { background: transparent; border: none; }
+            QTabBar#hiddenTabs { max-height: 0; }
+            QTextBrowser, QTextEdit, QLineEdit, QPlainTextEdit, QComboBox, QListWidget {
+                background: #0a1019; color: #e8eef8; border: 1px solid #202c3d;
+                border-radius: 14px; padding: 13px; selection-background-color: #276c61; }
+            QTextBrowser { padding: 18px; }
+            QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QListWidget:focus { border: 1px solid #43bca3; }
+            QPushButton { color: #dce5f2; background: #131d2b; border: 1px solid #263549;
+                border-radius: 11px; padding: 10px 14px; font-weight: 650; }
+            QPushButton:hover { background: #1a293a; border-color: #3a526e; }
+            QPushButton:pressed { background: #101824; }
+            QPushButton:checked { color: #cafff0; background: #11312d; border-color: #276c5d; }
+            QPushButton#primaryAction { color: #061812; background: #55d4ad; border-color: #55d4ad; }
+            QPushButton#primaryAction:hover { background: #78e5c3; }
+            QPushButton#navButton { text-align: left; color: #8f9eb2; background: transparent;
+                border: 1px solid transparent; padding: 13px 14px; }
+            QPushButton#navButton:hover { color: #edf4ff; background: #131d2a; }
+            QPushButton#navButton:checked { color: #d3fff2; background: #12302d; border-color: #1e5147; }
+            QPushButton#listenButton { text-align: left; padding: 12px 11px; }
+            QCheckBox { spacing: 9px; color: #afbdd0; }
+            QCheckBox::indicator { width: 17px; height: 17px; border-radius: 5px; background: #0b1421; border: 1px solid #42536b; }
             QCheckBox::indicator:checked { background: #45c5a5; border-color: #45c5a5; }
             QMenu { background: #101a29; border: 1px solid #293b52; }
             QMenu::item:selected { background: #1c3048; }
-            QScrollBar:vertical { background: #0a111c; width: 10px; margin: 3px; }
-            QScrollBar::handle:vertical { background: #34465d; min-height: 28px; border-radius: 5px; }
+            QScrollBar:vertical { background: #0a111c; width: 9px; margin: 3px; }
+            QScrollBar::handle:vertical { background: #34465d; min-height: 28px; border-radius: 4px; }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
         """)
         central = QWidget(); central.setObjectName("centralSurface"); self.setCentralWidget(central)
-        layout = QVBoxLayout(central); layout.setContentsMargins(24, 20, 24, 18); layout.setSpacing(15)
-        brand_row = QHBoxLayout(); brand_row.setSpacing(14)
-        brand = QVBoxLayout(); brand.setSpacing(1)
+        layout = QHBoxLayout(central); layout.setContentsMargins(16, 16, 16, 16); layout.setSpacing(16)
+
+        side_rail = QWidget(); side_rail.setObjectName("sideRail"); side_rail.setFixedWidth(224)
+        rail_layout = QVBoxLayout(side_rail); rail_layout.setContentsMargins(16, 22, 16, 18); rail_layout.setSpacing(9)
         head = QLabel("JARVIS"); head.setObjectName("brandTitle")
-        subtitle = QLabel("ASSISTENTE PESSOAL · DESKTOP HUD"); subtitle.setObjectName("brandSubtitle")
-        brand.addWidget(head); brand.addWidget(subtitle); brand_row.addLayout(brand); brand_row.addStretch(1)
-        layout.addLayout(brand_row)
-        self.tabs = QTabWidget(); self.tabs.setObjectName("mainTabs"); layout.addWidget(self.tabs, 1)
+        subtitle = QLabel("DESKTOP INTELLIGENCE"); subtitle.setObjectName("brandSubtitle")
+        rail_layout.addWidget(head); rail_layout.addWidget(subtitle)
+        rail_layout.addSpacing(30)
+        rail_caption = QLabel("ESPAÇO DE TRABALHO"); rail_caption.setObjectName("sectionLabel")
+        rail_layout.addWidget(rail_caption)
+        self.tabs = QTabWidget(); self.tabs.setObjectName("mainTabs"); self.tabs.tabBar().hide()
+        self.nav_buttons = []
+        for index, label in enumerate(("Conversa", "Mídia", "Integrações")):
+            nav = QPushButton(label); nav.setObjectName("navButton"); nav.setCheckable(True)
+            nav.clicked.connect(lambda checked=False, index=index: self.tabs.setCurrentIndex(index))
+            rail_layout.addWidget(nav); self.nav_buttons.append(nav)
+        self.nav_buttons[0].setChecked(True)
+        rail_layout.addStretch(1)
+        self.voice_activation_button = QPushButton("Ligar escuta automática")
+        self.voice_activation_button.setObjectName("listenButton"); self.voice_activation_button.setCheckable(True)
+        self.voice_activation_button.setToolTip(
+            "Detecta fala no microfone. O áudio ambiente fica em buffers locais curtos; "
+            "somente frases detectadas são enviadas à Groq para transcrição.")
+        self.voice_activation_button.toggled.connect(self.toggle_voice_activation)
+        rail_layout.addWidget(self.voice_activation_button)
+        self.voice_state = QLabel("Microfone desligado"); self.voice_state.setObjectName("voiceState")
+        rail_layout.addWidget(self.voice_state)
+        rail_layout.addSpacing(6)
+        rail_footer = QLabel("GEMINI  ·  GROQ"); rail_footer.setObjectName("brandSubtitle")
+        rail_layout.addWidget(rail_footer)
+        layout.addWidget(side_rail)
+
+        main_area = QWidget(); main_layout = QVBoxLayout(main_area)
+        main_layout.setContentsMargins(4, 2, 2, 2); main_layout.setSpacing(15)
+        topbar = QHBoxLayout(); topbar.setContentsMargins(3, 4, 3, 2)
+        page_title = QLabel("Conversa"); page_title.setObjectName("pageTitle")
+        self.page_title = page_title
+        topbar.addWidget(page_title); topbar.addStretch(1)
+        self.status = QLabel("Pronto"); self.status.setObjectName("statusLabel")
+        topbar.addWidget(self.status); main_layout.addLayout(topbar)
+        layout.addWidget(main_area, 1); main_layout.addWidget(self.tabs, 1)
+        self.tabs.currentChanged.connect(self._update_navigation)
 
         assistant_page = QWidget(); assistant_layout = QVBoxLayout(assistant_page)
         assistant_layout.setContentsMargins(20, 18, 20, 18); assistant_layout.setSpacing(12)
@@ -489,9 +582,9 @@ class JarvisWindow(QMainWindow):
         self.search_checkbox.setToolTip("Ativa Google Search grounding; a API pode consumir cota adicional.")
         assistant_layout.addWidget(self.search_checkbox)
         assistant_actions = QHBoxLayout()
-        self.talk_button = QPushButton("Falar")
-        self.talk_button.setObjectName("primaryAction")
-        self.talk_button.clicked.connect(self.talk); assistant_actions.addWidget(self.talk_button)
+        voice_hint = QLabel("A escuta contínua identifica sua fala enquanto estiver ativada na barra lateral.")
+        voice_hint.setObjectName("mutedLabel")
+        assistant_actions.addWidget(voice_hint, 1)
         vision = QPushButton("Analisar minha tela…")
         vision.clicked.connect(self.analyze_screen); assistant_actions.addWidget(vision)
         self.live_vision_button = QPushButton("Iniciar visão contínua")
@@ -549,10 +642,6 @@ class JarvisWindow(QMainWindow):
         self.player.setAudioOutput(self.audio_output)
         self.player.setVideoOutput(self.video_widget)
         self.player.errorOccurred.connect(lambda *_: self.media_title.setText("Falha ao abrir mídia"))
-
-        self.status = QLabel("Pronto · microfone fechado")
-        self.status.setObjectName("statusLabel")
-        layout.addWidget(self.status)
 
         integrations_page = QWidget(); integrations_layout = QVBoxLayout(integrations_page)
         integrations_layout.setContentsMargins(20, 18, 20, 18); integrations_layout.setSpacing(12)
@@ -613,8 +702,8 @@ class JarvisWindow(QMainWindow):
             self.chat.setHtml(
                 "<div style='margin:14px 8px;color:#aebbd0'>"
                 "<div style='font-size:22px;font-weight:700;color:#e8fff8'>Olá, Matheus.</div>"
-                "<p>Este é seu espaço de conversa contínua. Escreva uma mensagem ou escolha "
-                "<b>Falar</b> para enviar um comando por voz.</p>"
+                "<p>Este é seu espaço de conversa contínua. Escreva uma mensagem ou ative "
+                "<b>escuta automática</b> na barra lateral para falar naturalmente.</p>"
                 "<p>Use <b>Analisar minha tela</b> para uma captura pontual ou escreva "
                 "<b>agir: clique no botão Salvar</b> para revisar uma ação visual. "
                 "A visão contínua só começa depois da sua confirmação.</p>"
@@ -622,6 +711,8 @@ class JarvisWindow(QMainWindow):
                 "alteram o computador pedem confirmação antes de agir.</p></div>"
             )
         self.clap_worker = None
+        self.voice_activation_worker = None
+        self.installed_apps_cache = None
         self.live_vision_worker = None
         self.pending_voice_command = None
         self._close_when_vision_stops = False
@@ -634,6 +725,16 @@ class JarvisWindow(QMainWindow):
         if load_settings().get("clap_enabled", False):
             self.clap_button.setChecked(True)
             self._start_clap_worker()
+        if load_settings().get("voice_activation_enabled", False):
+            QTimer.singleShot(0, lambda: self.voice_activation_button.setChecked(True))
+
+    def _update_navigation(self, index: int):
+        """Mantém o menu lateral e o título sincronizados com a página ativa."""
+        labels = ("Conversa", "Mídia", "Integrações")
+        for position, button in enumerate(self.nav_buttons):
+            button.setChecked(position == index)
+        if 0 <= index < len(labels):
+            self.page_title.setText(labels[index])
 
     def _message_markup(self, role: str, body: str) -> str:
         label = "Você" if role in {"user", "private_action"} else "JARVIS"
@@ -859,31 +960,68 @@ class JarvisWindow(QMainWindow):
             self.error(str(exc))
 
     def open_installed_apps(self):
-        """Carrega apps do Windows; abrir é a ação direta escolhida pela pessoa."""
+        """Abre a lista do sistema em segundo plano para não congelar o HUD."""
+        if self.installed_apps_cache is not None:
+            self._show_installed_apps(self.installed_apps_cache)
+            return
+        if getattr(self, "app_catalog_worker", None) and self.app_catalog_worker.isRunning():
+            self.status.setText("Carregando os aplicativos instalados…")
+            return
+        self.status.setText("Carregando os aplicativos instalados…")
+        self.app_catalog_worker = AppCatalogWorker()
+        self.app_catalog_worker.loaded.connect(self._show_installed_apps)
+        self.app_catalog_worker.failed.connect(self.error)
+        self.app_catalog_worker.finished.connect(lambda: self.status.setText("Pronto"))
+        self._track_worker(self.app_catalog_worker)
+        self.app_catalog_worker.start()
+
+    def _show_installed_apps(self, apps: list[dict[str, str]]):
+        self.installed_apps_cache = apps
+        if not apps:
+            QMessageBox.information(self, "Aplicativos instalados", "Não encontrei aplicativos inicializáveis.")
+            return
+        dialog = InstalledAppsDialog(apps, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted or not dialog.selected_app:
+            return
+        selected = dialog.selected_app
         try:
-            from .computer import list_installed_apps, launch_installed_app
-            apps = list_installed_apps()
-            if not apps:
-                QMessageBox.information(self, "Aplicativos instalados", "Não encontrei aplicativos inicializáveis.")
-                return
-            dialog = InstalledAppsDialog(apps, self)
-            if dialog.exec() != QDialog.DialogCode.Accepted or not dialog.selected_app:
-                return
-            selected = dialog.selected_app
+            from .computer import launch_installed_app
             result = launch_installed_app(selected)
             self._record_control_action(f"abrir aplicativo: {selected['name']}", result)
         except Exception as exc:
-            self.error(f"Não foi possível listar ou abrir os aplicativos: {exc}")
+            self.error(f"Não foi possível abrir o aplicativo: {exc}")
 
     def _launch_installed_by_name(self, requested: str, prompt: str):
-        """Abre um resultado único direto ou deixa escolher entre nomes parecidos."""
+        """Busca no catálogo em segundo plano; usa o cache nas próximas chamadas."""
         requested = requested.strip()
         if not requested:
             QMessageBox.information(self, "Abrir aplicativo", "Informe o nome do aplicativo.")
             return
+        if self.installed_apps_cache is None:
+            self.pending_app_launch = (requested, prompt)
+            if getattr(self, "app_catalog_worker", None) and self.app_catalog_worker.isRunning():
+                return
+            self.status.setText("Procurando o aplicativo instalado…")
+            self.app_catalog_worker = AppCatalogWorker()
+            self.app_catalog_worker.loaded.connect(self._complete_pending_app_launch)
+            self.app_catalog_worker.failed.connect(self.error)
+            self.app_catalog_worker.finished.connect(lambda: self.status.setText("Pronto"))
+            self._track_worker(self.app_catalog_worker)
+            self.app_catalog_worker.start()
+            return
+        self._complete_pending_app_launch(self.installed_apps_cache, (requested, prompt))
+
+    def _complete_pending_app_launch(self, apps: list[dict[str, str]], request=None):
+        """Resolve uma busca pendente pelo nome depois de carregar o catálogo."""
+        self.installed_apps_cache = apps
+        if request is None:
+            request = getattr(self, "pending_app_launch", None)
+        self.pending_app_launch = None
+        if not request:
+            return
+        requested, prompt = request
         try:
-            from .computer import list_installed_apps, launch_installed_app
-            apps = list_installed_apps()
+            from .computer import launch_installed_app
             exact = [app for app in apps if app["name"].casefold() == requested.casefold()]
             matches = exact or [app for app in apps if requested.casefold() in app["name"].casefold()]
             if not matches:
@@ -904,9 +1042,11 @@ class JarvisWindow(QMainWindow):
         return dialog.selected_app
 
     def _start(self, prompt: str, mode: str):
+        self._pause_voice_activation()
         search_web = self.search_checkbox.isChecked() and mode in {"text", "spoken"}
         if search_web and not get_secret("gemini"):
             self.error("Pesquisa na web usa Gemini. Cadastre uma chave Gemini em Configurações.")
+            self._resume_voice_activation()
             return
         if mode in {"voice", "spoken"}: self._stop_clap_worker()
         if mode not in {"screen", "spoken", "voice"}:
@@ -932,35 +1072,90 @@ class JarvisWindow(QMainWindow):
         self.status.setText(status)
         self.worker = ReplyWorker(prompt, mode, search_web, history)
         self._track_worker(self.worker)
-        self.talk_button.setEnabled(mode == "voice")
-        if mode == "voice":
-            self.talk_button.setText("Parar gravação")
-        else:
-            self.talk_button.setText("Falar")
-        self.worker.finished_text.connect(self._worker_event); self.worker.failed.connect(self.error)
-        self.worker.finished.connect(lambda: self.status.setText("Pronto · microfone fechado"))
-        if mode == "voice":
-            self.worker.finished.connect(self._finish_voice_button)
-            self.worker.finished.connect(self._after_voice_recording)
-        elif mode == "spoken": self.worker.finished.connect(self._resume_clap_worker)
-        else: self.worker.finished.connect(lambda: self.talk_button.setEnabled(True))
+        self.worker.finished_text.connect(self._worker_event)
+        self.worker.failed.connect(self.error)
+        self.worker.finished.connect(lambda: self.status.setText("Pronto"))
+        self.worker.finished.connect(self._resume_voice_activation)
+        if mode in {"voice", "spoken"}:
+            self.worker.finished.connect(self._resume_clap_worker)
         self.worker.start()
 
-    def talk(self):
-        worker = getattr(self, "worker", None)
-        if worker and worker.isRunning() and worker.mode == "voice":
-            self.talk_button.setText("Encerrando gravação…")
-            self.talk_button.setEnabled(False)
-            worker.stop_recording()
+    def toggle_voice_activation(self, enabled: bool):
+        """Liga ou desliga a escuta automática; nenhum áudio em espera sai do computador."""
+        save_settings({**load_settings(), "voice_activation_enabled": bool(enabled)})
+        if not enabled:
+            worker = self.voice_activation_worker
+            if worker and worker.isRunning():
+                worker.stop()
+                self.voice_state.setText("Desligando microfone…")
+            else:
+                self.voice_state.setText("Microfone desligado")
+            self.voice_activation_button.setText("Desligar escuta automática" if enabled else "Ligar escuta automática")
             return
         if not get_secret("groq"):
-            self.error("Cadastre a chave Groq em Configurações para ativar a transcrição push-to-talk.")
+            save_settings({**load_settings(), "voice_activation_enabled": False})
+            self.voice_activation_button.blockSignals(True)
+            self.voice_activation_button.setChecked(False)
+            self.voice_activation_button.blockSignals(False)
+            self.voice_activation_button.setText("Ligar escuta automática")
+            self.error("Cadastre uma chave Groq em Configurações para transcrever os comandos de voz.")
             return
-        self._start("", "voice")
+        if self.voice_activation_worker and self.voice_activation_worker.isRunning():
+            self.voice_activation_worker.resume()
+            return
+        self._stop_clap_worker()
+        self.voice_activation_button.setText("Desligar escuta automática")
+        self.voice_state.setText("Abrindo microfone…")
+        worker = VoiceActivationWorker()
+        self.voice_activation_worker = worker
+        worker.phrase.connect(self._handle_spoken_phrase)
+        worker.state_changed.connect(self._voice_activation_state)
+        worker.failed.connect(self._voice_activation_failed)
+        worker.finished.connect(lambda worker=worker: self._voice_activation_finished(worker))
+        self._track_worker(worker)
+        worker.start()
 
-    def _finish_voice_button(self):
-        self.talk_button.setText("Falar")
-        self.talk_button.setEnabled(True)
+    def _voice_activation_state(self, state: str):
+        labels = {
+            "escutando": "Escutando fala · áudio ambiente fica local",
+            "transcrevendo": "Fala detectada · transcrevendo com Groq",
+            "erro": "Falha no microfone",
+            "desligado": "Microfone desligado",
+        }
+        self.voice_state.setText(labels.get(state, state))
+
+    def _voice_activation_failed(self, message: str):
+        self.voice_activation_button.setChecked(False)
+        save_settings({**load_settings(), "voice_activation_enabled": False})
+        self.error(f"Escuta automática foi desligada: {message}")
+
+    def _voice_activation_finished(self, worker):
+        if self.voice_activation_worker is worker:
+            self.voice_activation_worker = None
+        if not self.voice_activation_button.isChecked():
+            self.voice_state.setText("Microfone desligado")
+
+    def _pause_voice_activation(self):
+        worker = self.voice_activation_worker
+        if worker and worker.isRunning():
+            worker.pause()
+
+    def _resume_voice_activation(self):
+        worker = self.voice_activation_worker
+        if worker and worker.isRunning() and self.voice_activation_button.isChecked():
+            worker.resume()
+
+    def _handle_spoken_phrase(self, phrase: str):
+        """Despacha cada frase reconhecida sem exigir botão para iniciar/parar gravação."""
+        if self._quit_requested or not phrase.strip():
+            self._resume_voice_activation()
+            return
+        self._append("user", phrase)
+        memory.add("user", phrase)
+        if self._dispatch_computer_command(phrase):
+            self._resume_voice_activation()
+            return
+        self._start(phrase, "spoken")
 
     def open_media_file(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -1107,9 +1302,9 @@ class JarvisWindow(QMainWindow):
 
     def _worker_event(self, value: str):
         if value == "__REC__":
-            self.status.setText("Microfone ativo · encerra após silêncio ou pelo botão (máx. 3 min).")
+            self.status.setText("Microfone ativo · aguardando fala…")
         elif value == "__TRANSCRIBING__":
-            self.status.setText("Fala concluída · enviando gravação à Groq para transcrever…")
+            self.status.setText("Fala concluída · transcrevendo…")
         elif value == "__BUSY__":
             self.status.setText("Analisando a captura enviada ao Gemini…")
         elif value.startswith("__USER__"):
@@ -1393,6 +1588,11 @@ class JarvisWindow(QMainWindow):
             event.ignore()
             return
         self._stop_live_vision()
+        if self._quit_requested:
+            self._pause_voice_activation()
+            voice_worker = self.voice_activation_worker
+            if voice_worker and voice_worker.isRunning():
+                voice_worker.stop()
         if self.tray_icon and self.tray_icon.isVisible() and not self._quit_requested:
             self.hide()
             self.tray_icon.showMessage(
@@ -1410,6 +1610,7 @@ class JarvisWindow(QMainWindow):
             event.ignore()
             return
         self._stop_clap_worker()
+        self._pause_voice_activation()
         if self.tray_icon:
             self.tray_icon.hide()
         super().closeEvent(event)
