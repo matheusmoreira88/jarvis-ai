@@ -726,6 +726,15 @@ class JarvisWindow(QMainWindow):
         restore_source = QPushButton("Restaurar backup de código…")
         restore_source.clicked.connect(self.restore_source_backup)
         advanced_layout.addWidget(restore_source)
+        from .self_modify import source_editing_available
+        if not source_editing_available():
+            modify_source.hide()
+            restore_source.hide()
+            source_note = QLabel(
+                "Alterações do próprio código ficam disponíveis somente ao executar "
+                "o projeto pelo código-fonte, não no instalador compilado.")
+            source_note.setObjectName("settingsCardNote")
+            advanced_layout.addWidget(source_note)
         advanced_card.hide()
         def show_advanced(opened: bool):
             advanced_card.setVisible(opened)
@@ -2184,7 +2193,14 @@ class JarvisWindow(QMainWindow):
 
     def propose_source_change(self):
         """Só altera o próprio programa após gerar, exibir e confirmar uma proposta."""
-        from .self_modify import SOURCE_ROOT, apply_file_update, propose_file_update
+        from .self_modify import (SOURCE_ROOT, apply_file_update, proposal_diff,
+                                  propose_file_update, source_editing_available)
+
+        if not source_editing_available():
+            QMessageBox.information(
+                self, "Código-fonte indisponível",
+                "Este recurso funciona somente ao executar o JARVIS pelo código-fonte.")
+            return
 
         path, _ = QFileDialog.getOpenFileName(
             self, "Escolher módulo do JARVIS", str(SOURCE_ROOT), "Python (*.py)")
@@ -2204,10 +2220,11 @@ class JarvisWindow(QMainWindow):
         preview.setWindowTitle("Revisar proposta de alteração")
         preview.resize(900, 700)
         layout = QVBoxLayout(preview)
-        note = QLabel("Revise o arquivo completo. A aplicação cria um backup local antes de gravar.")
+        note = QLabel(
+            "Revise as linhas removidas (-) e adicionadas (+). Um backup local será criado antes de gravar.")
         layout.addWidget(note)
         editor = QPlainTextEdit()
-        editor.setPlainText(proposal)
+        editor.setPlainText(proposal_diff(path, proposal))
         editor.setReadOnly(True)
         layout.addWidget(editor, 1)
         controls = QHBoxLayout()

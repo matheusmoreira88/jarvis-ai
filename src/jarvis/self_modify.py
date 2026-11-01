@@ -1,6 +1,8 @@
 """Propostas revisáveis para o próprio código-fonte do JARVIS."""
 from __future__ import annotations
 
+import difflib
+import sys
 from datetime import datetime
 from pathlib import Path
 from platformdirs import user_data_path
@@ -12,8 +14,28 @@ SOURCE_ROOT = Path(__file__).resolve().parent
 BACKUP_ROOT = user_data_path("JarvisAI", "Matheus") / "source-backups"
 
 
+def source_editing_available() -> bool:
+    """Return true only when JARVIS is running from an editable source checkout."""
+    return not getattr(sys, "frozen", False) and (SOURCE_ROOT / "app.py").is_file()
+
+
+def proposal_diff(path: str, proposed_content: str) -> str:
+    """Build a readable unified diff without executing generated code."""
+    target = Path(path).resolve()
+    if target.suffix != ".py" or not target.is_relative_to(SOURCE_ROOT):
+        raise ValueError("Só é permitido comparar arquivos Python de src/jarvis.")
+    current = target.read_text(encoding="utf-8").splitlines(keepends=True)
+    proposed = proposed_content.splitlines(keepends=True)
+    return "".join(difflib.unified_diff(
+        current, proposed, fromfile=f"atual/{target.name}",
+        tofile=f"proposta/{target.name}", n=4)) or "Nenhuma alteração foi proposta."
+
+
 def propose_file_update(path: str, request: str) -> str:
     """Pede ao Gemini uma nova versão de um módulo permitido, sem gravar nada."""
+    if not source_editing_available():
+        raise RuntimeError(
+            "A alteração do código só está disponível ao executar o projeto pelo código-fonte.")
     target = Path(path).resolve()
     if target.suffix != ".py" or not target.is_relative_to(SOURCE_ROOT):
         raise ValueError("Só é permitido propor mudanças em arquivos Python de src/jarvis.")
@@ -49,6 +71,9 @@ def propose_file_update(path: str, request: str) -> str:
 
 def apply_file_update(path: str, proposed_content: str) -> Path:
     """Faz backup e substitui atomicamente um módulo após a confirmação da interface."""
+    if not source_editing_available():
+        raise RuntimeError(
+            "A instalação compilada não contém módulos Python editáveis.")
     target = Path(path).resolve()
     if target.suffix != ".py" or not target.is_relative_to(SOURCE_ROOT):
         raise ValueError("Só é permitido alterar arquivos Python de src/jarvis.")
