@@ -4,6 +4,11 @@
 
 **Antes de baixar / Before download:** leia [Informações de privacidade / Privacy information](PRIVACY.txt). O instalador também mostra esse texto antes de instalar. / The installer also displays it before installation.
 
+![JARVIS AI Command Center com núcleo animado, monitor do sistema e conversa ao vivo](docs/images/jarvis-command-center.png)
+
+*Interface real do JARVIS AI no Windows. Os indicadores usam dados locais do computador.*  
+*Real JARVIS AI interface on Windows. System indicators use local computer data.*
+
 ## Português (Brasil)
 
 Assistente pessoal para desktop em português, criado por **Matheus Moreira**. Este projeto é uma implementação independente, com interface própria em PySide6, memória local e integrações opcionais. O JARVIS pede confirmação antes de executar ações no computador, enviar e-mail ou preparar mensagens.
