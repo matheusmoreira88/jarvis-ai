@@ -6,6 +6,11 @@ HUD_STYLE = """
             QWidget#settingsColumn { background: transparent; }
             QLabel#settingsHeading { color: #f4fbff; font-size: 28px; font-weight: 800; padding: 2px 0; }
             QLabel#settingsIntro { color: #95aabd; font-size: 13px; padding: 0 0 10px; }
+            QWizard { background: #080b12; color: #edf2fb; }
+            QWizard QWidget { background: #080b12; color: #edf2fb; }
+            QWizard QLabel { background: transparent; color: #dff7fb; }
+            QWizardPage { background: #0a121d; }
+            QWizard QLabel#setupBody { color: #b8cbd8; font-size: 14px; line-height: 1.4; }
             QWidget#settingsCard { background: #101c28; border: 1px solid #244053;
                 border-radius: 18px; }
             QLabel#settingsCardTitle { color: #e8faff; font-size: 18px; font-weight: 750; }
