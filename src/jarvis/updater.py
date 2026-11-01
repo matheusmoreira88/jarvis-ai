@@ -13,6 +13,7 @@ from PySide6.QtCore import QThread, Signal
 
 RELEASE_API = "https://api.github.com/repos/matheusmoreira88/jarvis-ai/releases/latest"
 UPDATE_DIR = user_data_path("JarvisAI", "Matheus") / "updates"
+HISTORY_FILE = UPDATE_DIR / "verified-installers.json"
 
 
 def _read_url(url: str, *, timeout: int = 30) -> bytes:
@@ -65,7 +66,44 @@ def download_verified_installer(installer_url: str, checksum_url: str,
         temporary.replace(destination)
     finally:
         temporary.unlink(missing_ok=True)
+    _record_verified_installer(destination, actual)
     return destination
+
+
+def _load_history() -> list[dict]:
+    try:
+        data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def _record_verified_installer(path: Path, checksum: str) -> None:
+    """Mantém até cinco pacotes verificados para permitir reinstalar a versão anterior."""
+    UPDATE_DIR.mkdir(parents=True, exist_ok=True)
+    history = [item for item in _load_history()
+               if Path(str(item.get("path", ""))).name != path.name]
+    history.append({"path": str(path), "sha256": checksum.casefold()})
+    temporary = HISTORY_FILE.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(history[-5:], ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(HISTORY_FILE)
+
+
+def previous_verified_installer() -> Path | None:
+    """Retorna o penúltimo instalador somente se o arquivo ainda corresponder ao SHA-256 salvo."""
+    history = _load_history()
+    if len(history) < 2:
+        return None
+    for item in reversed(history[:-1]):
+        path = Path(str(item.get("path", "")))
+        expected = str(item.get("sha256", "")).casefold()
+        try:
+            actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
+            continue
+        if len(expected) == 64 and actual == expected:
+            return path
+    return None
 
 
 class UpdateWorker(QThread):

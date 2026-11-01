@@ -14,7 +14,7 @@ from .settings import get_secret, load_settings
 SAFE_SETTING_KEYS = (
     "hands_free_enabled", "live_vision_enabled", "reduce_motion",
     "share_long_term_memory", "clap_enabled", "screen_monitor",
-    "activation_mode", "provider", "setup_completed",
+    "activation_mode", "provider", "setup_completed", "tts_engine",
 )
 
 
@@ -40,6 +40,7 @@ def build_report() -> dict:
         "counts": {
             "quick_actions": len(settings.get("quick_actions", [])),
             "routines": len(settings.get("routines", [])),
+            "extension_actions": 0,
             "memories": 0,
         },
         "voice_model": {
@@ -51,6 +52,11 @@ def build_report() -> dict:
     try:
         from .gmail import CLIENT_FILE
         report["configured"]["gmail_oauth_client"] = CLIENT_FILE.exists()
+    except Exception:
+        pass
+    try:
+        from .extensions import load_extensions
+        report["counts"]["extension_actions"] = len(load_extensions()[0])
     except Exception:
         pass
     try:

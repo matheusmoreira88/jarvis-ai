@@ -153,31 +153,14 @@ def _to_wav_bytes(chunks: list[np.ndarray]) -> bytes:
 
 def speak(text: str) -> None:
     """Lê a resposta pelo sintetizador instalado no computador, sem enviar áudio ao provedor."""
-    import pyttsx3
-
-    engine = pyttsx3.init()
-    try:
-        engine.say(text)
-        engine.runAndWait()
-    finally:
-        engine.stop()
+    from .tts import speak_text
+    speak_text(text)
 
 
 def speak_fragments(fragments) -> None:
     """Read sentence-sized fragments with one local TTS engine instance."""
-    import pyttsx3
-
-    engine = pyttsx3.init()
-    try:
-        while True:
-            fragment = fragments.get()
-            if fragment is None:
-                break
-            if fragment.strip():
-                engine.say(fragment.strip())
-                engine.runAndWait()
-    finally:
-        engine.stop()
+    from .tts import speak_queue
+    speak_queue(fragments)
 
 
 def strip_jarvis_prefix(text: str) -> str | None:

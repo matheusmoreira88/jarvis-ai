@@ -3,6 +3,7 @@ import tempfile
 import unittest
 import sqlite3
 import hashlib
+import json
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -18,10 +19,35 @@ from jarvis.voice_worker import VoiceActivationWorker
 from jarvis.media_commands import parse_media_command
 from jarvis import updater
 from jarvis import diagnostics
+from jarvis.extensions import load_extensions
+from jarvis import tts
 from jarvis import usage
 
 
 class NewFeatureTests(unittest.TestCase):
+    def test_declarative_extensions_accept_only_safe_commands(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "safe.json").write_text(json.dumps({
+                "name": "Atalhos",
+                "actions": [{"phrase": "meu navegador", "command": "abrir aplicativo: navegador"}],
+            }), encoding="utf-8")
+            (root / "unsafe.json").write_text(json.dumps({
+                "name": "Perigoso",
+                "actions": [{"phrase": "executar", "command": "abrir exe: C:\\\\malware.exe"}],
+            }), encoding="utf-8")
+            actions, errors = load_extensions(root)
+        self.assertEqual(actions[0]["phrase"], "meu navegador")
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(len(errors), 1)
+
+    def test_neural_voice_falls_back_to_system_voice(self):
+        with patch("jarvis.tts.load_settings", return_value={"tts_engine": "piper"}), \
+             patch("jarvis.tts._piper_speak", side_effect=RuntimeError("modelo ausente")), \
+             patch("jarvis.tts._system_speak") as system_voice:
+            tts.speak_text("Olá")
+        system_voice.assert_called_once_with("Olá")
+
     def test_regular_app_import_does_not_start_webengine(self):
         check = (
             "import sys; import jarvis.app; "
@@ -88,6 +114,7 @@ class NewFeatureTests(unittest.TestCase):
         checksum = hashlib.sha256(payload).hexdigest().encode("ascii")
         with tempfile.TemporaryDirectory() as folder, \
              patch.object(updater, "UPDATE_DIR", Path(folder)), \
+             patch.object(updater, "HISTORY_FILE", Path(folder) / "verified-installers.json"), \
              patch.object(updater, "_read_url", side_effect=[checksum, payload]):
             result = updater.download_verified_installer(
                 "https://github.com/example/setup.exe",
@@ -103,6 +130,20 @@ class NewFeatureTests(unittest.TestCase):
                     "https://github.com/example/setup.exe",
                     "https://github.com/example/setup.exe.sha256", "setup.exe")
             self.assertEqual(list(Path(folder).iterdir()), [])
+
+    def test_update_history_returns_only_verified_previous_installer(self):
+        with tempfile.TemporaryDirectory() as folder, \
+             patch.object(updater, "UPDATE_DIR", Path(folder)), \
+             patch.object(updater, "HISTORY_FILE", Path(folder) / "verified-installers.json"):
+            first = Path(folder) / "JARVIS-AI-Setup-1.0.0.exe"
+            second = Path(folder) / "JARVIS-AI-Setup-2.0.0.exe"
+            first.write_bytes(b"first")
+            second.write_bytes(b"second")
+            updater._record_verified_installer(first, hashlib.sha256(b"first").hexdigest())
+            updater._record_verified_installer(second, hashlib.sha256(b"second").hexdigest())
+            self.assertEqual(updater.previous_verified_installer(), first)
+            first.write_bytes(b"tampered")
+            self.assertIsNone(updater.previous_verified_installer())
 
     def test_existing_database_is_migrated_without_losing_memories(self):
         with tempfile.TemporaryDirectory() as folder:

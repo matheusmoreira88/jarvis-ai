@@ -4,6 +4,8 @@
 
 Site oficial / Official website: [matheusmoreira88.github.io/jarvis-ai](https://matheusmoreira88.github.io/jarvis-ai/)
 
+Imagem social do repositório / Repository social preview: [docs/images/social-preview.jpg](docs/images/social-preview.jpg)
+
 **Antes de baixar / Before download:** leia [Informações de privacidade / Privacy information](PRIVACY.txt). O instalador também mostra esse texto antes de instalar. / The installer also displays it before installation.
 
 ![JARVIS AI Command Center com núcleo animado, monitor do sistema e conversa ao vivo](docs/images/jarvis-command-center.png)
@@ -304,7 +306,9 @@ O microfone e a visão podem ser desligados por comando de voz ou nas Configura�
 
 Crie ações rápidas em Configurações. Cada frase configurada chama o mesmo despachante de comandos locais do aplicativo, preservando suas confirmações e validações.
 
-Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.6.4`.
+Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.7.0`.
+
+O atualizador guarda um histórico curto dos pacotes que ele próprio validou. A partir da segunda atualização baixada pelo aplicativo, **Restaurar instalador anterior verificado** permite executar o pacote anterior somente se seu SHA-256 continuar intacto.
 
 O único modo de chamada é “Jarvis”, reconhecido localmente pelo Vosk.
 
@@ -317,7 +321,9 @@ Turn the microphone or vision off by voice command or in Settings. This preferen
 
 Create, use and remove configurable quick actions in Settings. Each phrase calls the app’s existing local command dispatcher, preserving its checks and confirmations.
 
-To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.6.4.
+To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.7.0.
+
+The updater keeps a short history of packages it verified itself. Starting with the second in-app download, **Restore previous verified installer** can run the preceding package only while its saved SHA-256 remains valid.
 
 The only wake phrase is “Jarvis”, recognized locally with Vosk.
 
@@ -390,3 +396,15 @@ O indicador principal do JARVIS voltou ao painel. A esfera neural colorida agora
 ## Version 0.6.4 · faster voice and knowledge map
 
 The main JARVIS status indicator is back. The colorful neural sphere is now a separate knowledge map: it starts with fewer links and gains particles as explicit memories are saved. The Portuguese speech model installer now accepts the older format officially distributed by Vosk. The end-of-speech pause is shorter, spoken replies begin in smaller chunks, and voice prompts send fewer older messages to Gemini.
+
+## Versão 0.7.0 · Command Center modular
+
+A interface foi consolidada em um Command Center futurista e responsivo, com núcleo central animado, conversa contínua, player do YouTube integrado e mapa de conhecimento separado. A ativação usa somente “Jarvis”, com filtro local de ruídos curtos, resposta transmitida em fluxo e visão contínua. Voz, visão, respostas, mídia, catálogo de aplicativos, integrações e controle do computador agora vivem em módulos independentes. O navegador interno é carregado somente quando necessário, reduzindo o tempo de abertura. O projeto inclui site oficial, diagnóstico sem segredos, backup de memória, medidor de uso da API, atualizações verificadas por SHA-256 e extensões JSON declarativas que só podem chamar comandos locais já permitidos.
+
+Em **Configurações → Mostrar recursos opcionais**, a voz padrão do Windows pode ser substituída pelo [Piper](https://github.com/rhasspy/piper), executado inteiramente no computador. Selecione o `piper.exe` e um modelo `.onnx` compatível. Se o Piper ou o modelo falhar, o JARVIS volta automaticamente à voz do Windows para não perder a resposta.
+
+## Version 0.7.0 · modular Command Center
+
+The interface is now a responsive futuristic Command Center with an animated central core, continuous conversation, embedded YouTube playback, and a separate knowledge map. Activation uses only “Jarvis”, with local filtering of short noises, streamed replies, and continuous vision. Voice, vision, replies, media, installed-app discovery, integrations, and computer control now live in independent modules. The embedded browser loads only when needed, reducing startup time. The project includes an official website, secret-free diagnostics, memory backups, API usage metering, SHA-256-verified updates, and declarative JSON extensions limited to already-approved local commands.
+
+Under **Settings → Show optional features**, the default Windows voice can be replaced by [Piper](https://github.com/rhasspy/piper), running fully on the computer. Select `piper.exe` and a compatible `.onnx` model. If Piper or the model fails, JARVIS automatically falls back to the Windows voice so the reply is not lost.

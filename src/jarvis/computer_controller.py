@@ -78,6 +78,11 @@ class ComputerControllerMixin:
                 continue
             if lowered == str(action.get("phrase", "")).strip().lower():
                 return self._dispatch_computer_command(str(action.get("command", "")))
+        from .extensions import load_extensions
+        extension_actions, _extension_errors = load_extensions()
+        for action in extension_actions:
+            if lowered == str(action.get("phrase", "")).strip().casefold():
+                return self._dispatch_computer_command(str(action.get("command", "")))
 
         if lowered.startswith("abrir aplicativo:"):
             requested = normalized[len("abrir aplicativo:"):].strip()

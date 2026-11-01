@@ -407,6 +407,9 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self.update_state_label = QLabel(f"Versão {__version__}")
         update_row.addWidget(check_update); update_row.addWidget(self.update_state_label, 1)
         system_card.addLayout(update_row)
+        rollback_update = QPushButton("Restaurar instalador anterior verificado…")
+        rollback_update.clicked.connect(self.restore_previous_version)
+        system_card.addWidget(rollback_update)
         self.api_usage_label = QLabel()
         self.api_usage_label.setObjectName("settingsCardNote")
         self.api_usage_label.setWordWrap(True)
@@ -449,6 +452,35 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self.routines_hint = QLabel("Nenhuma rotina configurada")
         routines_row.addWidget(routines_button); routines_row.addWidget(self.routines_hint, 1)
         advanced_layout.addLayout(routines_row)
+        extensions_row = QHBoxLayout()
+        extensions_button = QPushButton("Abrir extensões seguras…")
+        extensions_button.clicked.connect(self.open_extensions_folder)
+        self.extensions_hint = QLabel()
+        extensions_row.addWidget(extensions_button); extensions_row.addWidget(self.extensions_hint, 1)
+        advanced_layout.addLayout(extensions_row)
+        voice_engine_row = QHBoxLayout()
+        self.tts_engine_picker = QComboBox()
+        self.tts_engine_picker.addItem("Voz do Windows (padrão)", "system")
+        self.tts_engine_picker.addItem("Piper neural local (opcional)", "piper")
+        tts_index = self.tts_engine_picker.findData(load_settings().get("tts_engine", "system"))
+        self.tts_engine_picker.setCurrentIndex(max(0, tts_index))
+        voice_engine_row.addWidget(QLabel("Voz de resposta"))
+        voice_engine_row.addWidget(self.tts_engine_picker, 1)
+        advanced_layout.addLayout(voice_engine_row)
+        piper_row = QHBoxLayout()
+        self.piper_executable_input = QLineEdit(load_settings().get("piper_executable", ""))
+        self.piper_executable_input.setPlaceholderText("piper.exe")
+        choose_piper = QPushButton("Executável…")
+        choose_piper.clicked.connect(self.select_piper_executable)
+        piper_row.addWidget(self.piper_executable_input, 1); piper_row.addWidget(choose_piper)
+        advanced_layout.addLayout(piper_row)
+        piper_model_row = QHBoxLayout()
+        self.piper_model_input = QLineEdit(load_settings().get("piper_model", ""))
+        self.piper_model_input.setPlaceholderText("modelo-de-voz.onnx")
+        choose_piper_model = QPushButton("Modelo…")
+        choose_piper_model.clicked.connect(self.select_piper_model)
+        piper_model_row.addWidget(self.piper_model_input, 1); piper_model_row.addWidget(choose_piper_model)
+        advanced_layout.addLayout(piper_model_row)
         analyze_screen_button = QPushButton("Analisar minha tela…")
         analyze_screen_button.clicked.connect(self.analyze_screen)
         advanced_layout.addWidget(analyze_screen_button)
@@ -523,6 +555,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self.installed_apps_cache = None
         self._refresh_privacy_indicators()
         self._refresh_routines_hint()
+        self._refresh_extensions_hint()
         self.live_vision_worker = None
         self.screen_frame_store = ScreenFrameStore()
         self.core_orb.set_motion_enabled(not load_settings().get("reduce_motion", False))
@@ -567,6 +600,9 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
             save_settings({**load_settings(), "provider": "gemini",
                            "share_long_term_memory": self.share_memory_checkbox.isChecked(),
                            "reduce_motion": self.reduce_motion_checkbox.isChecked(),
+                           "tts_engine": self.tts_engine_picker.currentData(),
+                           "piper_executable": self.piper_executable_input.text().strip(),
+                           "piper_model": self.piper_model_input.text().strip(),
                            "screen_monitor": self.screen_monitor_picker.currentData() or 1})
             self.core_orb.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
             self.memory_brain.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
@@ -583,6 +619,19 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
                 "em vigor na próxima ativação da visão contínua.")
         except Exception as exc:
             QMessageBox.warning(self, "Configurações não salvas", str(exc))
+
+    def select_piper_executable(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Selecionar Piper", self.piper_executable_input.text(), "Piper (piper.exe)")
+        if path:
+            self.piper_executable_input.setText(path)
+
+    def select_piper_model(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Selecionar modelo de voz", self.piper_model_input.text(),
+            "Modelo Piper (*.onnx)")
+        if path:
+            self.piper_model_input.setText(path)
 
     def _refresh_privacy_indicators(self):
         """Atualiza o estado interno sem poluir o painel central."""
@@ -642,6 +691,32 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         actions = load_settings().get("quick_actions", [])
         names = [item.get("title", "Atalho") for item in actions if isinstance(item, dict)]
         self.quick_action_hint.setText(" · ".join(names) if names else "Nenhuma ação personalizada")
+
+    def _refresh_extensions_hint(self):
+        if not hasattr(self, "extensions_hint"):
+            return
+        from .extensions import load_extensions
+        actions, errors = load_extensions()
+        summary = f"{len(actions)} comando(s) carregado(s)"
+        if errors:
+            summary += f" · {len(errors)} manifesto(s) ignorado(s)"
+            self.extensions_hint.setToolTip("\n".join(errors))
+        else:
+            self.extensions_hint.setToolTip("")
+        self.extensions_hint.setText(summary)
+
+    def open_extensions_folder(self):
+        """Abre a pasta de manifestos e cria um exemplo declarativo na primeira vez."""
+        from PySide6.QtGui import QDesktopServices
+        from .extensions import EXTENSIONS_DIR, create_example
+        create_example()
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(EXTENSIONS_DIR)))
+        self._refresh_extensions_hint()
+        QMessageBox.information(
+            self, "Extensões seguras",
+            "A pasta foi aberta com um exemplo JSON. As extensões podem adicionar frases "
+            "para comandos já permitidos, mas não executam código nem comandos arbitrários. "
+            "Salve o arquivo e reabra Configurações para atualizar o indicador.")
 
     def _refresh_routines_hint(self):
         routines = load_settings().get("routines", [])
@@ -760,6 +835,24 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         QMessageBox.warning(
             self, "Atualização não instalada",
             "O download não passou pela verificação de segurança:\n" + message)
+
+    def restore_previous_version(self):
+        """Oferece o pacote anterior preservado pelo atualizador, sem ignorar seu checksum."""
+        from PySide6.QtGui import QDesktopServices
+        from .updater import previous_verified_installer
+        installer = previous_verified_installer()
+        if installer is None:
+            QMessageBox.information(
+                self, "Versão anterior",
+                "Ainda não há duas versões baixadas e verificadas pelo atualizador. "
+                "Depois da próxima atualização, o instalador anterior ficará disponível aqui.")
+            return
+        answer = QMessageBox.question(
+            self, "Restaurar versão anterior",
+            f"Executar o pacote anterior verificado?\n\n{installer.name}\n\n"
+            "O instalador pedirá a confirmação final antes de substituir a versão atual.")
+        if answer == QMessageBox.StandardButton.Yes:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(installer)))
 
     def export_diagnostics(self):
         path, _ = QFileDialog.getSaveFileName(
