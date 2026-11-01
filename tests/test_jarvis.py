@@ -40,8 +40,8 @@ class JarvisRegressionTests(unittest.TestCase):
             def _handle_media_command(self, prompt): return False
             def _start(self, prompt, mode): self.started = (prompt, mode)
         window = Window()
-        with patch("jarvis.app.load_settings", return_value={}), \
-             patch("jarvis.app.get_secret", return_value="key"), \
+        with patch("jarvis.computer_controller.load_settings", return_value={}), \
+             patch("jarvis.computer_controller.get_secret", return_value="key"), \
              patch.object(QMessageBox, "warning", side_effect=AssertionError("extra notice")):
             self.assertTrue(JarvisWindow._dispatch_computer_command(window, "agir: clique no Salvar"))
         self.assertEqual(window.started, ("clique no Salvar", "plan"))
@@ -50,7 +50,7 @@ class JarvisRegressionTests(unittest.TestCase):
         class Window:
             def _handle_media_command(self, prompt): return False
             def _record_control_action(self, *args): raise AssertionError("clicked")
-        with patch("jarvis.app.load_settings", return_value={}), \
+        with patch("jarvis.computer_controller.load_settings", return_value={}), \
              patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.No):
             self.assertTrue(JarvisWindow._dispatch_computer_command(Window(), "clicar"))
 
