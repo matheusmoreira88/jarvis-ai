@@ -17,8 +17,6 @@ from PySide6.QtWidgets import QInputDialog, QPlainTextEdit
 from PySide6.QtWidgets import QDialogButtonBox
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
-from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage
-from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from . import memory, __version__
 from .settings import get_secret, save_secret, load_settings, save_settings
@@ -238,15 +236,10 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self.media_idle = QLabel("Escolha um arquivo, URL ou pesquise uma música no YouTube.")
         self.media_idle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_widget = QVideoWidget(self.media_view); self.video_widget.setMinimumHeight(260)
-        self.youtube_view = QWebEngineView(self.media_view); self.youtube_view.setMinimumHeight(300)
-        self.youtube_profile = QWebEngineProfile("jarvis-youtube", self)
-        storage = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
-        self.youtube_profile.setPersistentStoragePath(storage + "/youtube-profile")
-        self.youtube_profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
-        self.youtube_view.setPage(QWebEnginePage(self.youtube_profile, self.youtube_view))
-        self.youtube_view.loadStarted.connect(self._youtube_load_started)
-        self.youtube_view.loadFinished.connect(self._youtube_load_finished)
-        self.youtube_view.page().fullScreenRequested.connect(self._youtube_fullscreen_requested)
+        # Chromium is expensive to start. The YouTube view is created only when
+        # somebody actually asks for media, keeping normal HUD startup lighter.
+        self.youtube_view = None
+        self.youtube_profile = None
         self.youtube_status_timer = QTimer(self)
         self.youtube_status_timer.setInterval(1000)
         self.youtube_status_timer.timeout.connect(self._poll_youtube_status)
@@ -254,7 +247,6 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self._last_auto_advanced_url = ""
         self.media_view.addWidget(self.media_idle)
         self.media_view.addWidget(self.video_widget)
-        self.media_view.addWidget(self.youtube_view)
         media_layout.addWidget(self.media_view, 1)
         self.media_controls = QWidget(); media_controls_layout = QHBoxLayout(self.media_controls)
         self.media_source = QLineEdit(); self.media_source.setPlaceholderText("URL ou nome da música no YouTube")

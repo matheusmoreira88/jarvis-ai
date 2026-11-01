@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QTimer, Qt, QUrl, QUrlQuery
+from PySide6.QtCore import (
+    QEasingCurve, QPropertyAnimation, QStandardPaths, QTimer, Qt, QUrl, QUrlQuery,
+)
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import (
     QDialog, QFileDialog, QGraphicsOpacityEffect, QHBoxLayout, QLabel,
@@ -18,6 +20,32 @@ from .settings import load_settings
 
 class MediaControllerMixin:
     """Give the main window media behavior without owning its visual construction."""
+
+    def _ensure_youtube_view(self):
+        """Create Chromium only on first YouTube use to keep startup responsive."""
+        if self.youtube_view is not None:
+            return self.youtube_view
+        from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
+        from PySide6.QtWebEngineWidgets import QWebEngineView
+
+        view = QWebEngineView(self.media_view)
+        view.setMinimumHeight(300)
+        profile = QWebEngineProfile("jarvis-youtube", self)
+        storage = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.AppDataLocation
+        )
+        profile.setPersistentStoragePath(storage + "/youtube-profile")
+        profile.setPersistentCookiesPolicy(
+            QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies
+        )
+        view.setPage(QWebEnginePage(profile, view))
+        view.loadStarted.connect(self._youtube_load_started)
+        view.loadFinished.connect(self._youtube_load_finished)
+        view.page().fullScreenRequested.connect(self._youtube_fullscreen_requested)
+        self.youtube_profile = profile
+        self.youtube_view = view
+        self.media_view.addWidget(view)
+        return view
 
     def _handle_media_command(self, prompt: str) -> bool:
         """Apply the UI-independent media command parsed from speech or text."""
@@ -84,6 +112,8 @@ class MediaControllerMixin:
             self.youtube_status_timer.start()
 
     def _poll_youtube_status(self):
+        if self.youtube_view is None:
+            return
         if not self.youtube_view.isVisible() and not self.mini_player_dialog:
             return
         script = (
@@ -125,7 +155,7 @@ class MediaControllerMixin:
         self.next_media_button.setText(f"Próxima · {len(media_library.queue())}")
 
     def _current_media_reference(self) -> str:
-        url = self.youtube_view.url().toString()
+        url = self.youtube_view.url().toString() if self.youtube_view is not None else ""
         if "youtube.com/watch" in url or "youtu.be/" in url:
             return url
         return self.media_source.text().strip()
@@ -179,6 +209,7 @@ class MediaControllerMixin:
             self.mini_player_dialog.raise_()
             self.mini_player_dialog.activateWindow()
             return
+        self._ensure_youtube_view()
         current_url = self.youtube_view.url().toString()
         if not current_url or current_url == "about:blank":
             query = self.media_source.text().strip()
@@ -271,6 +302,7 @@ class MediaControllerMixin:
         self._play_source(candidate_url, candidate_url.fileName() or candidate_url.host() or source)
 
     def _play_youtube(self, url: QUrl, query: str = ""):
+        self._ensure_youtube_view()
         self.player.stop()
         if self.mini_player_dialog:
             self._restore_mini_player()
@@ -287,14 +319,15 @@ class MediaControllerMixin:
     def _play_source(self, url: QUrl, title: str):
         video_suffixes = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4v"}
         is_video = Path(url.path()).suffix.lower() in video_suffixes
-        self.youtube_view.setUrl(QUrl("about:blank"))
+        if self.youtube_view is not None:
+            self.youtube_view.setUrl(QUrl("about:blank"))
         self.media_view.setCurrentWidget(self.video_widget if is_video else self.media_idle)
         self.player.setSource(url)
         self.player.play()
         self.media_title.setText(title or "Reproduzindo")
 
     def pause_media(self):
-        if self.media_view.currentWidget() is self.youtube_view:
+        if self.youtube_view is not None and self.media_view.currentWidget() is self.youtube_view:
             self.youtube_view.page().runJavaScript(
                 "(() => { const player = document.querySelector('video'); "
                 "if (player) player.paused ? player.play() : player.pause(); })()")

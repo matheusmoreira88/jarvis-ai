@@ -3,6 +3,8 @@ import tempfile
 import unittest
 import sqlite3
 import hashlib
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -20,6 +22,19 @@ from jarvis import usage
 
 
 class NewFeatureTests(unittest.TestCase):
+    def test_regular_app_import_does_not_start_webengine(self):
+        check = (
+            "import sys; import jarvis.app; "
+            "assert not any(name.startswith('PySide6.QtWebEngine') for name in sys.modules)"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", check],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_media_commands_preserve_query_and_window_intent(self):
         command = parse_media_command("toca música de Daft Punk em janela")
         self.assertIsNotNone(command)

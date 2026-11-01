@@ -5,7 +5,7 @@ WhatsApp, media downloads, and the Windows application catalog independently.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QStandardPaths, Qt, QThread, QUrl, Signal
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -21,8 +21,6 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
 )
-from PySide6.QtWebEngineCore import QWebEnginePage, QWebEnginePermission, QWebEngineProfile
-from PySide6.QtWebEngineWidgets import QWebEngineView
 
 
 class DownloadWorker(QThread):
@@ -72,6 +70,10 @@ class WhatsAppWebDialog(QDialog):
 
     def __init__(self, url: str, parent=None):
         super().__init__(parent)
+        from PySide6.QtCore import QStandardPaths, QUrl
+        from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
+        from PySide6.QtWebEngineWidgets import QWebEngineView
+
         self.setWindowTitle("WhatsApp · JARVIS HUD")
         self.resize(1080, 760)
         layout = QVBoxLayout(self)
@@ -91,6 +93,8 @@ class WhatsAppWebDialog(QDialog):
 
     def _handle_web_permission(self, permission):
         """Grant media only to the official WhatsApp host and deny everything else."""
+        from PySide6.QtWebEngineCore import QWebEnginePermission
+
         allowed_hosts = {"web.whatsapp.com", "www.whatsapp.com"}
         permission_types = QWebEnginePermission.PermissionType
         media_types = {
