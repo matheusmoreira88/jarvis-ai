@@ -2,6 +2,7 @@
 import tempfile
 import unittest
 import sqlite3
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -12,9 +13,31 @@ from jarvis.routines import validate_routine
 from jarvis.reminders import parse_reminder_request
 from jarvis.reply_worker import ReplyWorker
 from jarvis.voice_worker import VoiceActivationWorker
+from jarvis import updater
 
 
 class NewFeatureTests(unittest.TestCase):
+    def test_update_installer_requires_matching_sha256(self):
+        payload = b"signed release payload"
+        checksum = hashlib.sha256(payload).hexdigest().encode("ascii")
+        with tempfile.TemporaryDirectory() as folder, \
+             patch.object(updater, "UPDATE_DIR", Path(folder)), \
+             patch.object(updater, "_read_url", side_effect=[checksum, payload]):
+            result = updater.download_verified_installer(
+                "https://github.com/example/setup.exe",
+                "https://github.com/example/setup.exe.sha256", "setup.exe")
+            self.assertEqual(result.read_bytes(), payload)
+
+    def test_update_installer_discards_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as folder, \
+             patch.object(updater, "UPDATE_DIR", Path(folder)), \
+             patch.object(updater, "_read_url", side_effect=[b"0" * 64, b"changed"]):
+            with self.assertRaises(RuntimeError):
+                updater.download_verified_installer(
+                    "https://github.com/example/setup.exe",
+                    "https://github.com/example/setup.exe.sha256", "setup.exe")
+            self.assertEqual(list(Path(folder).iterdir()), [])
+
     def test_existing_database_is_migrated_without_losing_memories(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "memory.sqlite3"

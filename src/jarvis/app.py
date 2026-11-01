@@ -55,18 +55,34 @@ class DownloadWorker(QThread):
 
 class UpdateWorker(QThread):
     """Checks the public GitHub releases API without blocking the HUD."""
-    latest = Signal(str, str)
+    latest = Signal(dict)
     failed = Signal(str)
 
     def run(self):
         try:
-            from urllib.request import Request, urlopen
-            request = Request(
-                "https://api.github.com/repos/matheusmoreira88/jarvis-ai/releases/latest",
-                headers={"User-Agent": "JARVIS-AI-Desktop"})
-            with urlopen(request, timeout=12) as response:
-                release = json.loads(response.read().decode("utf-8"))
-            self.latest.emit(release.get("tag_name", ""), release.get("html_url", ""))
+            from .updater import latest_release
+            self.latest.emit(latest_release())
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
+
+class UpdateDownloadWorker(QThread):
+    completed = Signal(str)
+    failed = Signal(str)
+
+    def __init__(self, metadata: dict):
+        super().__init__()
+        self.metadata = metadata
+
+    def run(self):
+        try:
+            from .updater import download_verified_installer
+            path = download_verified_installer(
+                self.metadata.get("installer_url", ""),
+                self.metadata.get("checksum_url", ""),
+                self.metadata.get("installer_name", ""),
+            )
+            self.completed.emit(str(path))
         except Exception as exc:
             self.failed.emit(str(exc))
 
@@ -952,10 +968,12 @@ class JarvisWindow(QMainWindow):
         self.update_worker.failed.connect(self._update_check_failed)
         self.update_worker.start()
 
-    def _update_check_completed(self, tag: str, release_url: str):
-        """Compara versões e deixa a instalação final sob controle da pessoa."""
+    def _update_check_completed(self, metadata: dict):
+        """Compare releases and offer only a checksum-verified installer."""
         from . import __version__
         from PySide6.QtGui import QDesktopServices
+        tag = metadata.get("tag", "")
+        release_url = metadata.get("page_url", "")
         current = tuple(int(part) for part in re.findall(r"\d+", __version__))
         latest = tuple(int(part) for part in re.findall(r"\d+", tag))
         if not tag or not release_url:
@@ -965,15 +983,45 @@ class JarvisWindow(QMainWindow):
             QMessageBox.information(self, "Atualizações", "Esta instalação já está atualizada.")
         else:
             self.update_state_label.setText(f"Nova versão disponível: {tag}")
-            answer = QMessageBox.question(
-                self, "Atualização disponível",
-                f"A versão {tag} está disponível. Abrir a página do instalador agora?")
-            if answer == QMessageBox.StandardButton.Yes:
+            if not metadata.get("installer_url") or not metadata.get("checksum_url"):
+                QMessageBox.information(
+                    self, "Atualização disponível",
+                    "Esta release não possui o checksum exigido pelo atualizador seguro. "
+                    "A página oficial será aberta para instalação manual.")
                 QDesktopServices.openUrl(QUrl(release_url))
+                return
+            notes = metadata.get("notes", "").strip()
+            prompt = f"A versão {tag} está disponível. Baixar e verificar agora?"
+            if notes:
+                prompt += "\n\nPrincipais notas:\n" + notes[:1200]
+            answer = QMessageBox.question(self, "Atualização disponível", prompt)
+            if answer == QMessageBox.StandardButton.Yes:
+                self.update_state_label.setText(f"Baixando e verificando {tag}…")
+                self.update_download_worker = UpdateDownloadWorker(metadata)
+                self.update_download_worker.completed.connect(self._verified_update_ready)
+                self.update_download_worker.failed.connect(self._update_download_failed)
+                self.update_download_worker.start()
 
     def _update_check_failed(self, message: str):
         self.update_state_label.setText("Falha ao consultar atualizações")
         QMessageBox.warning(self, "Atualizações", f"Não foi possível consultar o GitHub: {message}")
+
+    def _verified_update_ready(self, path: str):
+        from PySide6.QtGui import QDesktopServices
+        self.update_state_label.setText("Instalador verificado por SHA-256")
+        answer = QMessageBox.question(
+            self, "Atualização verificada",
+            "O instalador foi baixado e o SHA-256 corresponde ao publicado na release. "
+            "Executar agora? A versão instalada atual continuará disponível no histórico "
+            "de releases para reinstalação manual.")
+        if answer == QMessageBox.StandardButton.Yes:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+    def _update_download_failed(self, message: str):
+        self.update_state_label.setText("Atualização descartada")
+        QMessageBox.warning(
+            self, "Atualização não instalada",
+            "O download não passou pela verificação de segurança:\n" + message)
 
     def _update_navigation(self, index: int):
         """Mantém a central inferior e o título sincronizados com a área ativa."""
