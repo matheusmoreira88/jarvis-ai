@@ -41,6 +41,24 @@ HUD_STYLE = """
             QLabel#sectionLabel { color: #8c9bb1; font-size: 10px; font-weight: 750; letter-spacing: 1.1px; padding: 4px 2px 0; }
             QLabel#statusLabel { color: #90a0b6; background: #101723; border: 1px solid #202c3d; border-radius: 13px; padding: 8px 13px; }
             QLabel#voiceState { color: #8897ab; font-size: 11px; }
+            QLabel#commandBrand { color: #d7fbff; font-size: 17px; font-weight: 750;
+                letter-spacing: 3px; padding: 7px 4px; }
+            QLabel#commandSection { color: #47c9db; font-size: 9px; font-weight: 750;
+                letter-spacing: 2px; padding: 8px 13px; border-left: 1px solid #163b49; }
+            QLabel#commandClock { color: #b7e9ef; font-size: 11px; font-weight: 650;
+                letter-spacing: 1px; padding: 2px 10px; }
+            QWidget#commandDock { background: rgba(5, 19, 29, 225);
+                border: 1px solid #164a5d; border-radius: 22px; }
+            QPushButton#dockCommand { color: #75cbd8; background: #071b27;
+                border: 1px solid #17465a; border-radius: 14px; padding: 10px 18px;
+                font-size: 9px; font-weight: 750; letter-spacing: 1px; }
+            QPushButton#dockCommand:hover { color: #effeff; background: #0b2a39;
+                border-color: #2eb8ce; }
+            QPushButton#dockCommand:checked { color: #031217; background: #37c9dc;
+                border-color: #61e5f3; }
+            QPushButton#roundCommand { color: #63ddec; background: #071b27;
+                border: 1px solid #1f6378; border-radius: 18px; min-width: 36px;
+                min-height: 36px; max-width: 36px; max-height: 36px; padding: 0; font-size: 17px; }
             QTabWidget#mainTabs::pane { background: transparent; border: none; }
             QTabBar#hiddenTabs { max-height: 0; }
             QTextBrowser, QTextEdit, QLineEdit, QPlainTextEdit, QComboBox, QListWidget {

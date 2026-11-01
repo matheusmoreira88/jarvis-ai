@@ -7,7 +7,8 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from PySide6.QtCore import (QThread, Signal, QUrl, QTimer, QUrlQuery, QStandardPaths, Qt, QLockFile, QPropertyAnimation, QEasingCurve)
+from PySide6.QtCore import (QThread, Signal, QUrl, QTimer, QUrlQuery, QStandardPaths,
+                           Qt, QLockFile, QPropertyAnimation, QEasingCurve, QDateTime)
 from PySide6.QtGui import QTextCursor, QPixmap
 from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QLabel,
                                QMainWindow, QPushButton, QTextEdit, QVBoxLayout, QWidget,
@@ -342,40 +343,58 @@ class JarvisWindow(QMainWindow):
         self.setMinimumSize(900, 640)
         self.setStyleSheet(HUD_STYLE)
         central = QWidget(); central.setObjectName("centralSurface"); self.setCentralWidget(central)
-        layout = QHBoxLayout(central); layout.setContentsMargins(16, 16, 16, 16); layout.setSpacing(16)
+        layout = QVBoxLayout(central); layout.setContentsMargins(18, 12, 18, 14); layout.setSpacing(10)
 
-        side_rail = QWidget(); side_rail.setObjectName("sideRail"); side_rail.setFixedWidth(178)
-        rail_layout = QVBoxLayout(side_rail); rail_layout.setContentsMargins(16, 22, 16, 18); rail_layout.setSpacing(9)
-        head = QLabel("JARVIS"); head.setObjectName("brandTitle")
-        rail_layout.addWidget(head)
-        rail_layout.addSpacing(30)
-        rail_caption = QLabel("ESPAÇO DE TRABALHO"); rail_caption.setObjectName("sectionLabel")
-        rail_layout.addWidget(rail_caption)
         self.tabs = QTabWidget(); self.tabs.setObjectName("mainTabs"); self.tabs.tabBar().hide()
-        self.nav_buttons = []
-        for index, label in enumerate(("Painel", "Conversa", "Mídia", "Configurações")):
-            nav = QPushButton(label); nav.setObjectName("navButton"); nav.setCheckable(True)
-            nav.clicked.connect(lambda checked=False, index=index: self.tabs.setCurrentIndex(index))
-            rail_layout.addWidget(nav); self.nav_buttons.append(nav)
-        self.nav_buttons[0].setChecked(True)
-        rail_layout.addStretch(1)
-        self.voice_state = QLabel("Microfone desligado"); self.voice_state.setObjectName("voiceState")
-        rail_layout.addWidget(self.voice_state)
-        rail_layout.addSpacing(6)
-        layout.addWidget(side_rail)
-
         main_area = QWidget(); main_layout = QVBoxLayout(main_area)
-        main_layout.setContentsMargins(4, 2, 2, 2); main_layout.setSpacing(15)
-        topbar = QHBoxLayout(); topbar.setContentsMargins(3, 4, 3, 2)
-        page_title = QLabel("Painel"); page_title.setObjectName("pageTitle")
-        self.page_title = page_title
-        topbar.addWidget(page_title); topbar.addStretch(1)
+        main_layout.setContentsMargins(0, 0, 0, 0); main_layout.setSpacing(10)
+        topbar = QHBoxLayout(); topbar.setContentsMargins(8, 3, 8, 3); topbar.setSpacing(12)
+        brand = QLabel("◉  J . A . R . V . I . S")
+        brand.setObjectName("commandBrand")
+        topbar.addWidget(brand)
+        self.page_title = QLabel("NÚCLEO")
+        self.page_title.setObjectName("commandSection")
+        topbar.addWidget(self.page_title)
+        topbar.addStretch(1)
         self.status = QLabel("Pronto"); self.status.setObjectName("statusLabel")
         self.status.setMaximumWidth(420)
-        topbar.addWidget(self.status); main_layout.addLayout(topbar)
-        layout.addWidget(main_area, 1); main_layout.addWidget(self.tabs, 1)
+        topbar.addWidget(self.status)
+        self.clock_label = QLabel(); self.clock_label.setObjectName("commandClock")
+        topbar.addWidget(self.clock_label)
+        settings_button = QPushButton("⚙")
+        settings_button.setObjectName("roundCommand")
+        settings_button.setToolTip("Abrir configurações")
+        settings_button.clicked.connect(lambda: self.tabs.setCurrentIndex(3))
+        topbar.addWidget(settings_button)
+        main_layout.addLayout(topbar)
+        layout.addWidget(main_area, 1)
+        main_layout.addWidget(self.tabs, 1)
+
+        dock = QWidget(); dock.setObjectName("commandDock")
+        dock.setMaximumWidth(720)
+        dock_layout = QHBoxLayout(dock)
+        dock_layout.setContentsMargins(12, 6, 12, 6); dock_layout.setSpacing(8)
+        dock_layout.addStretch(1)
+        self.nav_buttons = []
+        for index, label in enumerate(("NÚCLEO", "CONVERSA", "MÍDIA")):
+            nav = QPushButton(label); nav.setObjectName("dockCommand"); nav.setCheckable(True)
+            nav.clicked.connect(lambda checked=False, index=index: self.tabs.setCurrentIndex(index))
+            dock_layout.addWidget(nav); self.nav_buttons.append(nav)
+        self.nav_buttons[0].setChecked(True)
+        apps_button = QPushButton("APLICATIVOS"); apps_button.setObjectName("dockCommand")
+        apps_button.clicked.connect(self.open_installed_apps)
+        dock_layout.addWidget(apps_button)
+        dock_layout.addStretch(1)
+        main_layout.addWidget(dock, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.voice_state = QLabel("Microfone desligado"); self.voice_state.setObjectName("voiceState")
+        self.voice_state.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(self.voice_state)
         self.page_fade_animation = None
         self.tabs.currentChanged.connect(self._update_navigation)
+        self.clock_timer = QTimer(self)
+        self.clock_timer.timeout.connect(self._update_clock)
+        self.clock_timer.start(1000)
+        self._update_clock()
 
         dashboard_page = QWidget(); dashboard_page.setObjectName("heroStage")
         dashboard_layout = QVBoxLayout(dashboard_page)
@@ -934,12 +953,16 @@ class JarvisWindow(QMainWindow):
         QMessageBox.warning(self, "Atualizações", f"Não foi possível consultar o GitHub: {message}")
 
     def _update_navigation(self, index: int):
-        """Mantém o menu lateral e o título sincronizados com a página ativa."""
-        labels = ("Painel", "Conversa", "Mídia", "Configurações")
+        """Mantém a central inferior e o título sincronizados com a área ativa."""
+        labels = ("NÚCLEO", "CONVERSA", "MÍDIA", "CONFIGURAÇÕES")
         for position, button in enumerate(self.nav_buttons):
             button.setChecked(position == index)
         if 0 <= index < len(labels):
             self.page_title.setText(labels[index])
+
+    def _update_clock(self):
+        now = QDateTime.currentDateTime()
+        self.clock_label.setText(now.toString("HH:mm:ss\nddd, dd MMM yyyy").upper())
 
     def _message_markup(self, role: str, body: str) -> str:
         label = "Você" if role in {"user", "private_action"} else "JARVIS"
