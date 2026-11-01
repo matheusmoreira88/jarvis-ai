@@ -7,6 +7,8 @@ from google import genai
 from google.genai import types
 from PIL import Image
 from .settings import get_secret
+from .models import (GEMINI_ASSISTANT_MODEL, GEMINI_TRANSCRIPTION_MODEL,
+                     GEMINI_VISION_MODEL)
 
 SYSTEM_INSTRUCTION = (
     "Você é JARVIS AI, um assistente para desktop criado por Matheus Moreira. "
@@ -40,7 +42,7 @@ def stream_assistant(prompt: str, history: list[tuple[str, str]], search_web: bo
     contents.append({"role": "user", "parts": [{"text": prompt}]})
     try:
         for part in client.models.generate_content_stream(
-                model="gemini-3.8-flash", contents=contents,
+                model=GEMINI_ASSISTANT_MODEL, contents=contents,
                 config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION)):
             if part.text:
                 yield part.text
@@ -62,7 +64,7 @@ def ask_gemini(prompt: str, history: list[tuple[str, str]], search_web: bool = F
     config = types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, tools=tools)
     try:
         response = client.models.generate_content(
-            model="gemini-3.8-flash", contents=contents, config=config)
+            model=GEMINI_ASSISTANT_MODEL, contents=contents, config=config)
     except Exception as exc:
         if search_web:
             raise RuntimeError(
@@ -99,7 +101,7 @@ def analyze_image(prompt: str, image_bytes: bytes) -> str:
     image = types.Part.from_bytes(data=image_bytes, mime_type="image/png")
     try:
         response = client.models.generate_content(
-            model="gemini-3.8-flash", contents=[prompt, image])
+            model=GEMINI_VISION_MODEL, contents=[prompt, image])
     finally:
         client.close()
     return response.text or "Não consegui interpretar a captura."
@@ -145,7 +147,7 @@ def propose_screen_action(prompt: str, image_bytes: bytes) -> dict:
     )
     try:
         response = client.models.generate_content(
-            model="gemini-3.8-flash", contents=[request, image], config=config)
+            model=GEMINI_VISION_MODEL, contents=[request, image], config=config)
     finally:
         client.close()
     try:
@@ -175,7 +177,7 @@ def transcribe_gemini(wav_bytes: bytes) -> str:
     )
     try:
         response = client.models.generate_content(
-            model="gemini-3.8-flash", contents=[prompt, audio])
+            model=GEMINI_TRANSCRIPTION_MODEL, contents=[prompt, audio])
     finally:
         client.close()
     text = (response.text or "").strip()

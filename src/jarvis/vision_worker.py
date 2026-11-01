@@ -2,6 +2,7 @@
 from __future__ import annotations
 from PySide6.QtCore import QThread, Signal
 from .vision import capture_primary_screen_jpeg
+from .models import GEMINI_LIVE_VISION_MODEL
 
 class LiveVisionWorker(QThread):
     """Transmite quadros da tela à Gemini Live enquanto a visão estiver ativa."""
@@ -38,7 +39,7 @@ class LiveVisionWorker(QThread):
         try:
             while self._active:
                 async with client.aio.live.connect(
-                    model="gemini-3.8-live",
+                    model=GEMINI_LIVE_VISION_MODEL,
                     config={
                         "response_modalities": ["AUDIO"],
                         "output_audio_transcription": {},
