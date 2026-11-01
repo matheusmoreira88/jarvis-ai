@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#02090d">
+  <meta name="description" content="JARVIS AI: assistente desktop com voz, visão, memória local e automação segura, criado por Matheus Moreira.">
+  <title>JARVIS AI — Assistente desktop</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="#inicio" aria-label="JARVIS AI — início">
+      <span class="brand-orb" aria-hidden="true"></span>
+      <span><strong>J.A.R.V.I.S</strong><small>SISTEMA INTELIGENTE</small></span>
+    </a>
+    <nav aria-label="Navegação principal">
+      <a href="#recursos" data-pt="Recursos" data-en="Features">Recursos</a>
+      <a href="#privacidade" data-pt="Privacidade" data-en="Privacy">Privacidade</a>
+      <a href="#instalar" data-pt="Instalar" data-en="Install">Instalar</a>
+    </nav>
+    <div class="top-actions">
+      <button id="language-toggle" class="language" type="button" aria-label="Mudar idioma">EN</button>
+      <a class="button button-small" href="https://github.com/matheusmoreira88/jarvis-ai" target="_blank" rel="noreferrer" data-pt="Ver código" data-en="View code">Ver código</a>
+    </div>
+  </header>
+
+  <main id="inicio">
+    <section class="hero section-shell">
+      <div class="hero-copy">
+        <p class="eyebrow"><span></span><span data-pt="ASSISTENTE DESKTOP PARA WINDOWS" data-en="DESKTOP ASSISTANT FOR WINDOWS">ASSISTENTE DESKTOP PARA WINDOWS</span></p>
+        <h1 data-pt="Seu computador entende. Você só precisa falar." data-en="Your computer understands. You only need to speak.">Seu computador entende.<br>Você só precisa falar.</h1>
+        <p class="lead" data-pt="Diga “Jarvis” para conversar, abrir aplicativos, analisar sua tela, reproduzir mídia e recuperar lembranças — tudo em uma interface futurista criada para continuar simples." data-en="Say “Jarvis” to chat, open apps, analyze your screen, play media, and retrieve memories — all through a futuristic interface designed to stay simple.">Diga “Jarvis” para conversar, abrir aplicativos, analisar sua tela, reproduzir mídia e recuperar lembranças — tudo em uma interface futurista criada para continuar simples.</p>
+        <div class="hero-buttons">
+          <a class="button button-primary" href="https://github.com/matheusmoreira88/jarvis-ai/releases/latest" target="_blank" rel="noreferrer"><span data-pt="Baixar para Windows" data-en="Download for Windows">Baixar para Windows</span><span aria-hidden="true">↓</span></a>
+          <a class="button button-ghost" href="https://github.com/matheusmoreira88/jarvis-ai" target="_blank" rel="noreferrer"><span aria-hidden="true">☆</span><span data-pt="Dar estrela no GitHub" data-en="Star on GitHub">Dar estrela no GitHub</span></a>
+        </div>
+        <p class="version"><span class="status-dot"></span><span data-pt="Código aberto · Licença MIT · Windows 10/11" data-en="Open source · MIT License · Windows 10/11">Código aberto · Licença MIT · Windows 10/11</span></p>
+      </div>
+
+      <div class="core-stage" aria-label="Representação animada do núcleo do JARVIS">
+        <div class="orbit orbit-one"><i></i><i></i></div>
+        <div class="orbit orbit-two"><i></i><i></i><i></i></div>
+        <div class="core-rings">
+          <span class="ring ring-a"></span>
+          <span class="ring ring-b"></span>
+          <span class="ring ring-c"></span>
+          <span class="core-light"></span>
+        </div>
+        <div class="core-label"><strong>JARVIS</strong><small data-pt="OUVINDO" data-en="LISTENING">OUVINDO</small></div>
+        <div class="scan-line"></div>
+      </div>
+
+      <aside class="telemetry" aria-label="Resumo do sistema">
+        <p class="panel-title"><span></span><span data-pt="SISTEMA" data-en="SYSTEM">SISTEMA</span><b data-pt="OPERACIONAL" data-en="OPERATIONAL">OPERACIONAL</b></p>
+        <div class="telemetry-grid">
+          <div><small data-pt="VOZ" data-en="VOICE">VOZ</small><strong data-pt="SEMPRE ATIVA" data-en="ALWAYS ON">SEMPRE ATIVA</strong></div>
+          <div><small data-pt="MEMÓRIA" data-en="MEMORY">MEMÓRIA</small><strong data-pt="LOCAL" data-en="LOCAL">LOCAL</strong></div>
+          <div><small data-pt="IA" data-en="AI">IA</small><strong>GEMINI</strong></div>
+          <div><small data-pt="CONTROLE" data-en="CONTROL">CONTROLE</small><strong data-pt="REVISÁVEL" data-en="REVIEWABLE">REVISÁVEL</strong></div>
+        </div>
+        <div class="signal"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <p data-pt="“Jarvis, abra o navegador.”" data-en="“Jarvis, open the browser.”">“Jarvis, abra o navegador.”</p>
+      </aside>
+    </section>
+
+    <section class="showcase section-shell" aria-labelledby="showcase-title">
+      <div class="section-heading">
+        <p class="eyebrow"><span></span><span data-pt="COMMAND CENTER" data-en="COMMAND CENTER">COMMAND CENTER</span></p>
+        <h2 id="showcase-title" data-pt="Uma interface que mostra apenas o que importa." data-en="An interface that shows only what matters.">Uma interface que mostra apenas o que importa.</h2>
+        <p data-pt="O núcleo animado reage aos estados de escuta, processamento e resposta. Métricas reais e a conversa ficam ao alcance sem esconder o JARVIS atrás de menus." data-en="The animated core reacts to listening, processing, and response states. Real metrics and chat stay within reach without hiding JARVIS behind menus.">O núcleo animado reage aos estados de escuta, processamento e resposta. Métricas reais e a conversa ficam ao alcance sem esconder o JARVIS atrás de menus.</p>
+      </div>
+      <figure class="app-frame">
+        <div class="frame-bar"><span></span><span></span><span></span><b>JARVIS · COMMAND CENTER</b></div>
+        <img src="images/jarvis-command-center.png" alt="Interface real do JARVIS AI no Windows" loading="lazy">
+        <figcaption data-pt="Captura real da versão desktop atual." data-en="Real screenshot of the current desktop version.">Captura real da versão desktop atual.</figcaption>
+      </figure>
+    </section>
+
+    <section id="recursos" class="features section-shell" aria-labelledby="features-title">
+      <div class="section-heading compact">
+        <p class="eyebrow"><span></span><span data-pt="CAPACIDADES" data-en="CAPABILITIES">CAPACIDADES</span></p>
+        <h2 id="features-title" data-pt="Um assistente, não uma coleção de botões." data-en="One assistant, not a collection of buttons.">Um assistente, não uma coleção de botões.</h2>
+      </div>
+      <div class="feature-grid">
+        <article class="feature feature-wide"><span class="feature-number">01</span><div class="feature-icon">◉</div><h3 data-pt="Voz natural" data-en="Natural voice">Voz natural</h3><p data-pt="A palavra de ativação é apenas “Jarvis”. O detector local filtra ruídos comuns, encerra a captura quando você termina de falar e entrega a resposta por voz." data-en="The only wake word is “Jarvis”. Local detection filters common noise, ends capture when you finish speaking, and delivers the reply by voice.">A palavra de ativação é apenas “Jarvis”. O detector local filtra ruídos comuns, encerra a captura quando você termina de falar e entrega a resposta por voz.</p></article>
+        <article class="feature"><span class="feature-number">02</span><div class="feature-icon">⌁</div><h3 data-pt="Visão ao vivo" data-en="Live vision">Visão ao vivo</h3><p data-pt="A tela selecionada pode ser analisada pelo Gemini enquanto o aplicativo exibe uma prévia local fluida." data-en="Your selected display can be analyzed by Gemini while the app shows a smooth local preview.">A tela selecionada pode ser analisada pelo Gemini enquanto o aplicativo exibe uma prévia local fluida.</p></article>
+        <article class="feature"><span class="feature-number">03</span><div class="feature-icon">∞</div><h3 data-pt="Memória persistente" data-en="Persistent memory">Memória persistente</h3><p data-pt="Conversa única, lembranças e lembretes permanecem no computador e podem ser exportados para backup." data-en="One continuous chat, memories, and reminders stay on your computer and can be exported as a backup.">Conversa única, lembranças e lembretes permanecem no computador e podem ser exportados para backup.</p></article>
+        <article class="feature"><span class="feature-number">04</span><div class="feature-icon">▶</div><h3 data-pt="Mídia integrada" data-en="Integrated media">Mídia integrada</h3><p data-pt="Pesquise conteúdo do YouTube e reproduza dentro do HUD, em janela ajustável, minimizada ou em tela cheia." data-en="Search YouTube content and play it inside the HUD, in a resizable, minimized, or full-screen window.">Pesquise conteúdo do YouTube e reproduza dentro do HUD, em janela ajustável, minimizada ou em tela cheia.</p></article>
+        <article class="feature feature-wide"><span class="feature-number">05</span><div class="feature-icon">⌘</div><h3 data-pt="Controle com limites claros" data-en="Control with clear boundaries">Controle com limites claros</h3><p data-pt="Abra aplicativos por pedido direto. Ações sensíveis como clicar, digitar, enviar e-mail ou modificar código continuam visíveis e revisáveis antes da execução." data-en="Open apps by direct request. Sensitive actions such as clicking, typing, sending email, or changing code remain visible and reviewable before execution.">Abra aplicativos por pedido direto. Ações sensíveis como clicar, digitar, enviar e-mail ou modificar código continuam visíveis e revisáveis antes da execução.</p></article>
+        <article class="feature"><span class="feature-number">06</span><div class="feature-icon">↗</div><h3 data-pt="Integrações opcionais" data-en="Optional integrations">Integrações opcionais</h3><p data-pt="WhatsApp Web dentro do HUD e envio por Gmail OAuth, configurados apenas por quem decidir usar." data-en="WhatsApp Web inside the HUD and Gmail OAuth sending, configured only by people who choose to use them.">WhatsApp Web dentro do HUD e envio por Gmail OAuth, configurados apenas por quem decidir usar.</p></article>
+      </div>
+    </section>
+
+    <section id="privacidade" class="privacy section-shell" aria-labelledby="privacy-title">
+      <div class="privacy-core">
+        <div class="shield" aria-hidden="true">◇</div>
+        <p class="eyebrow"><span></span><span data-pt="PRIVACIDADE POR DESIGN" data-en="PRIVACY BY DESIGN">PRIVACIDADE POR DESIGN</span></p>
+        <h2 id="privacy-title" data-pt="Você mantém o controle." data-en="You stay in control.">Você mantém o controle.</h2>
+        <p data-pt="A chave Gemini fica no cofre de credenciais do sistema. Histórico e lembranças usam SQLite local. O botão de pânico interrompe microfone, visão, fala e tarefas em andamento de uma só vez." data-en="Your Gemini key stays in the operating system credential vault. Chat history and memories use local SQLite storage. The panic control stops microphone, vision, speech, and active tasks at once.">A chave Gemini fica no cofre de credenciais do sistema. Histórico e lembranças usam SQLite local. O botão de pânico interrompe microfone, visão, fala e tarefas em andamento de uma só vez.</p>
+        <a href="https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt" target="_blank" rel="noreferrer" data-pt="Ler política de privacidade →" data-en="Read the privacy policy →">Ler política de privacidade →</a>
+      </div>
+      <div class="data-flow" aria-label="Fluxo de dados simplificado">
+        <div><span>01</span><strong data-pt="No computador" data-en="On device">No computador</strong><p data-pt="Ativação, memória, preferências e credenciais protegidas." data-en="Wake detection, memory, preferences, and protected credentials.">Ativação, memória, preferências e credenciais protegidas.</p></div>
+        <i aria-hidden="true">→</i>
+        <div><span>02</span><strong data-pt="Quando necessário" data-en="When needed">Quando necessário</strong><p data-pt="Comandos reconhecidos e quadros da visão ativa seguem ao Gemini." data-en="Recognized commands and active-vision frames go to Gemini.">Comandos reconhecidos e quadros da visão ativa seguem ao Gemini.</p></div>
+        <i aria-hidden="true">→</i>
+        <div><span>03</span><strong data-pt="Sob seu comando" data-en="Under your command">Sob seu comando</strong><p data-pt="Você pode desligar voz e visão e exportar ou apagar seus dados." data-en="You can turn off voice and vision and export or erase your data.">Você pode desligar voz e visão e exportar ou apagar seus dados.</p></div>
+      </div>
+    </section>
+
+    <section id="instalar" class="install section-shell" aria-labelledby="install-title">
+      <div class="section-heading compact">
+        <p class="eyebrow"><span></span><span data-pt="COMECE EM MINUTOS" data-en="START IN MINUTES">COMECE EM MINUTOS</span></p>
+        <h2 id="install-title" data-pt="Instalação simples. Configuração guiada." data-en="Simple installation. Guided setup.">Instalação simples. Configuração guiada.</h2>
+      </div>
+      <ol class="steps">
+        <li><span>1</span><div><strong data-pt="Baixe o instalador" data-en="Download the installer">Baixe o instalador</strong><p data-pt="Use sempre a versão mais recente publicada neste repositório." data-en="Always use the latest version published in this repository.">Use sempre a versão mais recente publicada neste repositório.</p></div></li>
+        <li><span>2</span><div><strong data-pt="Crie uma chave Gemini" data-en="Create a Gemini key">Crie uma chave Gemini</strong><p><a href="https://aistudio.google.com/app/api-keys" target="_blank" rel="noreferrer">Google AI Studio</a> <span data-pt="oferece acesso sujeito à cota disponível da sua conta." data-en="provides access subject to the quota available for your account.">oferece acesso sujeito à cota disponível da sua conta.</span></p></div></li>
+        <li><span>3</span><div><strong data-pt="Diga “Jarvis”" data-en="Say “Jarvis”">Diga “Jarvis”</strong><p data-pt="O assistente baixa o modelo local de ativação na primeira vez e fica pronto para ouvir." data-en="The assistant downloads its local wake model the first time and becomes ready to listen.">O assistente baixa o modelo local de ativação na primeira vez e fica pronto para ouvir.</p></div></li>
+      </ol>
+      <div class="install-actions">
+        <a class="button button-primary" href="https://github.com/matheusmoreira88/jarvis-ai/releases/latest" target="_blank" rel="noreferrer" data-pt="Abrir página de download" data-en="Open download page">Abrir página de download</a>
+        <a class="text-link" href="https://github.com/matheusmoreira88/jarvis-ai#instalação-recomendada--recommended-installation" target="_blank" rel="noreferrer" data-pt="Ver instalação pelo código →" data-en="See source installation →">Ver instalação pelo código →</a>
+      </div>
+      <p class="smartscreen" data-pt="Nota: como o instalador ainda não possui certificado comercial, o Windows SmartScreen pode exibir um aviso de fornecedor desconhecido. Verifique se o download veio da página oficial e confira o SHA-256 publicado junto ao arquivo." data-en="Note: because the installer does not yet have a commercial certificate, Windows SmartScreen may show an unknown publisher warning. Verify that the download came from the official page and check the SHA-256 published with the file.">Nota: como o instalador ainda não possui certificado comercial, o Windows SmartScreen pode exibir um aviso de fornecedor desconhecido. Verifique se o download veio da página oficial e confira o SHA-256 publicado junto ao arquivo.</p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="brand footer-brand"><span class="brand-orb"></span><span><strong>J.A.R.V.I.S</strong><small data-pt="CRIADO POR MATHEUS MOREIRA" data-en="CREATED BY MATHEUS MOREIRA">CRIADO POR MATHEUS MOREIRA</small></span></div>
+    <div class="footer-links">
+      <a href="https://www.instagram.com/mthz.mm/" target="_blank" rel="noreferrer">Instagram</a>
+      <a href="https://github.com/matheusmoreira88/jarvis-ai" target="_blank" rel="noreferrer">GitHub</a>
+      <a href="https://github.com/matheusmoreira88/jarvis-ai/blob/main/license" target="_blank" rel="noreferrer" data-pt="Licença" data-en="License">Licença</a>
+    </div>
+    <p>© 2026 Matheus Moreira · MIT</p>
+  </footer>
+
+  <script src="site.js"></script>
+</body>
+</html>

@@ -2,6 +2,8 @@
 
 [Português (Brasil)](#português-brasil) | [English](#english)
 
+Site oficial / Official website: [matheusmoreira88.github.io/jarvis-ai](https://matheusmoreira88.github.io/jarvis-ai/)
+
 **Antes de baixar / Before download:** leia [Informações de privacidade / Privacy information](PRIVACY.txt). O instalador também mostra esse texto antes de instalar. / The installer also displays it before installation.
 
 ![JARVIS AI Command Center com núcleo animado, monitor do sistema e conversa ao vivo](docs/images/jarvis-command-center.png)
@@ -12,6 +14,8 @@
 ## Português (Brasil)
 
 Assistente pessoal para desktop em português, criado por **Matheus Moreira**. Este projeto é uma implementação independente, com interface própria em PySide6, memória local e integrações opcionais. O JARVIS pede confirmação antes de executar ações no computador, enviar e-mail ou preparar mensagens.
+
+Conheça o projeto no [site oficial do JARVIS AI](https://matheusmoreira88.github.io/jarvis-ai/).
 
 Instagram do criador: [@mthz.mm](https://www.instagram.com/mthz.mm/)<br>
 Suporte e sugestões: [abra uma Issue](https://github.com/matheusmoreira88/jarvis-ai/issues).
@@ -154,6 +158,8 @@ python -m jarvis
 ## English
 
 A Portuguese-language desktop assistant created by **Matheus Moreira**. This is an independent implementation with its own PySide6 interface, local memory, and optional integrations. JARVIS asks for confirmation before taking computer actions, sending email, or preparing messages.
+
+Explore the project on the [official JARVIS AI website](https://matheusmoreira88.github.io/jarvis-ai/).
 
 Creator's Instagram: [@mthz.mm](https://www.instagram.com/mthz.mm/)<br>
 Support and suggestions: [open an Issue](https://github.com/matheusmoreira88/jarvis-ai/issues).
