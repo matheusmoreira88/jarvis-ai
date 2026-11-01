@@ -9,7 +9,7 @@
 Assistente pessoal para desktop em português, criado por **Matheus Moreira**. Este projeto é uma implementação independente, com interface própria em PySide6, memória local e integrações opcionais. O JARVIS pede confirmação antes de executar ações no computador, enviar e-mail ou preparar mensagens.
 
 Instagram do criador: [@mthz.mm](https://www.instagram.com/mthz.mm/)<br>
-Contato: [matheusmoreiradossantos88@gmail.com](mailto:matheusmoreiradossantos88@gmail.com)
+Suporte e sugestões: [abra uma Issue](https://github.com/matheusmoreira88/jarvis-ai/issues).
 
 Se o projeto for útil, [deixe uma estrela no GitHub](https://github.com/matheusmoreira88/jarvis-ai).
 
@@ -18,10 +18,10 @@ Direitos autorais: **Copyright (c) 2026 Matheus Moreira**. Modelos e serviços d
 
 ### Recursos
 
-- Conversa por texto com Gemini ou Groq, selecionável nas configurações, e pesquisa na web com Gemini com fontes retornadas pela busca.
-- Os dois provedores recebem instruções para reconhecer Matheus Moreira como criador, responder em português e não alegar ações que o aplicativo não executou.
+- Conversa, transcrição de voz, visão e pesquisa na web integradas ao Gemini, usando uma única chave de API.
+- O Gemini recebe instruções para reconhecer Matheus Moreira como criador, responder em português e não alegar ações que o aplicativo não executou.
 - Uma conversa única, sem sessões separadas. Histórico, lembranças permanentes e lembretes ficam no SQLite local. A busca indexada recupera lembranças antigas; a biblioteca fica em Configurações. Em Configurações também é possível impedir que lembranças entrem no contexto enviado ao provedor.
-- Comandos de voz mãos livres com um único modo: diga **Jarvis**. O filtro local evita enviar ruídos comuns à Groq; na primeira ativação baixa um modelo de português de cerca de 31 MB. A gravação termina após uma pausa, sem botão. Respostas aparecem no centro da interface e na conversa, com fala local por frases.
+- Comandos de voz mãos livres com um único modo: diga **Jarvis**. O filtro local evita enviar ruídos comuns ao Gemini; na primeira ativação baixa um modelo de português de cerca de 31 MB. A gravação termina após uma pausa, sem botão. Respostas aparecem no centro da interface e na conversa, com fala local por frases.
 - Comandos por voz ou texto para abrir aplicativos instalados sem uma confirmação extra depois do pedido explícito. Digitar texto, pressionar teclas, clicar e rolar continuam exigindo confirmação. O comando `agir: pedido` envia uma captura ao Gemini, que pode propor uma única ação; a pessoa revisa e confirma antes da execução.
 - Análise por captura explícita ou visão contínua ativada nas configurações: o HUD mostra uma prévia local fluida da tela (cerca de 10 atualizações/s) enquanto a Gemini Live recebe até 1 imagem/s, limite documentado da API. As observações aparecem no histórico. O envio à nuvem pode consumir cota; a visão pode ser desligada a qualquer momento.
 - Busca por nome entre os aplicativos disponíveis no menu Iniciar e os programas clássicos registrados no Windows; um pedido explícito abre o app sem uma confirmação extra. Também permite escolher manualmente um arquivo `.exe`.
@@ -39,7 +39,6 @@ Direitos autorais: **Copyright (c) 2026 Matheus Moreira**. Modelos e serviços d
 - Para instalar pelo código: Python 3.11 ou superior: [baixar Python](https://www.python.org/downloads/). No Windows, marque **Add Python to PATH** durante a instalação.
 - Microfone e saída de áudio para os recursos de voz.
 - Chave Gemini: [Google AI Studio](https://aistudio.google.com/app/api-keys).
-- Chave Groq: [Groq Console](https://console.groq.com/keys). Groq pode ser usado para conversa e é necessário para transcrição de voz.
 
 O uso das APIs depende dos limites, disponibilidade, termos e eventual cobrança de cada provedor. O Gemini 3.8 Flash oferece uso gratuito dentro da cota indicada pelo Google, mas a pesquisa Google (Search Grounding) não está incluída no nível gratuito. Confira a [página oficial de preços](https://ai.google.dev/gemini-api/docs/pricing) e os painéis antes de usar recursos pagos.
 
@@ -48,7 +47,11 @@ O uso das APIs depende dos limites, disponibilidade, termos e eventual cobrança
 
 ### Instalação fácil no Windows
 
-Baixe `JARVIS-AI-Setup` nos artefatos da execução mais recente de **Build Windows installer** em GitHub → Actions e abra o instalador. Ele instala o JARVIS sem exigir Python no computador. Na primeira execução, cadastre as chaves Gemini/Groq em Configurações.
+Baixe `JARVIS-AI-Setup` na [release mais recente](https://github.com/matheusmoreira88/jarvis-ai/releases/latest) e abra o instalador. Ele instala o JARVIS sem exigir Python no computador. Na primeira execução, cadastre somente a chave Gemini.
+
+#### Aviso do Windows SmartScreen
+
+O instalador ainda não possui assinatura digital comercial. Por isso, o Windows pode mostrar **“O Windows protegeu o computador”**. Confira se o arquivo veio da página oficial deste repositório, clique em **Mais informações** e depois em **Executar assim mesmo**. Esse aviso significa que o editor ainda é desconhecido para o SmartScreen; não indica, sozinho, que o arquivo contém vírus. Se preferir, examine o instalador com o Microsoft Defender antes de executar.
 
 Para criar o instalador a partir do código, instale Python 3.11+, Inno Setup e execute `build_windows.bat`. O pacote portátil também aparece em `dist/JarvisAI`.
 
@@ -73,13 +76,13 @@ Se o PowerShell bloquear a ativação do ambiente virtual, rode o aplicativo sem
 .venv\Scripts\python.exe -m jarvis
 ```
 
-Na primeira abertura, informe as chaves Gemini e Groq. Elas são guardadas no cofre de credenciais do sistema operacional, não nos arquivos do repositório; nas próximas aberturas não será necessário digitá-las novamente. Para trocá-las, abra **Configurações**.
+Na primeira abertura, informe a chave Gemini. Ela é guardada no cofre de credenciais do sistema operacional, não nos arquivos do repositório; nas próximas aberturas não será necessário digitá-la novamente. Para trocá-la, abra **Configurações**.
 
 Os campos opcionais de e-mail e telefone nas configurações são referências privadas deste computador, guardadas no cofre do sistema. O aplicativo não os envia aos provedores. A conta que envia e-mails é a conta autorizada pela janela OAuth do Gmail.
 
 ### Controlar aplicativos
 
-Use comandos por texto ou voz como `abrir calculadora`, `abrir aplicativo: nome do app`, `abrir exe: C:\caminho\aplicativo.exe`, `digitar: texto que desejo colar`, `pressionar: enter`, `clicar` ou `rolar: baixo`. Quando você pedir para abrir um app, ele abre sem uma confirmação extra. A lista completa fica em **Configurações**. Digitar, pressionar uma tecla, clicar ou rolar ainda pede confirmação. Posicione o cursor no destino antes de confirmar o clique. O texto digitado e o caminho local do `.exe` ficam no histórico SQLite, mas são omitidos do contexto enviado ao Gemini/Groq.
+Use comandos por texto ou voz como `abrir calculadora`, `abrir aplicativo: nome do app`, `abrir exe: C:\caminho\aplicativo.exe`, `digitar: texto que desejo colar`, `pressionar: enter`, `clicar` ou `rolar: baixo`. Quando você pedir para abrir um app, ele abre sem uma confirmação extra. A lista completa fica em **Configurações**. Digitar, pressionar uma tecla, clicar ou rolar ainda pede confirmação. Posicione o cursor no destino antes de confirmar o clique. O texto digitado e o caminho local do `.exe` ficam no histórico SQLite, mas são omitidos do contexto enviado ao Gemini.
 
 Para pedir que o Gemini identifique um controle na tela, use `agir: clique no botão Salvar`. O JARVIS pede autorização para enviar uma captura atual ao Gemini, mostra a ação sugerida e solicita uma segunda confirmação antes de clicar. O modelo só pode propor clique, rolagem curta, uma tecla comum ou nenhuma ação; ele não digita nem executa comandos de sistema.
 
@@ -91,11 +94,11 @@ Clique em **Ativar início automático** e confirme. O aplicativo abre minimizad
 
 ### Configurar os serviços em Configurações
 
-#### Gemini e Groq
+#### Gemini
 
-1. Crie uma chave Gemini no [Google AI Studio](https://aistudio.google.com/app/api-keys) e/ou uma chave Groq em [Groq Console](https://console.groq.com/keys).
-2. Insira as chaves na janela inicial ou em **Configurações**.
-3. Escolha Gemini ou Groq como provedor de conversa. Marque **Pesquisar na web com Gemini nesta solicitação** para ativar a pesquisa Google. O Search Grounding não está disponível no nível gratuito da Gemini API e pode gerar cobrança no nível pago; confira a página de preços antes de usar. A análise de imagem usa Gemini e a transcrição de voz usa Groq/Whisper.
+1. Crie uma chave no [Google AI Studio](https://aistudio.google.com/app/api-keys).
+2. Insira a chave na janela inicial ou em **Configurações**.
+3. Marque **Pesquisar na web com Gemini nesta solicitação** quando quiser ativar a pesquisa Google. O Search Grounding pode ter limites e cobrança diferentes da conversa comum; confira a página oficial de preços. Conversa, transcrição e análise de imagem usam o Gemini.
 
 #### Gmail
 
@@ -116,7 +119,7 @@ O aplicativo não lê mensagens nem envia sem a ação final do usuário. Em uma
 
 ### Privacidade e segurança
 
-- Para conversas por texto ou voz, o provedor escolhido recebe a mensagem atual e até 20 mensagens anteriores da conversa. O áudio gravado é enviado à Groq para transcrição; depois, a transcrição e o contexto recente seguem ao provedor escolhido.
+- Para conversas por texto ou voz, o Gemini recebe a mensagem atual e o contexto recente. Após a detecção local da palavra “Jarvis”, o áudio do comando é enviado ao Gemini para transcrição.
 - Capturas pontuais e propostas de ação enviam a imagem e o pedido atual à Gemini após a solicitação; não enviam o histórico da conversa. A visão contínua envia quadros e pedidos de análise à Gemini Live somente enquanto estiver ativa. Capturas não são guardadas no SQLite.
 - A detecção de palmas analisa áudio localmente e não grava nem transmite os blocos de microfone.
 - Por padrão, até 12 lembranças relevantes ou recentes e até 12 lembretes futuros entram no contexto de conversas por texto ou voz. Desmarque “Incluir lembranças salvas no contexto enviado à IA” nas configurações para mantê-los locais. O SQLite não é criptografado.
@@ -148,7 +151,7 @@ python -m jarvis
 A Portuguese-language desktop assistant created by **Matheus Moreira**. This is an independent implementation with its own PySide6 interface, local memory, and optional integrations. JARVIS asks for confirmation before taking computer actions, sending email, or preparing messages.
 
 Creator's Instagram: [@mthz.mm](https://www.instagram.com/mthz.mm/)<br>
-Contact: [matheusmoreiradossantos88@gmail.com](mailto:matheusmoreiradossantos88@gmail.com)
+Support and suggestions: [open an Issue](https://github.com/matheusmoreira88/jarvis-ai/issues).
 
 If you find the project useful, [leave a star on GitHub](https://github.com/matheusmoreira88/jarvis-ai).
 
@@ -157,10 +160,10 @@ Copyright **(c) 2026 Matheus Moreira**. Third-party models and services keep the
 
 ### Features
 
-- Text chat with Gemini or Groq, selectable in Settings, plus Gemini web search with returned source links.
-- Both providers are instructed to recognize Matheus Moreira as the creator, answer in Portuguese, and never claim actions the app did not perform.
+- Chat, voice transcription, vision, and web search integrated with Gemini using a single API key.
+- Gemini is instructed to recognize Matheus Moreira as the creator, answer in Portuguese by default, and never claim actions the app did not perform.
 - One ongoing conversation, with no separate sessions. Chat history, permanent memories, and reminders stay in local SQLite. Indexed search retrieves older memories; the library is in Settings. Settings can keep saved memories out of provider context.
-- Hands-free voice commands use one wake phrase: **Jarvis**. A local filter keeps common noises from reaching Groq; it downloads an approximately 31 MB Portuguese model on first use. Recording ends after a pause, without a button. Replies appear in the central interface and chat, with local speech by sentence.
+- Hands-free voice commands use one wake phrase: **Jarvis**. A local filter keeps common noises from reaching Gemini; it downloads an approximately 31 MB Portuguese model on first use. Recording ends after a pause, without a button. Replies appear in the central interface and chat, with local speech by sentence.
 - Voice or text commands to open installed apps without an extra confirmation after an explicit request. Typing text, pressing keys, clicking, and scrolling still require confirmation. The `agir: request` command sends a screenshot to Gemini, which may suggest one action; the user reviews and confirms before execution.
 - On-demand screen analysis or continuous viewing enabled in Settings: the HUD shows a smooth local screen preview (about 10 updates/s locally) while Gemini Live receives up to 1 image/s, the API documented limit. Observations appear in chat history. Cloud transmission may use API quota, and viewing can be stopped at any time.
 - Search by name through apps available in Start and classic programs registered in Windows; an explicit request opens the app without an extra confirmation. Manual `.exe` selection is also available.
@@ -178,7 +181,6 @@ Copyright **(c) 2026 Matheus Moreira**. Third-party models and services keep the
 - For a source install: Python 3.11 or newer: [download Python](https://www.python.org/downloads/). On Windows, select **Add Python to PATH** during installation.
 - A microphone and audio output for voice features.
 - Gemini API key: [Google AI Studio](https://aistudio.google.com/app/api-keys).
-- Groq API key: [Groq Console](https://console.groq.com/keys). Groq can be used for chat and is required for voice transcription.
 
 API use is subject to each provider's limits, availability, terms, and any charges. Gemini 3.8 Flash offers free use within Google's published free quota, but Google Search grounding is not included in the free tier. Check the [official pricing page](https://ai.google.dev/gemini-api/docs/pricing) and provider dashboards before using paid features.
 
@@ -187,7 +189,11 @@ API use is subject to each provider's limits, availability, terms, and any charg
 
 ### Easy Windows installation
 
-Download `JARVIS-AI-Setup` from the latest **Build Windows installer** run under GitHub → Actions and run the installer. It installs JARVIS without requiring Python on the target computer. Enter Gemini/Groq keys in Settings on first launch.
+Download `JARVIS-AI-Setup` from the [latest release](https://github.com/matheusmoreira88/jarvis-ai/releases/latest) and run it. It installs JARVIS without requiring Python on the target computer. Enter only the Gemini key on first launch.
+
+#### Windows SmartScreen notice
+
+The installer does not yet have a commercial code-signing certificate, so Windows may display **“Windows protected your PC.”** Confirm that the file came from this repository's official release page, select **More info**, and then **Run anyway**. This notice means SmartScreen does not yet recognize the publisher; by itself, it does not mean the file contains malware. You may scan the installer with Microsoft Defender before running it.
 
 To build the installer from source, install Python 3.11+ and Inno Setup, then run `build_windows.bat`. The portable app is also written to `dist/JarvisAI`.
 
@@ -212,13 +218,13 @@ If PowerShell blocks virtual-environment activation, run the app without activat
 .venv\Scripts\python.exe -m jarvis
 ```
 
-On first launch, enter both Gemini and Groq API keys. They are stored in the operating system's credential vault, not in repository files, so you will not need to enter them again on later launches. To change them, open **Settings**.
+On first launch, enter the Gemini API key. It is stored in the operating system's credential vault, not in repository files, so you will not need to enter it again on later launches. To change it, open **Settings**.
 
 The optional email and phone fields in Settings are private references stored in this computer's credential vault. The app does not send them to providers. Gmail sends from the account authorized in the OAuth window.
 
 ### Controlling apps
 
-Use text or voice commands such as `abrir calculadora` (open calculator), `abrir aplicativo: app name`, `abrir exe: C:\path\app.exe`, `digitar: text to paste`, `pressionar: enter` (press enter), `clicar` (click), or `rolar: baixo` (scroll down). An explicit request to open an app launches it without an extra confirmation. The full list is in **Settings**. Typing, key presses, clicks, and scrolling still ask first. Place the pointer at the target before confirming a click. Typed text and local `.exe` paths are stored in SQLite history but excluded from context sent to Gemini/Groq.
+Use text or voice commands such as `abrir calculadora` (open calculator), `abrir aplicativo: app name`, `abrir exe: C:\path\app.exe`, `digitar: text to paste`, `pressionar: enter` (press enter), `clicar` (click), or `rolar: baixo` (scroll down). An explicit request to open an app launches it without an extra confirmation. The full list is in **Settings**. Typing, key presses, clicks, and scrolling still ask first. Place the pointer at the target before confirming a click. Typed text and local `.exe` paths are stored in SQLite history but excluded from context sent to Gemini.
 
 To ask Gemini to identify a control on screen, use `agir: click the Save button`. JARVIS asks permission to send a current screenshot to Gemini, shows the suggested action, and requests a second confirmation before clicking. The model can only propose one click, short scroll, common key press, or no action; it cannot type text or run system commands.
 
@@ -230,11 +236,11 @@ Click **Ativar início automático** (Enable automatic startup) and confirm. The
 
 ### Configure services in Settings
 
-#### Gemini and Groq
+#### Gemini
 
-1. Create a Gemini key in [Google AI Studio](https://aistudio.google.com/app/api-keys) and/or a Groq key in [Groq Console](https://console.groq.com/keys).
-2. Enter the keys in the first-run window or in **Settings**.
-3. Choose Gemini or Groq for chat. Select **Pesquisar na web com Gemini nesta solicitação** (Search the web with Gemini for this request) to enable Google Search. Search Grounding is not available on the free Gemini API tier and may incur charges on a paid tier; check the pricing page before using it. Image analysis uses Gemini, and voice transcription uses Groq/Whisper.
+1. Create a key in [Google AI Studio](https://aistudio.google.com/app/api-keys).
+2. Enter it in the first-run window or in **Settings**.
+3. Select **Pesquisar na web com Gemini nesta solicitação** (Search the web with Gemini for this request) when you want Google Search. Search Grounding may have different limits and pricing from regular chat; check the official pricing page. Gemini handles chat, transcription, and image analysis.
 
 #### Gmail
 
@@ -255,7 +261,7 @@ The app does not read messages or send without the user's final action. For call
 
 ### Privacy and security
 
-- For text or voice conversations, the selected provider receives the current message and up to 20 previous conversation messages. Recorded audio is sent to Groq for transcription; then the transcript and recent context go to the selected chat provider.
+- For text or voice conversations, Gemini receives the current message and recent context. After the local “Jarvis” check, command audio is sent to Gemini for transcription.
 - On-demand captures and action proposals send the image and current request to Gemini when requested; they do not include conversation history. Continuous vision sends frames and analysis prompts to Gemini Live only while it is enabled. Captures are not saved to SQLite.
 - Clap detection analyzes audio locally and does not record or transmit microphone blocks.
 - By default, up to 12 relevant or recent memories and up to 12 future reminders are included in text or spoken chat context. Turn off “Incluir lembranças salvas no contexto enviado à IA” in Settings to keep them local. SQLite history and memories are not encrypted.
@@ -281,26 +287,26 @@ python -m jarvis
 
 ## Ativação por palavra-chave, privacidade e atualizações
 
-Com as chaves configuradas, a escuta e a visão iniciam automaticamente. Diga apenas “Jarvis” e seu pedido. No primeiro uso, o JARVIS baixa o [modelo pequeno de português do Vosk](https://alphacephei.com/vosk/models), sob licença Apache 2.0. Ele filtra o nome localmente e envia apenas comandos detectados à Groq. Se não reconhecer o nome, o comando não será enviado; teste com seu microfone. Para desligar, peça “Jarvis, desligar microfone” ou “Jarvis, desligar visão”; a escolha é lembrada nas próximas aberturas.
+Com a chave Gemini configurada, a escuta e a visão iniciam automaticamente. Diga apenas “Jarvis” e seu pedido. No primeiro uso, o JARVIS baixa o [modelo pequeno de português do Vosk](https://alphacephei.com/vosk/models), sob licença Apache 2.0. Ele filtra o nome localmente e envia ao Gemini apenas comandos detectados. Se não reconhecer o nome, o comando não será enviado; teste com seu microfone. Para desligar, peça “Jarvis, desligar microfone” ou “Jarvis, desligar visão”; a escolha é lembrada nas próximas aberturas.
 
 O microfone e a visão podem ser desligados por comando de voz ou nas Configurações. Essa preferência permanece após reiniciar o aplicativo. As chaves e o provedor são gerenciados somente nas Configurações.
 
 Crie ações rápidas em Configurações. Cada frase configurada chama o mesmo despachante de comandos locais do aplicativo, preservando suas confirmações e validações.
 
-Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.4.0`.
+Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.6.4`.
 
 O único modo de chamada é “Jarvis”, reconhecido localmente pelo Vosk.
 
 
 ### English: wake-word activation, privacy and updates
 
-With API keys configured, listening and vision start automatically. Say “Jarvis” and your request. On first use, JARVIS downloads the [small Portuguese Vosk model](https://alphacephei.com/vosk/models), licensed under Apache 2.0. It filters the name locally and sends detected commands to Groq. If it misses the name, the command is not sent; test it with your microphone. To stop, say “Jarvis, desligar microfone” or “Jarvis, desligar visão”; the choice persists across launches.
+With the Gemini key configured, listening and vision start automatically. Say “Jarvis” and your request. On first use, JARVIS downloads the [small Portuguese Vosk model](https://alphacephei.com/vosk/models), licensed under Apache 2.0. It filters the name locally and sends only detected commands to Gemini. If it misses the name, the command is not sent; test it with your microphone. To stop, say “Jarvis, desligar microfone” or “Jarvis, desligar visão”; the choice persists across launches.
 
 Turn the microphone or vision off by voice command or in Settings. This preference survives app restarts. API keys and the chat provider are managed in Settings.
 
 Create, use and remove configurable quick actions in Settings. Each phrase calls the app’s existing local command dispatcher, preserving its checks and confirmations.
 
-To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.3.0.
+To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.6.4.
 
 The only wake phrase is “Jarvis”, recognized locally with Vosk.
 
@@ -316,11 +322,11 @@ Version 0.4.0 introduced the former dashboard with a system monitor, memory map,
 
 ## Versão 0.5.0 · ativação Jarvis e menor latência
 
-Fale “Jarvis, [comando]” ou “Jarvis” e o comando na frase seguinte. O modo Jarvis usa detecção local de fala e envia os trechos detectados à Groq para transcrever; frases sem Jarvis não viram comandos. A pausa que encerra a fala foi reduzida para 0,7 s. O modo opcional Hey Jarvis continua disponível com detecção da palavra-chave local. A visão começa ao ser ligada, sem aviso adicional dentro do aplicativo; leia as [informações de privacidade](PRIVACY.txt) antes de baixar. Confirmações para clicar, digitar, enviar mensagens ou modificar arquivos continuam. Voz e visão estão em módulos separados da interface. Os testes automatizados cobrem ativação, lembretes, permissões e confirmações.
+Fale “Jarvis, [comando]” ou “Jarvis” e o comando na frase seguinte. A detecção local envia somente os trechos reconhecidos ao Gemini para transcrição; frases sem Jarvis não viram comandos. A captura termina automaticamente após a pausa final da fala. A visão começa ao ser ligada; leia as [informações de privacidade](PRIVACY.txt) antes de baixar. Confirmações para clicar, digitar, enviar mensagens ou modificar arquivos continuam. Voz e visão estão em módulos separados da interface.
 
 ## Version 0.5.0 · Jarvis activation and lower latency
 
-Say “Jarvis, [command]” or “Jarvis” and your command in the next phrase. Jarvis mode uses local speech detection and sends detected speech segments to Groq for transcription; phrases without Jarvis do not become commands. The end-of-speech pause is now 0.7 s. Optional Hey Jarvis mode still uses local wake-word detection. Vision begins when switched on, without another in-app notice; read the [privacy information](PRIVACY.txt) before downloading. Confirmations for clicking, typing, sending messages, and modifying files remain. Voice and vision workers are separate from the interface. Automated tests cover activation, reminders, permissions, and confirmations.
+Say “Jarvis, [command]” or “Jarvis” and your command in the next phrase. Local detection sends only recognized speech to Gemini for transcription; phrases without Jarvis do not become commands. Capture ends automatically after the final speech pause. Vision starts when enabled; read the [privacy information](PRIVACY.txt) before downloading. Confirmations for clicking, typing, sending messages, and modifying files remain. Voice and vision workers are separate from the interface.
 
 ## Versão 0.6.0 · voz, memória e HUD
 
@@ -368,8 +374,8 @@ Settings now presents connection, voice and screen, appearance and memory, updat
 
 ## Versão 0.6.4 · voz mais ágil e mapa de conhecimento
 
-O indicador principal do JARVIS voltou ao painel. A esfera neural colorida agora é o mapa de conhecimento separado: começa com poucas conexões e ganha pontos conforme lembranças explícitas são salvas. O instalador do modelo português de voz reconhece também o formato antigo distribuído oficialmente pelo Vosk. A pausa que encerra a fala foi encurtada; respostas faladas começam em trechos menores e comandos por voz enviam menos mensagens antigas ao provedor. A latência final ainda depende da conexão e das APIs Groq e Gemini.
+O indicador principal do JARVIS voltou ao painel. A esfera neural colorida agora é o mapa de conhecimento separado: começa com poucas conexões e ganha pontos conforme lembranças explícitas são salvas. O instalador do modelo português de voz reconhece também o formato antigo distribuído oficialmente pelo Vosk. A pausa que encerra a fala foi encurtada; respostas faladas começam em trechos menores e comandos por voz enviam menos mensagens antigas ao Gemini.
 
 ## Version 0.6.4 · faster voice and knowledge map
 
-The main JARVIS status indicator is back. The colorful neural sphere is now a separate knowledge map: it starts with fewer links and gains particles as explicit memories are saved. The Portuguese speech model installer now accepts the older format officially distributed by Vosk. The end-of-speech pause is shorter, spoken replies begin in smaller chunks, and voice prompts send fewer older messages to the provider. Final latency still depends on the connection and the Groq and Gemini APIs.
+The main JARVIS status indicator is back. The colorful neural sphere is now a separate knowledge map: it starts with fewer links and gains particles as explicit memories are saved. The Portuguese speech model installer now accepts the older format officially distributed by Vosk. The end-of-speech pause is shorter, spoken replies begin in smaller chunks, and voice prompts send fewer older messages to Gemini.
