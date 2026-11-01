@@ -1,5 +1,5 @@
 #define AppName "JARVIS AI"
-#define AppVersion "0.6.3"
+#define AppVersion "0.6.4"
 #define AppPublisher "Matheus Moreira"
 #define AppExeName "JarvisAI.exe"
 

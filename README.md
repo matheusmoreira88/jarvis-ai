@@ -365,3 +365,11 @@ Configurações agora mostra primeiro conexão, voz e tela, aparência e memóri
 ## Version 0.6.3 · settings for everyone
 
 Settings now presents connection, voice and screen, appearance and memory, updates, and Windows startup first. Integrations and less common tools stay collapsed under **Show optional features**. Calendar wording is general, with no school-specific label, and the welcome message no longer uses the creator's name. Preferences can be saved at the end of the basic controls.
+
+## Versão 0.6.4 · voz mais ágil e mapa de conhecimento
+
+O indicador principal do JARVIS voltou ao painel. A esfera neural colorida agora é o mapa de conhecimento separado: começa com poucas conexões e ganha pontos conforme lembranças explícitas são salvas. O instalador do modelo português de voz reconhece também o formato antigo distribuído oficialmente pelo Vosk. A pausa que encerra a fala foi encurtada; respostas faladas começam em trechos menores e comandos por voz enviam menos mensagens antigas ao provedor. A latência final ainda depende da conexão e das APIs Groq e Gemini.
+
+## Version 0.6.4 · faster voice and knowledge map
+
+The main JARVIS status indicator is back. The colorful neural sphere is now a separate knowledge map: it starts with fewer links and gains particles as explicit memories are saved. The Portuguese speech model installer now accepts the older format officially distributed by Vosk. The end-of-speech pause is shorter, spoken replies begin in smaller chunks, and voice prompts send fewer older messages to the provider. Final latency still depends on the connection and the Groq and Gemini APIs.

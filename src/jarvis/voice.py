@@ -12,7 +12,7 @@ import sounddevice as sd
 
 SAMPLE_RATE = 16_000
 BLOCK_SIZE = 1_024  # Aproximadamente 64 ms por bloco, para encerrar sem longas esperas.
-END_SILENCE_SECONDS = 0.55
+END_SILENCE_SECONDS = 0.38
 START_TIMEOUT_SECONDS = 12
 MAX_UTTERANCE_SECONDS = 180
 SPEECH_THRESHOLD = 0.012  # RMS normalizado; ajustável após testes com microfones variados.

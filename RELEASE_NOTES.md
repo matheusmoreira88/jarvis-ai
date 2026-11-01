@@ -1,19 +1,19 @@
-# JARVIS AI 0.6.3
+# JARVIS AI 0.6.4
 
 ## Português (Brasil)
 
-- Página de Configurações reorganizada em cartões para conexão, voz e tela, aparência e memória, e aplicativo.
-- Recursos menos comuns, como calendário, rotinas, integrações e ferramentas de código, ficam recolhidos em **Mostrar recursos opcionais**.
-- Removida a referência a “calendário escolar” da interface. A saudação inicial agora serve para qualquer pessoa.
-- Estilos de cartões, títulos, controles e botões atualizados; preferências podem ser salvas no fim da área principal.
+- O indicador principal do JARVIS volta ao painel; a esfera neural passa a ser um mapa de conhecimento separado, que cresce conforme lembranças são salvas.
+- Corrigido o download do modelo português de voz: o pacote oficial usa um formato antigo que o Vosk aceita, mas a verificação anterior rejeitava.
+- A fala termina após uma pausa menor, o contexto recente da voz foi reduzido e a resposta falada começa em trechos menores.
+- O tempo restante depende da conexão e da resposta das APIs Groq e Gemini.
 
 O código é de Matheus Moreira, sob licença MIT. Modelos e serviços de terceiros seguem suas próprias licenças e termos. Leia as [informações de privacidade](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) antes de instalar.
 
 ## English
 
-- Settings reorganized into cards for connection, voice and screen, appearance and memory, and the application.
-- Less common features such as calendar import, routines, integrations, and code tools stay collapsed under **Show optional features**.
-- Removed the school-specific calendar label. The welcome message now works for everyone.
-- Updated card, heading, control, and button styling; preferences can be saved at the end of the main section.
+- The main JARVIS status indicator returns; the neural sphere is a separate knowledge map that grows as memories are saved.
+- Fixed Portuguese speech model installation: the official package uses an older layout accepted by Vosk but rejected by the previous installer check.
+- Speech ends after a shorter pause, voice requests use less recent context, and spoken answers start in smaller chunks.
+- Remaining latency depends on the connection and the Groq and Gemini APIs.
 
 Copyright (c) 2026 Matheus Moreira, licensed under MIT. Third-party models and services retain their own licenses and terms. Read the [privacy information](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) before installation.

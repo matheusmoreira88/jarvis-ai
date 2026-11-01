@@ -20,6 +20,7 @@ HUD_STYLE = """
             QWidget#heroStage { background: #1b1b1b; }
             QLabel#heroHint { color: #83dbe8; font-size: 17px; font-weight: 600; }
             QLabel#answerPreview { color: #e9f6fa; font-size: 18px; padding: 12px; }
+            QLabel#memoryCount { color: #8999aa; font-size: 12px; padding-bottom: 2px; }
             QMainWindow, QWidget#centralSurface { background: #080b12; color: #edf2fb; }
             QWidget { color: #edf2fb; font-family: 'Segoe UI'; font-size: 13px; }
             QLabel { background: transparent; }

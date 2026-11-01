@@ -74,8 +74,14 @@ class ReplyWorker(QThread):
                     if speech_queue is not None:
                         speech_pending += part
                         while True:
-                            boundary = re.search(r"[.!?](?:\s|$)", speech_pending)
+                            boundary = re.search(r"[.!?](?:\s|$)|[,;:](?:\s|$)", speech_pending)
                             if not boundary:
+                                if len(speech_pending) >= 95:
+                                    split = speech_pending.rfind(" ", 0, 95)
+                                    if split > 35:
+                                        speech_queue.put(speech_pending[:split])
+                                        speech_pending = speech_pending[split + 1:]
+                                        continue
                                 break
                             speech_queue.put(speech_pending[:boundary.end()])
                             speech_pending = speech_pending[boundary.end():]

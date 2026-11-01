@@ -16,10 +16,18 @@ MODEL_URL = f"https://alphacephei.com/vosk/models/{MODEL_NAME}.zip"
 MODEL_ROOT = user_data_path("JarvisAI", "Matheus") / "speech-models"
 
 
+def _valid_model(path: Path) -> bool:
+    # Vosk aceita tanto o layout atual quanto o layout antigo do modelo pt-0.3.
+    return ((path / "am" / "final.mdl").is_file()
+            and (path / "conf" / "model.conf").is_file()) or (
+                (path / "final.mdl").is_file()
+                and (path / "mfcc.conf").is_file())
+
+
 def ensure_model() -> Path:
     """Download only the official model once, with size and path checks."""
     destination = MODEL_ROOT / MODEL_NAME
-    if (destination / "am" / "final.mdl").is_file():
+    if _valid_model(destination):
         return destination
     MODEL_ROOT.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="jarvis-model-", dir=MODEL_ROOT) as folder:
@@ -42,10 +50,13 @@ def ensure_model() -> Path:
                     raise RuntimeError("O pacote do modelo contém um caminho inválido.")
             package.extractall(folder)
         extracted = Path(folder) / MODEL_NAME
-        if not (extracted / "am" / "final.mdl").is_file():
+        if not _valid_model(extracted):
             raise RuntimeError("O pacote do modelo local está incompleto.")
+        # A tentativa anterior pode ter sido interrompida depois da extração.
+        # Só removemos esta pasta conhecida do modelo antes de instalar a cópia nova.
         if destination.exists():
-            raise RuntimeError("Há um modelo local incompleto; remova a pasta speech-models para baixar novamente.")
+            import shutil
+            shutil.rmtree(destination)
         extracted.rename(destination)
     return destination
 

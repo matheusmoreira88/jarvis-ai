@@ -11,14 +11,94 @@ from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QRadialG
 from PySide6.QtWidgets import QWidget, QSizePolicy
 
 
-class CoreOrb(QWidget):
-    """Dense, slowly rotating neural cloud inspired by the supplied reference."""
+class StatusOrb(QWidget):
+    """Paint the central status indicator without a fixed bitmap or decorative text label."""
     def __init__(self, version: str, parent=None):
         super().__init__(parent)
         self.version = version
         self.state = "ready"
         self.phase = 0.0
         self.motion_enabled = True
+        self.setMinimumSize(165, 165)
+        self.setMaximumSize(270, 270)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._tick)
+        self.timer.start(50)
+
+    def set_state(self, state: str):
+        if state != self.state:
+            self.state = state
+            self.update()
+
+    def set_motion_enabled(self, enabled: bool):
+        self.motion_enabled = bool(enabled)
+        self.update()
+
+    def _tick(self):
+        if self.motion_enabled and self.isVisible():
+            self.phase = (self.phase + 0.018) % (2 * math.pi)
+            self.update()
+
+    def paintEvent(self, event):
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        center = QPointF(self.width() / 2, self.height() / 2)
+        radius = min(self.width(), self.height()) * 0.40
+        active = self.state in {"listening", "thinking", "speaking", "observing"}
+        pulse = math.sin(self.phase) if self.motion_enabled and active else 0.0
+        glow = QRadialGradient(center, radius * 1.28)
+        glow.setColorAt(0.0, QColor(24, 186, 221, 78 + int(12 * pulse)))
+        glow.setColorAt(0.64, QColor(9, 74, 103, 58))
+        glow.setColorAt(1.0, QColor(4, 14, 27, 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(glow)
+        painter.drawEllipse(center, radius * 1.28, radius * 1.28)
+        painter.setBrush(QColor("#071927"))
+        painter.setPen(QPen(QColor("#18455e"), 1))
+        painter.drawEllipse(center, radius * 0.87, radius * 0.87)
+        for index, fraction in enumerate((0.72, 0.90, 1.05)):
+            color = QColor("#42e4f5") if index == 1 else QColor("#245d76")
+            painter.setPen(QPen(color, 1.5 if index == 1 else 1))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(center, radius * fraction, radius * fraction)
+        for index in range(36):
+            angle = index * (2 * math.pi / 36) + (self.phase * 0.13 if self.motion_enabled else 0)
+            inner = radius * (0.96 if index % 3 else 0.91)
+            outer = radius * 1.02
+            painter.setPen(QPen(QColor("#58dbe9" if index % 3 == 0 else "#2a718c"), 1))
+            painter.drawLine(QPointF(center.x() + math.cos(angle) * inner,
+                                     center.y() + math.sin(angle) * inner),
+                             QPointF(center.x() + math.cos(angle) * outer,
+                                     center.y() + math.sin(angle) * outer))
+        painter.setPen(QColor("#e7fcff"))
+        font = self.font(); font.setPixelSize(max(17, int(radius * 0.22))); font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(QRectF(center.x() - radius, center.y() - 33,
+                                radius * 2, 27), Qt.AlignmentFlag.AlignCenter, "J A R V I S")
+        painter.setPen(QColor("#63d9ea"))
+        font.setPixelSize(10); font.setBold(False); painter.setFont(font)
+        label = {"ready": "PRONTO", "listening": "OUVINDO", "thinking": "PENSANDO",
+                 "speaking": "FALANDO", "observing": "OBSERVANDO"}.get(self.state, self.state.upper())
+        painter.drawText(QRectF(center.x() - radius, center.y() + 2,
+                                radius * 2, 20), Qt.AlignmentFlag.AlignCenter, label)
+        painter.setPen(QColor("#729aaf"))
+        painter.drawText(QRectF(center.x() - radius, center.y() + 24,
+                                radius * 2, 20), Qt.AlignmentFlag.AlignCenter,
+                         f"AI CORE  ·  v{self.version}")
+
+
+
+class CoreOrb(QWidget):
+    """Knowledge map that lights up as explicit memories are saved."""
+    def __init__(self, version: str, parent=None):
+        super().__init__(parent)
+        self.version = version
+        self.state = "ready"
+        self.phase = 0.0
+        self.motion_enabled = True
+        self.memory_count = 0
         self.setMinimumSize(320, 320)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         rng = random.Random(271828)
@@ -80,6 +160,10 @@ class CoreOrb(QWidget):
         self.state = state
         self.update()
 
+    def set_memory_count(self, count: int):
+        self.memory_count = max(0, int(count))
+        self.update()
+
     def set_motion_enabled(self, enabled: bool):
         self.motion_enabled = bool(enabled)
         self.update()
@@ -112,15 +196,19 @@ class CoreOrb(QWidget):
             projected.append((QPointF(cx + rx * radius, cy + y * radius), depth))
         edge_pens = [QPen(QColor(139, 145, 151, alpha), 0.6)
                      for alpha in (12, 18, 25, 35)]
+        active = min(len(self.nodes), 120 + int(1930 * min(
+            1.0, math.log1p(self.memory_count) / math.log1p(100))))
         edge_layers = [[], [], [], []]
         for left, right in self.edges:
+            if left >= active or right >= active:
+                continue
             p1, d1 = projected[left]
             p2, d2 = projected[right]
             edge_layers[min(3, int((d1 + d2) * 2))].append(QLineF(p1, p2))
         for pen, lines in zip(edge_pens, edge_layers):
             painter.setPen(pen)
             painter.drawLines(lines)
-        for index in sorted(range(len(projected)), key=lambda idx: projected[idx][1]):
+        for index in sorted(range(active), key=lambda idx: projected[idx][1]):
             point, depth = projected[index]
             color = QColor(self.node_colors[index])
             color.setAlpha(int(95 + 145 * depth))

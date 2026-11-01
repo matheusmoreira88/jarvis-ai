@@ -25,7 +25,7 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from . import memory, __version__
 from .settings import get_secret, save_secret, load_settings, save_settings
 from .vision_worker import LiveVisionWorker
-from .dashboard import CoreOrb, DonutGauge, MemoryBrain, ScreenPreviewWorker, ScreenFrameStore
+from .dashboard import CoreOrb, StatusOrb, DonutGauge, MemoryBrain, ScreenPreviewWorker, ScreenFrameStore
 from .hud_theme import HUD_STYLE
 from .reminders import parse_reminder_request
 from .routines import validate_routine
@@ -380,8 +380,8 @@ class JarvisWindow(QMainWindow):
         dashboard_layout = QVBoxLayout(dashboard_page)
         dashboard_layout.setContentsMargins(28, 18, 28, 28)
         dashboard_layout.setSpacing(14)
-        self.core_orb = CoreOrb(__version__)
-        dashboard_layout.addWidget(self.core_orb, 1)
+        self.core_orb = StatusOrb(__version__)
+        dashboard_layout.addWidget(self.core_orb, 1, Qt.AlignmentFlag.AlignHCenter)
         self.live_voice_hint = QLabel(f"JARVIS v{__version__} · Diga “Jarvis” e fale seu pedido")
         self.live_voice_hint.setObjectName("heroHint")
         self.live_voice_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -392,6 +392,19 @@ class JarvisWindow(QMainWindow):
         self.answer_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.answer_preview.setWordWrap(True)
         dashboard_layout.addWidget(self.answer_preview)
+        # O mapa de conhecimento acompanha a esfera sem substituí-la.
+        memory_title = QLabel("MAPA DE CONHECIMENTO")
+        memory_title.setObjectName("dashboardKicker")
+        memory_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        dashboard_layout.addWidget(memory_title)
+        self.memory_brain = CoreOrb(__version__)
+        self.memory_brain.setMinimumSize(220, 220)
+        self.memory_brain.setMaximumHeight(350)
+        dashboard_layout.addWidget(self.memory_brain, 1)
+        self.memory_count_label = QLabel("0 lembranças salvas")
+        self.memory_count_label.setObjectName("memoryCount")
+        self.memory_count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        dashboard_layout.addWidget(self.memory_count_label)
         self.screen_preview_title = QLabel("Visão da tela")
         self.screen_preview_label = QLabel()
         self.screen_preview_title.hide(); self.screen_preview_label.hide()
@@ -720,6 +733,7 @@ class JarvisWindow(QMainWindow):
         self.live_vision_worker = None
         self.screen_frame_store = ScreenFrameStore()
         self.core_orb.set_motion_enabled(not load_settings().get("reduce_motion", False))
+        self.memory_brain.set_motion_enabled(not load_settings().get("reduce_motion", False))
         self.pending_voice_command = None
         self._close_when_vision_stops = False
         self._quit_requested = False
@@ -763,6 +777,7 @@ class JarvisWindow(QMainWindow):
                            "reduce_motion": self.reduce_motion_checkbox.isChecked(),
                            "screen_monitor": self.screen_monitor_picker.currentData() or 1})
             self.core_orb.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
+            self.memory_brain.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
             preferences = load_settings()
             if get_secret("groq") and preferences.get("hands_free_enabled", True):
                 self.voice_activation_button.setChecked(True)
@@ -1030,7 +1045,10 @@ class JarvisWindow(QMainWindow):
         self._refresh_memory_map()
 
     def _refresh_memory_map(self):
-        return
+        count = memory.long_term_count()
+        self.memory_brain.set_memory_count(count)
+        self.memory_count_label.setText(
+            f"{count:,} lembrança(s) salva(s)".replace(",", "."))
 
     def import_calendar(self):
         """Bring dated calendar events into the local reminder database."""
@@ -1415,8 +1433,9 @@ class JarvisWindow(QMainWindow):
         if mode in {"voice", "spoken"}: self._stop_clap_worker()
         if mode not in {"screen", "spoken", "voice"}:
             self._append("user", prompt); memory.add("user", prompt)
-        # A consulta inclui o texto atual; reserve 20 itens anteriores depois de removê-lo.
-        history = memory.context_recent(limit=21)
+        # Na voz, um contexto menor diminui o tempo até o primeiro trecho.
+        # O histórico completo continua salvo e pesquisável no SQLite.
+        history = memory.context_recent(limit=9 if mode == "spoken" else 21)
         if mode in {"text", "spoken"} and load_settings().get("share_long_term_memory", True):
             saved_context = memory.context_for_ai(prompt)
             if saved_context:
