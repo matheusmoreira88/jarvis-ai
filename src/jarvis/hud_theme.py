@@ -17,7 +17,8 @@ HUD_STYLE = """
             QPushButton#settingsDisclosure { color: #a6cad7; background: #101c28;
                 border: 1px solid #244053; border-radius: 12px; padding: 14px; }
             QPushButton#settingsDisclosure:hover { color: #e6fdff; border-color: #3d8596; }
-            QWidget#heroStage { background: #1b1b1b; }
+            QWidget#heroStage { background: qradialgradient(cx:.48, cy:.45, radius:.72,
+                fx:.48, fy:.45, stop:0 #07131d, stop:.42 #030a10, stop:1 #010407); }
             QLabel#heroHint { color: #83dbe8; font-size: 17px; font-weight: 600; }
             QLabel#answerPreview { color: #e9f6fa; font-size: 18px; padding: 12px; }
             QLabel#memoryCount { color: #8999aa; font-size: 12px; padding-bottom: 2px; }

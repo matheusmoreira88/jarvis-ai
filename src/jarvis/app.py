@@ -25,7 +25,8 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from . import memory, __version__
 from .settings import get_secret, save_secret, load_settings, save_settings
 from .vision_worker import LiveVisionWorker
-from .dashboard import CoreOrb, StatusOrb, DonutGauge, MemoryBrain, ScreenPreviewWorker, ScreenFrameStore
+from .dashboard import (CoreOrb, JarvisReactor, DonutGauge, MemoryBrain,
+                        ScreenPreviewWorker, ScreenFrameStore)
 from .hud_theme import HUD_STYLE
 from .reminders import parse_reminder_request
 from .routines import validate_routine
@@ -380,7 +381,7 @@ class JarvisWindow(QMainWindow):
         dashboard_layout = QVBoxLayout(dashboard_page)
         dashboard_layout.setContentsMargins(28, 18, 28, 28)
         dashboard_layout.setSpacing(14)
-        self.core_orb = StatusOrb(__version__)
+        self.core_orb = JarvisReactor(__version__)
         dashboard_layout.addWidget(self.core_orb, 1, Qt.AlignmentFlag.AlignHCenter)
         self.live_voice_hint = QLabel(f"JARVIS v{__version__} · Diga “Jarvis” e fale seu pedido")
         self.live_voice_hint.setObjectName("heroHint")
@@ -392,19 +393,14 @@ class JarvisWindow(QMainWindow):
         self.answer_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.answer_preview.setWordWrap(True)
         dashboard_layout.addWidget(self.answer_preview)
-        # O mapa de conhecimento acompanha a esfera sem substituí-la.
-        memory_title = QLabel("MAPA DE CONHECIMENTO")
-        memory_title.setObjectName("dashboardKicker")
-        memory_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        dashboard_layout.addWidget(memory_title)
-        self.memory_brain = CoreOrb(__version__)
-        self.memory_brain.setMinimumSize(220, 220)
-        self.memory_brain.setMaximumHeight(350)
-        dashboard_layout.addWidget(self.memory_brain, 1)
+        # O mapa de conhecimento continua existindo e será aberto em sua própria
+        # janela na próxima etapa da nova navegação, sem competir com o núcleo.
+        self.memory_brain = CoreOrb(__version__, dashboard_page)
+        self.memory_brain.hide()
         self.memory_count_label = QLabel("0 lembranças salvas")
         self.memory_count_label.setObjectName("memoryCount")
         self.memory_count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        dashboard_layout.addWidget(self.memory_count_label)
+        self.memory_count_label.hide()
         self.screen_preview_title = QLabel("Visão da tela")
         self.screen_preview_label = QLabel()
         self.screen_preview_title.hide(); self.screen_preview_label.hide()

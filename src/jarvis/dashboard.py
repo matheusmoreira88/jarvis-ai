@@ -7,7 +7,8 @@ import time
 from threading import Lock
 
 from PySide6.QtCore import Qt, QThread, Signal, QRectF, QPointF, QLineF, QVariantAnimation, QBuffer, QIODevice, QTimer
-from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QRadialGradient, QBrush
+from PySide6.QtGui import (QColor, QImage, QPainter, QPainterPath, QPen,
+                           QRadialGradient, QConicalGradient, QBrush)
 from PySide6.QtWidgets import QWidget, QSizePolicy
 
 
@@ -87,6 +88,137 @@ class StatusOrb(QWidget):
         painter.drawText(QRectF(center.x() - radius, center.y() + 24,
                                 radius * 2, 20), Qt.AlignmentFlag.AlignCenter,
                          f"AI CORE  ·  v{self.version}")
+
+
+class JarvisReactor(QWidget):
+    """Large animated command-center reactor inspired by practical sci-fi HUDs."""
+
+    STATE_LABELS = {
+        "ready": "PRONTO",
+        "listening": "OUVINDO",
+        "thinking": "PROCESSANDO",
+        "speaking": "RESPONDENDO",
+        "observing": "ANALISANDO A TELA",
+    }
+
+    def __init__(self, version: str, parent=None):
+        super().__init__(parent)
+        self.version = version
+        self.state = "ready"
+        self.phase = 0.0
+        self.motion_enabled = True
+        self.setMinimumSize(430, 430)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(32)
+
+    def set_state(self, state: str):
+        self.state = state
+        self.update()
+
+    def set_motion_enabled(self, enabled: bool):
+        self.motion_enabled = bool(enabled)
+        self.update()
+
+    def _tick(self):
+        if self.motion_enabled and self.isVisible():
+            speed = 0.024 if self.state in {"listening", "thinking", "speaking"} else 0.010
+            self.phase = (self.phase + speed) % (2 * math.pi)
+            self.update()
+
+    def _arc_segments(self, painter: QPainter, center: QPointF, radius: float,
+                      count: int, width: float, color: QColor, rotation: float,
+                      occupied: float = 0.58):
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(color, width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.FlatCap))
+        step = 360.0 / count
+        span = step * occupied
+        bounds = QRectF(center.x() - radius, center.y() - radius,
+                        radius * 2, radius * 2)
+        for index in range(count):
+            start = rotation + index * step
+            painter.drawArc(bounds, int(start * 16), int(span * 16))
+
+    def paintEvent(self, event):
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        center = QPointF(self.width() / 2, self.height() / 2 - 8)
+        radius = min(self.width(), self.height()) * 0.34
+        active = self.state in {"listening", "thinking", "speaking", "observing"}
+        pulse = (math.sin(self.phase * 3.1) + 1.0) / 2.0 if active else 0.22
+
+        # A wide, soft aura keeps the reactor floating over the black command center.
+        aura = QRadialGradient(center, radius * 1.65)
+        aura.setColorAt(0.00, QColor(255, 44, 143, 58 + int(35 * pulse)))
+        aura.setColorAt(0.38, QColor(61, 16, 62, 52))
+        aura.setColorAt(0.72, QColor(0, 110, 145, 20))
+        aura.setColorAt(1.00, QColor(0, 0, 0, 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(aura)
+        painter.drawEllipse(center, radius * 1.65, radius * 1.65)
+
+        rotation = math.degrees(self.phase)
+        magenta = QColor(242, 39, 125, 205)
+        pink = QColor(255, 91, 176, 225)
+        cyan = QColor(41, 216, 238, 150)
+        dim = QColor(102, 31, 79, 155)
+
+        self._arc_segments(painter, center, radius * 1.03, 52, 2.0, dim, rotation * 0.20, .34)
+        self._arc_segments(painter, center, radius * 0.91, 18, 5.0, magenta, -rotation * 0.34, .58)
+        self._arc_segments(painter, center, radius * 0.73, 28, 2.4, pink, rotation * 0.48, .52)
+        self._arc_segments(painter, center, radius * 0.58, 12, 8.0, magenta, -rotation * 0.65, .63)
+        self._arc_segments(painter, center, radius * 0.43, 24, 2.0, cyan, rotation * 0.72, .23)
+
+        # Fine radial traces make the mechanism feel engineered rather than decorative.
+        painter.setPen(QPen(QColor(205, 46, 130, 105), 1))
+        for index in range(48):
+            angle = math.radians(index * 7.5 + rotation * 0.12)
+            inner = radius * (0.76 if index % 3 else 0.69)
+            outer = radius * (1.08 if index % 4 else 1.15)
+            painter.drawLine(
+                QPointF(center.x() + math.cos(angle) * inner,
+                        center.y() + math.sin(angle) * inner),
+                QPointF(center.x() + math.cos(angle) * outer,
+                        center.y() + math.sin(angle) * outer),
+            )
+
+        core = QRadialGradient(center, radius * 0.36)
+        core.setColorAt(0.00, QColor(255, 238, 250, 248))
+        core.setColorAt(0.13, QColor(255, 112, 198, 246))
+        core.setColorAt(0.42, QColor(229, 27, 127, 225))
+        core.setColorAt(0.72, QColor(83, 13, 67, 170))
+        core.setColorAt(1.00, QColor(15, 7, 22, 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(core)
+        core_radius = radius * (0.35 + 0.025 * pulse)
+        painter.drawEllipse(center, core_radius, core_radius)
+
+        sweep = QConicalGradient(center, -rotation * 0.7)
+        sweep.setColorAt(0.0, QColor(255, 74, 169, 0))
+        sweep.setColorAt(0.16, QColor(255, 74, 169, 145))
+        sweep.setColorAt(0.33, QColor(255, 74, 169, 0))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(QBrush(sweep), 2.2))
+        painter.drawEllipse(center, radius * 1.14, radius * 1.14)
+
+        painter.setPen(QColor("#e7fbff"))
+        font = self.font()
+        font.setPixelSize(22)
+        font.setBold(True)
+        font.setLetterSpacing(font.SpacingType.AbsoluteSpacing, 6)
+        painter.setFont(font)
+        painter.drawText(QRectF(0, center.y() + radius * 1.28,
+                                self.width(), 36), Qt.AlignmentFlag.AlignCenter, "J A R V I S")
+        font.setPixelSize(11)
+        font.setBold(False)
+        font.setLetterSpacing(font.SpacingType.AbsoluteSpacing, 3)
+        painter.setFont(font)
+        painter.setPen(pink if active else QColor("#72cbd7"))
+        painter.drawText(QRectF(0, center.y() + radius * 1.52,
+                                self.width(), 24), Qt.AlignmentFlag.AlignCenter,
+                         self.STATE_LABELS.get(self.state, self.state.upper()))
 
 
 
