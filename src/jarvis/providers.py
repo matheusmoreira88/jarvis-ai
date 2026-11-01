@@ -220,3 +220,28 @@ def transcribe_groq(wav_bytes: bytes) -> str:
     finally:
         client.close()
     return str(result).strip()
+
+
+def transcribe_gemini(wav_bytes: bytes) -> str:
+    """Transcreve um comando WAV curto usando a mesma chave Gemini do assistente."""
+    key = get_secret("gemini")
+    if not key:
+        raise RuntimeError("Cadastre a chave Gemini para usar os comandos de voz.")
+    if not wav_bytes:
+        return ""
+    client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=30000))
+    audio = types.Part.from_bytes(data=wav_bytes, mime_type="audio/wav")
+    prompt = (
+        "Transcreva exatamente a fala deste áudio em português do Brasil. "
+        "Retorne somente as palavras pronunciadas, sem explicações, títulos, aspas "
+        "ou marcação. Se não houver fala inteligível, retorne uma resposta vazia."
+    )
+    try:
+        response = client.models.generate_content(
+            model="gemini-3.8-flash", contents=[prompt, audio])
+    finally:
+        client.close()
+    text = (response.text or "").strip()
+    if text.casefold() in {"vazio", "sem fala", "não há fala", "nao ha fala"}:
+        return ""
+    return text

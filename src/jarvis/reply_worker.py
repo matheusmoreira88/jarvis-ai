@@ -6,7 +6,7 @@ import re
 from queue import SimpleQueue
 from threading import Event, Thread
 from PySide6.QtCore import QThread, Signal
-from .providers import analyze_image, stream_assistant, propose_screen_action, transcribe_groq
+from .providers import analyze_image, stream_assistant, propose_screen_action, transcribe_gemini
 from .vision import capture_primary_screen
 from .voice import record_utterance, speak_fragments
 
@@ -42,7 +42,7 @@ class ReplyWorker(QThread):
                 self.finished_text.emit("__REC__")
                 recording = record_utterance(self.stop_event.is_set)
                 self.finished_text.emit("__TRANSCRIBING__")
-                prompt = transcribe_groq(recording)
+                prompt = transcribe_gemini(recording)
                 if not prompt:
                     raise RuntimeError("Não detectei fala. Tente novamente.")
                 self.finished_text.emit("__VOICE_COMMAND__" + prompt)

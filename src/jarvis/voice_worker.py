@@ -4,7 +4,7 @@ import time
 from threading import Event
 import sounddevice as sd
 from PySide6.QtCore import QThread, Signal
-from .providers import transcribe_groq
+from .providers import transcribe_gemini
 from .voice import BLOCK_SIZE, SAMPLE_RATE, wait_for_spoken_utterance, strip_jarvis_prefix
 
 class VoiceActivationWorker(QThread):
@@ -67,16 +67,16 @@ class VoiceActivationWorker(QThread):
                                  and local_filter.heard_jarvis(audio))
                 if (local_filter is not None and time.monotonic() >= self.armed_until
                         and not locally_woken):
-                    # Only a locally detected wake name can send audio to Groq.
+                    # Only a locally detected wake name can send audio to Gemini.
                     continue
                 self._pause_event.set()
                 if stream is not None and stream_running:
                     stream.stop()
                     stream_running = False
                 self.state_changed.emit("transcrevendo")
-                phrase = transcribe_groq(audio).strip()
+                phrase = transcribe_gemini(audio).strip()
                 detected = strip_jarvis_prefix(phrase)
-                # Groq occasionally omits the wake name from an otherwise valid
+                # Cloud transcription can omit the wake name from an otherwise valid
                 # transcription. The local recognizer has already confirmed it.
                 if detected is None and (locally_woken or time.monotonic() < self.armed_until):
                     detected = phrase

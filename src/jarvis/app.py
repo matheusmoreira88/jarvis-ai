@@ -810,7 +810,7 @@ class JarvisWindow(QMainWindow):
         self.reminder_timer.start(30_000)
         self._refresh_memory_map()
         QTimer.singleShot(1200, self._check_due_reminders)
-        if settings["hands_free_enabled"] and get_secret("groq"):
+        if settings["hands_free_enabled"] and get_secret("gemini"):
             QTimer.singleShot(500, lambda: self.voice_activation_button.setChecked(True))
         if settings["live_vision_enabled"] and get_secret("gemini"):
             QTimer.singleShot(900, lambda: (self.live_vision_button.setChecked(True),
@@ -831,7 +831,7 @@ class JarvisWindow(QMainWindow):
             self.core_orb.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
             self.memory_brain.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
             preferences = load_settings()
-            if get_secret("groq") and preferences.get("hands_free_enabled", True):
+            if get_secret("gemini") and preferences.get("hands_free_enabled", True):
                 self.voice_activation_button.setChecked(True)
             if (get_secret("gemini") and preferences.get("live_vision_enabled", True)
                     and not self.live_vision_worker):
@@ -1575,13 +1575,13 @@ class JarvisWindow(QMainWindow):
                 self.voice_state.setText("Microfone desligado")
             self.voice_activation_button.setText("Desativar voz mãos livres" if enabled else "Ativar voz mãos livres")
             return
-        if not get_secret("groq"):
+        if not get_secret("gemini"):
             save_settings({**load_settings(), "voice_activation_enabled": False, "hands_free_enabled": False})
             self.voice_activation_button.blockSignals(True)
             self.voice_activation_button.setChecked(False)
             self.voice_activation_button.blockSignals(False)
             self.voice_activation_button.setText("Ativar voz mãos livres")
-            self.error("Cadastre uma chave Groq em Configurações para transcrever os comandos de voz.")
+            self.error("Cadastre uma chave Gemini em Configurações para transcrever os comandos de voz.")
             return
         if self.voice_activation_worker and self.voice_activation_worker.isRunning():
             self.voice_activation_worker.resume()
@@ -1601,7 +1601,7 @@ class JarvisWindow(QMainWindow):
     def _voice_activation_state(self, state: str):
         labels = {
             "escutando": "Diga Jarvis",
-            "transcrevendo": "Fala detectada · transcrevendo com Groq",
+            "transcrevendo": "Fala detectada · transcrevendo com Gemini",
             "erro": "Falha no microfone",
             "desligado": "Microfone desligado",
             "palavra-chave": "Microfone ativo · aguardando Jarvis localmente",
