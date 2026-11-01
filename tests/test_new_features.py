@@ -14,9 +14,23 @@ from jarvis.reminders import parse_reminder_request
 from jarvis.reply_worker import ReplyWorker
 from jarvis.voice_worker import VoiceActivationWorker
 from jarvis import updater
+from jarvis import diagnostics
 
 
 class NewFeatureTests(unittest.TestCase):
+    def test_diagnostics_never_exports_secret_values(self):
+        secret = "super-secret-api-key"
+        with patch("jarvis.diagnostics.get_secret", return_value=secret), \
+             patch("jarvis.diagnostics.load_settings", return_value={
+                 "hands_free_enabled": True,
+                 "quick_actions": [{"phrase": "informação privada"}],
+                 "unknown_private_value": secret,
+             }):
+            serialized = str(diagnostics.build_report())
+        self.assertNotIn(secret, serialized)
+        self.assertNotIn("informação privada", serialized)
+        self.assertIn("'gemini_key': True", serialized)
+
     def test_memory_export_and_import_round_trip(self):
         with tempfile.TemporaryDirectory() as folder:
             database = Path(folder) / "memory.sqlite3"

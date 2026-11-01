@@ -688,6 +688,9 @@ class JarvisWindow(QMainWindow):
         self.update_state_label = QLabel(f"Versão {__version__}")
         update_row.addWidget(check_update); update_row.addWidget(self.update_state_label, 1)
         system_card.addLayout(update_row)
+        diagnostics_button = QPushButton("Exportar diagnóstico para suporte…")
+        diagnostics_button.clicked.connect(self.export_diagnostics)
+        system_card.addWidget(diagnostics_button)
         save_preferences = QPushButton("Salvar preferências")
         save_preferences.setObjectName("primaryAction")
         save_preferences.clicked.connect(self._save_settings_page)
@@ -1030,6 +1033,24 @@ class JarvisWindow(QMainWindow):
         QMessageBox.warning(
             self, "Atualização não instalada",
             "O download não passou pela verificação de segurança:\n" + message)
+
+    def export_diagnostics(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Exportar diagnóstico", "jarvis-diagnostico.json",
+            "Diagnóstico JSON (*.json)")
+        if not path:
+            return
+        if not path.lower().endswith(".json"):
+            path += ".json"
+        try:
+            from .diagnostics import export_report
+            result = export_report(path)
+            QMessageBox.information(
+                self, "Diagnóstico exportado",
+                "Arquivo criado sem chaves, tokens, contatos ou conteúdo das conversas:\n"
+                f"{result}")
+        except Exception as exc:
+            self.error(f"Não foi possível exportar o diagnóstico: {exc}")
 
     def _update_navigation(self, index: int):
         """Mantém a central inferior e o título sincronizados com a área ativa."""
