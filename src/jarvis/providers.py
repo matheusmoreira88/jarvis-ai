@@ -9,6 +9,7 @@ from PIL import Image
 from .settings import get_secret
 from .models import (GEMINI_ASSISTANT_MODEL, GEMINI_TRANSCRIPTION_MODEL,
                      GEMINI_VISION_MODEL)
+from .usage import record as record_api_usage
 
 SYSTEM_INSTRUCTION = (
     "Você é JARVIS AI, um assistente para desktop criado por Matheus Moreira. "
@@ -41,6 +42,7 @@ def stream_assistant(prompt: str, history: list[tuple[str, str]], search_web: bo
                  "parts": [{"text": value}]} for role, value in history]
     contents.append({"role": "user", "parts": [{"text": prompt}]})
     try:
+        record_api_usage("search" if search_web else "chat")
         for part in client.models.generate_content_stream(
                 model=GEMINI_ASSISTANT_MODEL, contents=contents,
                 config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION)):
@@ -63,6 +65,7 @@ def ask_gemini(prompt: str, history: list[tuple[str, str]], search_web: bool = F
         tools = [types.Tool(google_search=types.GoogleSearch())]
     config = types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, tools=tools)
     try:
+        record_api_usage("search" if search_web else "chat")
         response = client.models.generate_content(
             model=GEMINI_ASSISTANT_MODEL, contents=contents, config=config)
     except Exception as exc:
@@ -100,6 +103,7 @@ def analyze_image(prompt: str, image_bytes: bytes) -> str:
     client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=30000))
     image = types.Part.from_bytes(data=image_bytes, mime_type="image/png")
     try:
+        record_api_usage("screen_analysis")
         response = client.models.generate_content(
             model=GEMINI_VISION_MODEL, contents=[prompt, image])
     finally:
@@ -146,6 +150,7 @@ def propose_screen_action(prompt: str, image_bytes: bytes) -> dict:
         response_schema=schema,
     )
     try:
+        record_api_usage("screen_action")
         response = client.models.generate_content(
             model=GEMINI_VISION_MODEL, contents=[request, image], config=config)
     finally:
@@ -176,6 +181,7 @@ def transcribe_gemini(wav_bytes: bytes) -> str:
         "ou marcação. Se não houver fala inteligível, retorne uma resposta vazia."
     )
     try:
+        record_api_usage("transcription")
         response = client.models.generate_content(
             model=GEMINI_TRANSCRIPTION_MODEL, contents=[prompt, audio])
     finally:

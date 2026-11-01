@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import QThread, Signal
 from .vision import capture_primary_screen_jpeg
 from .models import GEMINI_LIVE_VISION_MODEL
+from .usage import record as record_api_usage
 
 class LiveVisionWorker(QThread):
     """Transmite quadros da tela à Gemini Live enquanto a visão estiver ativa."""
@@ -36,6 +37,7 @@ class LiveVisionWorker(QThread):
         client = genai.Client(api_key=api_key)
         audio_output = None
         audio_error_reported = False
+        frames_sent = 0
         try:
             while self._active:
                 async with client.aio.live.connect(
@@ -95,6 +97,7 @@ class LiveVisionWorker(QThread):
                                 frame = capture_primary_screen_jpeg()
                             await session.send_realtime_input(video=types.Blob(
                                 data=frame, mime_type="image/jpeg"))
+                            frames_sent += 1
                             # Vídeo sozinho não inicia uma resposta: peça uma leitura após cinco quadros.
                             if frame_number % 5 == 4:
                                 await session.send_realtime_input(text=(
@@ -112,6 +115,7 @@ class LiveVisionWorker(QThread):
                 if self._active:
                     await asyncio.sleep(0.2)
         finally:
+            record_api_usage("live_vision_frames", frames_sent)
             try:
                 if audio_output not in (None, False):
                     try:

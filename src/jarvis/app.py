@@ -695,6 +695,14 @@ class JarvisWindow(QMainWindow):
         self.update_state_label = QLabel(f"Versão {__version__}")
         update_row.addWidget(check_update); update_row.addWidget(self.update_state_label, 1)
         system_card.addLayout(update_row)
+        self.api_usage_label = QLabel()
+        self.api_usage_label.setObjectName("settingsCardNote")
+        self.api_usage_label.setWordWrap(True)
+        system_card.addWidget(self.api_usage_label)
+        self.api_usage_timer = QTimer(self)
+        self.api_usage_timer.timeout.connect(self._refresh_api_usage)
+        self.api_usage_timer.start(10_000)
+        self._refresh_api_usage()
         diagnostics_button = QPushButton("Exportar diagnóstico para suporte…")
         diagnostics_button.clicked.connect(self.export_diagnostics)
         system_card.addWidget(diagnostics_button)
@@ -1070,6 +1078,22 @@ class JarvisWindow(QMainWindow):
     def _update_clock(self):
         now = QDateTime.currentDateTime()
         self.clock_label.setText(now.toString("HH:mm:ss\nddd, dd MMM yyyy").upper())
+
+    def _refresh_api_usage(self):
+        from .usage import today
+        usage = today()
+        labels = {
+            "chat": "conversa", "search": "pesquisa",
+            "transcription": "transcrição", "screen_analysis": "captura",
+            "screen_action": "ação visual", "live_vision_frames": "quadros ao vivo",
+            "code_proposal": "proposta de código",
+        }
+        parts = [f"{labels.get(key, key)}: {value}"
+                 for key, value in sorted(usage["categories"].items())]
+        details = " · ".join(parts) if parts else "nenhuma solicitação"
+        self.api_usage_label.setText(
+            f"Uso local da API hoje: {usage['total']} · {details}. "
+            "Este contador não calcula preço e não envia telemetria.")
 
     def _message_markup(self, role: str, body: str) -> str:
         label = "Você" if role in {"user", "private_action"} else "JARVIS"

@@ -15,9 +15,19 @@ from jarvis.reply_worker import ReplyWorker
 from jarvis.voice_worker import VoiceActivationWorker
 from jarvis import updater
 from jarvis import diagnostics
+from jarvis import usage
 
 
 class NewFeatureTests(unittest.TestCase):
+    def test_api_usage_counter_is_local_and_grouped(self):
+        with tempfile.TemporaryDirectory() as folder, \
+             patch.object(usage, "USAGE_FILE", Path(folder) / "usage.json"):
+            usage.record("chat")
+            usage.record("transcription", 2)
+            result = usage.today()
+        self.assertEqual(result["total"], 3)
+        self.assertEqual(result["categories"], {"chat": 1, "transcription": 2})
+
     def test_diagnostics_never_exports_secret_values(self):
         secret = "super-secret-api-key"
         with patch("jarvis.diagnostics.get_secret", return_value=secret), \

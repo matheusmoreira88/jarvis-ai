@@ -9,6 +9,7 @@ from platformdirs import user_data_path
 
 from .settings import get_secret
 from .models import GEMINI_CODE_MODEL
+from .usage import record as record_api_usage
 
 SOURCE_ROOT = Path(__file__).resolve().parent
 BACKUP_ROOT = user_data_path("JarvisAI", "Matheus") / "source-backups"
@@ -51,6 +52,7 @@ def propose_file_update(path: str, request: str) -> str:
     from google import genai
     client = genai.Client(api_key=key)
     try:
+        record_api_usage("code_proposal")
         response = client.models.generate_content(
             model=GEMINI_CODE_MODEL,
             contents=(
