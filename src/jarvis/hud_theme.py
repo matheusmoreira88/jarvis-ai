@@ -24,6 +24,21 @@ HUD_STYLE = """
             QPushButton#settingsDisclosure:hover { color: #e6fdff; border-color: #3d8596; }
             QWidget#heroStage { background: qradialgradient(cx:.48, cy:.45, radius:.72,
                 fx:.48, fy:.45, stop:0 #07131d, stop:.42 #030a10, stop:1 #010407); }
+            QWidget#reactorStage { background: transparent; }
+            QWidget#commandSidePanel { background: rgba(4, 19, 28, 235);
+                border: 1px solid #16495d; border-radius: 18px; }
+            QWidget#systemMetrics { background: #071722; border: 1px solid #153d4f;
+                border-radius: 12px; }
+            QLabel#panelKicker { color: #55d8e5; font-size: 10px; font-weight: 800;
+                letter-spacing: 2px; padding: 3px 2px; }
+            QLabel#panelSubtle { color: #718e9f; font-size: 10px; padding: 1px 3px 5px; }
+            QLabel#systemMetric { color: #d8faff; background: #0a202d;
+                border: 1px solid #173e50; border-radius: 9px; padding: 8px 3px;
+                font-size: 10px; font-weight: 700; }
+            QTextBrowser#dashboardChat { background: #04111a; border: 1px solid #12394a;
+                border-radius: 12px; padding: 10px; font-size: 11px; }
+            QLineEdit#dashboardInput { background: #06141e; border: 1px solid #17475a;
+                border-radius: 13px; padding: 10px 12px; font-size: 11px; }
             QLabel#heroHint { color: #83dbe8; font-size: 17px; font-weight: 600; }
             QLabel#answerPreview { color: #e9f6fa; font-size: 18px; padding: 12px; }
             QLabel#memoryCount { color: #8999aa; font-size: 12px; padding-bottom: 2px; }

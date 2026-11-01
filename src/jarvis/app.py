@@ -293,21 +293,69 @@ class JarvisWindow(QMainWindow):
         self.panic_shortcut.activated.connect(self.panic_stop)
 
         dashboard_page = QWidget(); dashboard_page.setObjectName("heroStage")
-        dashboard_layout = QVBoxLayout(dashboard_page)
-        dashboard_layout.setContentsMargins(28, 18, 28, 28)
-        dashboard_layout.setSpacing(14)
+        dashboard_layout = QHBoxLayout(dashboard_page)
+        dashboard_layout.setContentsMargins(22, 16, 18, 18)
+        dashboard_layout.setSpacing(18)
+        center_stage = QWidget(); center_stage.setObjectName("reactorStage")
+        center_layout = QVBoxLayout(center_stage)
+        center_layout.setContentsMargins(8, 0, 8, 0); center_layout.setSpacing(8)
         self.core_orb = JarvisReactor(__version__)
-        dashboard_layout.addWidget(self.core_orb, 1, Qt.AlignmentFlag.AlignHCenter)
+        center_layout.addWidget(self.core_orb, 1, Qt.AlignmentFlag.AlignHCenter)
         self.live_voice_hint = QLabel(f"JARVIS v{__version__} · Diga “Jarvis” e fale seu pedido")
         self.live_voice_hint.setObjectName("heroHint")
         self.live_voice_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.live_voice_hint.setWordWrap(True)
-        dashboard_layout.addWidget(self.live_voice_hint)
+        center_layout.addWidget(self.live_voice_hint)
         self.answer_preview = QLabel("")
         self.answer_preview.setObjectName("answerPreview")
         self.answer_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.answer_preview.setWordWrap(True)
-        dashboard_layout.addWidget(self.answer_preview)
+        center_layout.addWidget(self.answer_preview)
+        dashboard_layout.addWidget(center_stage, 1)
+
+        command_side = QWidget(); command_side.setObjectName("commandSidePanel")
+        command_side.setMinimumWidth(300); command_side.setMaximumWidth(370)
+        side_layout = QVBoxLayout(command_side)
+        side_layout.setContentsMargins(13, 13, 13, 13); side_layout.setSpacing(10)
+        system_title = QLabel("●  SISTEMA"); system_title.setObjectName("panelKicker")
+        side_layout.addWidget(system_title)
+        metrics = QWidget(); metrics.setObjectName("systemMetrics")
+        metrics_layout = QHBoxLayout(metrics)
+        metrics_layout.setContentsMargins(8, 7, 8, 7); metrics_layout.setSpacing(6)
+        self.system_metric_labels = {}
+        for key in ("CPU", "RAM", "DISCO"):
+            metric = QLabel(f"{key}\n--")
+            metric.setObjectName("systemMetric")
+            metric.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            metrics_layout.addWidget(metric, 1)
+            self.system_metric_labels[key] = metric
+        side_layout.addWidget(metrics)
+        self.system_uptime_label = QLabel("Inicializando monitor do sistema…")
+        self.system_uptime_label.setObjectName("panelSubtle")
+        side_layout.addWidget(self.system_uptime_label)
+        conversation_title = QLabel("●  CONVERSA AO VIVO")
+        conversation_title.setObjectName("panelKicker")
+        side_layout.addWidget(conversation_title)
+        self.dashboard_chat = QTextBrowser()
+        self.dashboard_chat.setObjectName("dashboardChat")
+        self.dashboard_chat.setOpenExternalLinks(True)
+        side_layout.addWidget(self.dashboard_chat, 1)
+        dashboard_send_row = QHBoxLayout(); dashboard_send_row.setSpacing(6)
+        self.dashboard_input = QLineEdit()
+        self.dashboard_input.setObjectName("dashboardInput")
+        self.dashboard_input.setPlaceholderText("Digite um comando ou pergunta…")
+        self.dashboard_input.returnPressed.connect(self.send_dashboard)
+        dashboard_send_row.addWidget(self.dashboard_input, 1)
+        dashboard_send = QPushButton("➤")
+        dashboard_send.setObjectName("roundCommand")
+        dashboard_send.clicked.connect(self.send_dashboard)
+        dashboard_send_row.addWidget(dashboard_send)
+        side_layout.addLayout(dashboard_send_row)
+        dashboard_layout.addWidget(command_side)
+        self.system_timer = QTimer(self)
+        self.system_timer.timeout.connect(self._refresh_system_monitor)
+        self.system_timer.start(2000)
+        self._refresh_system_monitor()
         # O mapa de conhecimento continua existindo e será aberto em sua própria
         # janela na próxima etapa da nova navegação, sem competir com o núcleo.
         self.memory_brain = CoreOrb(__version__, dashboard_page)
@@ -953,7 +1001,10 @@ class JarvisWindow(QMainWindow):
         return f"<p style='margin:5px 0 14px'><b>{label}</b><br>{safe_body}</p>"
 
     def _append(self, role: str, body: str):
-        self.chat.append(self._message_markup(role, body))
+        markup = self._message_markup(role, body)
+        self.chat.append(markup)
+        if hasattr(self, "dashboard_chat"):
+            self.dashboard_chat.append(markup)
 
     def load_older_history(self):
         """Prepend an earlier page while keeping the current scroll position steady."""
@@ -985,6 +1036,36 @@ class JarvisWindow(QMainWindow):
         if self._dispatch_computer_command(prompt):
             return
         self._start(prompt, "text")
+
+    def send_dashboard(self):
+        prompt = self.dashboard_input.text().strip()
+        if not prompt:
+            return
+        self.dashboard_input.clear()
+        if self._handle_memory_command(prompt):
+            return
+        if self._dispatch_computer_command(prompt):
+            return
+        self._start(prompt, "text")
+
+    def _refresh_system_monitor(self):
+        try:
+            import psutil
+            values = {
+                "CPU": psutil.cpu_percent(interval=None),
+                "RAM": psutil.virtual_memory().percent,
+                "DISCO": psutil.disk_usage(str(Path.home().anchor or "/")).percent,
+            }
+            for key, value in values.items():
+                self.system_metric_labels[key].setText(f"{key}\n{value:.0f}%")
+            uptime_seconds = max(0, int(datetime.now().timestamp() - psutil.boot_time()))
+            hours, remainder = divmod(uptime_seconds, 3600)
+            minutes = remainder // 60
+            self.system_uptime_label.setText(
+                f"Sistema ativo há {hours}h {minutes:02d}min · indicadores locais")
+        except Exception as exc:
+            self.system_uptime_label.setText(
+                f"Monitor indisponível · {type(exc).__name__}")
 
     def _handle_memory_command(self, prompt: str, *, already_recorded: bool = False) -> bool:
         """Save explicit long-term notes and dated reminders without calling an API."""
