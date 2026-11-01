@@ -24,7 +24,6 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from . import memory, __version__
 from .settings import get_secret, save_secret, load_settings, save_settings
-from .vision_worker import LiveVisionWorker
 from .dashboard import (CoreOrb, JarvisReactor, DonutGauge, MemoryBrain,
                         ScreenPreviewWorker, ScreenFrameStore)
 from .hud_theme import HUD_STYLE
@@ -47,9 +46,10 @@ from .media_controller import MediaControllerMixin
 from .app_catalog_ui import AppCatalogControllerMixin
 from .computer_controller import ComputerControllerMixin
 from .voice_controller import VoiceControllerMixin
+from .vision_controller import VisionControllerMixin
 
 
-class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerControllerMixin, VoiceControllerMixin, QMainWindow):
+class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerControllerMixin, VoiceControllerMixin, VisionControllerMixin, QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("JARVIS · Assistente desktop")
@@ -1110,59 +1110,6 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
                                 else "observing" if self.live_vision_worker else "ready")
         if mode in {"screen", "plan"} and not self.live_vision_worker:
             self._set_dashboard_metric("tela", "Sob demanda")
-
-    def analyze_screen(self):
-        prompt = self.input.text().strip() or "Descreva o que aparece na minha tela e destaque elementos importantes."
-        self.input.clear()
-        self._start(prompt, "screen")
-
-    def toggle_live_vision(self, enabled: bool):
-        if enabled:
-            if not get_secret("gemini"):
-                QMessageBox.warning(self, "Gemini necessário",
-                                    "A visão de tela usa Gemini. Cadastre a chave em Configurações.")
-                self.live_vision_button.setChecked(False)
-                return
-            self._start_screen_preview()
-            self.live_vision_worker = LiveVisionWorker(self.screen_frame_store.jpeg)
-            self.live_vision_worker.observation.connect(self._live_observation)
-            self.live_vision_worker.failed.connect(self.error)
-            self.live_vision_worker.finished.connect(self._live_vision_finished)
-            self.live_vision_worker.start()
-            self.live_vision_button.setText("Parar visão contínua")
-            save_settings({**load_settings(), "live_vision_enabled": True})
-            self.status.setText("Visão ao vivo · prévia local fluida; Gemini recebe até 1 imagem/s")
-            self._set_dashboard_metric("tela", "Ao vivo")
-        else:
-            save_settings({**load_settings(), "live_vision_enabled": False})
-            self._stop_screen_preview()
-            self._stop_live_vision()
-        self._refresh_privacy_indicators()
-
-    def _live_observation(self, text: str):
-        self._append("assistant", "[Observação da tela] " + text)
-        memory.add("assistant", "[Observação da tela] " + text)
-
-    def _live_vision_finished(self):
-        self.live_vision_button.setChecked(False)
-        self.live_vision_button.setText("Iniciar visão contínua")
-        self.live_vision_button.setEnabled(True)
-        self.live_vision_worker = None
-        self._stop_screen_preview()
-        self.screen_preview_label.setPixmap(QPixmap())
-        self.screen_preview_label.setText("A prévia local aparece aqui quando a visão estiver ativa")
-        self.status.setText("Visão contínua parada")
-        self._set_dashboard_metric("tela", "Desligada")
-        self._refresh_privacy_indicators()
-        if self._close_when_vision_stops:
-            QTimer.singleShot(0, self.close)
-
-    def _stop_live_vision(self):
-        worker = self.live_vision_worker
-        if worker and worker.isRunning():
-            self.live_vision_button.setEnabled(False)
-            self.live_vision_button.setText("Parando após a solicitação atual…")
-            worker.stop()
 
     def _worker_event(self, value: str):
         if value == "__REC__":
