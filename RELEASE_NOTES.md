@@ -1,19 +1,19 @@
-# JARVIS AI 0.6.2
+# JARVIS AI 0.6.3
 
 ## Português (Brasil)
 
-- O núcleo visual agora segue a referência enviada: rede neural tridimensional densa, milhares de partículas, conexões finas e pontos coloridos sobre um fundo cinza escuro.
-- A rotação é lenta e pode ser desativada pela opção de reduzir animações em Configurações.
-- O texto grande saiu do centro da esfera. A versão e a dica de voz aparecem abaixo dela, preservando o desenho.
-- O desenho agrupa as conexões por profundidade para reduzir o custo por quadro.
+- Página de Configurações reorganizada em cartões para conexão, voz e tela, aparência e memória, e aplicativo.
+- Recursos menos comuns, como calendário, rotinas, integrações e ferramentas de código, ficam recolhidos em **Mostrar recursos opcionais**.
+- Removida a referência a “calendário escolar” da interface. A saudação inicial agora serve para qualquer pessoa.
+- Estilos de cartões, títulos, controles e botões atualizados; preferências podem ser salvas no fim da área principal.
 
 O código é de Matheus Moreira, sob licença MIT. Modelos e serviços de terceiros seguem suas próprias licenças e termos. Leia as [informações de privacidade](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) antes de instalar.
 
 ## English
 
-- The central visual now follows the supplied reference: a dense three-dimensional neural network with thousands of particles, thin links, and colored highlights over a charcoal background.
-- Rotation is slow and can be disabled with Reduce animations in Settings.
-- Large text no longer covers the sphere. The version and voice hint appear below it.
-- Links are drawn in depth groups to reduce rendering work per frame.
+- Settings reorganized into cards for connection, voice and screen, appearance and memory, and the application.
+- Less common features such as calendar import, routines, integrations, and code tools stay collapsed under **Show optional features**.
+- Removed the school-specific calendar label. The welcome message now works for everyone.
+- Updated card, heading, control, and button styling; preferences can be saved at the end of the main section.
 
 Copyright (c) 2026 Matheus Moreira, licensed under MIT. Third-party models and services retain their own licenses and terms. Read the [privacy information](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) before installation.

@@ -3,6 +3,20 @@
 HUD_STYLE = """
             QScrollArea#settingsScroll, QScrollArea#settingsScroll > QWidget,
             QScrollArea#settingsScroll QWidget#settingsContent { background: #080b12; }
+            QWidget#settingsColumn { background: transparent; }
+            QLabel#settingsHeading { color: #f4fbff; font-size: 28px; font-weight: 800; padding: 2px 0; }
+            QLabel#settingsIntro { color: #95aabd; font-size: 13px; padding: 0 0 10px; }
+            QWidget#settingsCard { background: #101c28; border: 1px solid #244053;
+                border-radius: 18px; }
+            QLabel#settingsCardTitle { color: #e8faff; font-size: 18px; font-weight: 750; }
+            QLabel#settingsCardNote { color: #97aec0; font-size: 12px; padding-bottom: 4px; }
+            QPushButton#settingsToggle { text-align: center; background: #132637;
+                border: 1px solid #295267; border-radius: 12px; padding: 13px; }
+            QPushButton#settingsToggle:checked { background: #113b38; border-color: #39bfae;
+                color: #d9fff7; }
+            QPushButton#settingsDisclosure { color: #a6cad7; background: #101c28;
+                border: 1px solid #244053; border-radius: 12px; padding: 14px; }
+            QPushButton#settingsDisclosure:hover { color: #e6fdff; border-color: #3d8596; }
             QWidget#heroStage { background: #1b1b1b; }
             QLabel#heroHint { color: #83dbe8; font-size: 17px; font-weight: 600; }
             QLabel#answerPreview { color: #e9f6fa; font-size: 18px; padding: 12px; }

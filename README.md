@@ -307,11 +307,11 @@ The only wake phrase is “Jarvis”, recognized locally with Vosk.
 
 ## Versão 0.4.0 · painel e memória permanente
 
-A versão 0.4.0 traz o painel simplificado inspirado no conceito visual enviado: versão atual no núcleo, monitor real de CPU/RAM/disco, mapa visual de memória e prévia local ao vivo da tela. A área “Active Agents” e cartões demonstrativos foram removidos. Voz mãos livres usa “Hey Jarvis” por padrão quando ativada nas preferências. Para salvar uma informação, diga ou escreva “Jarvis, lembra que meu planejamento escolar está no caderno azul”. Para criar um prazo, use uma data: “Jarvis, me lembra 1 dia antes de entregar o trabalho dia 18/11/2027”. No próximo início do JARVIS em que o horário do alerta já tiver chegado, ele mostra o lembrete. As lembranças ficam no SQLite local e podem ser revisadas ou excluídas em **Painel → Ver lembranças e lembretes**.
+A versão 0.4.0 trouxe o painel antigo com monitor, mapa de memória e prévia local da tela. Para salvar uma informação, diga ou escreva “Jarvis, lembra que minha reunião é às 9 horas”. Para criar um prazo, inclua uma data. Quando o horário do aviso chegar, o JARVIS mostrará o lembrete na próxima abertura. As lembranças ficam no SQLite local e podem ser revisadas ou excluídas em **Configurações → Ver lembranças e lembretes**.
 
 ## Version 0.4.0 · dashboard and long-term memory
 
-Version 0.4.0 adds the streamlined dashboard inspired by the supplied visual: current app version, real CPU/RAM/disk monitor, memory map, and a live local screen preview. The “Active Agents” area and sample cards were removed. Hands-free voice uses “Hey Jarvis” by default when enabled in Settings. To save a fact, say or type “Jarvis, remember that my school plan is in the blue notebook.” To set a due date, include a date: “Jarvis, me lembra 1 dia antes de entregar o trabalho dia 18/11/2027.” JARVIS displays the reminder the next time it starts after the alert time. Memories stay in local SQLite and can be reviewed or deleted from **Dashboard → View memories and reminders**.
+Version 0.4.0 introduced the former dashboard with a system monitor, memory map, and local screen preview. To save a fact, say or type “Jarvis, remember that my meeting is at 9.” Include a date to set a deadline. JARVIS shows due reminders on the next launch. Memories stay in local SQLite and can be reviewed or deleted under **Settings → View memories and reminders**.
 
 
 ## Versão 0.5.0 · ativação Jarvis e menor latência
@@ -330,7 +330,7 @@ Say “Jarvis, [command]” or “Jarvis” and your command in the next phrase.
 - Novo núcleo visual, indicadores reais no painel, redução de animações, favoritos e fila de mídia, rotinas configuráveis, lembretes recorrentes e importação de eventos `.ics` com aviso um dia antes.
 - O código da resposta, tema, rotinas, calendário, mídia e detecção local foi separado em módulos. Testes de regressão cobrem as novidades.
 
-Para usar as novidades, abra **Configurações**. Escolha a tela observada; crie uma rotina com uma frase e de 1 a 8 comandos locais; importe seu calendário escolar `.ics`; ou abra **Ver lembranças e lembretes** para pesquisar conteúdos antigos. Em **Mídia**, use **☆ Salvar**, **+ Fila** e **Próxima**. Arquivos `.ics` com regras de repetição complexas são importados apenas pela ocorrência explícita no arquivo; exporte as ocorrências futuras separadamente se precisar de todas.
+Para usar essas ferramentas, abra **Configurações** e escolha a tela observada. Em **Mostrar recursos opcionais**, crie uma rotina com uma frase e de 1 a 8 comandos locais ou importe um calendário `.ics`. **Ver lembranças e lembretes** pesquisa conteúdos antigos. Em **Mídia**, use **☆ Salvar**, **+ Fila** e **Próxima**. Arquivos `.ics` com regras de repetição complexas são importados apenas pela ocorrência explícita no arquivo; exporte as ocorrências futuras separadamente se precisar de todas.
 
 ## Version 0.6.0 · voice, memory and HUD
 
@@ -340,7 +340,7 @@ Para usar as novidades, abra **Configurações**. Escolha a tela observada; crie
 - New painted core, real dashboard indicators, reduced-motion option, media favorites and queue, configurable routines, recurring reminders, and `.ics` event import with a one-day reminder.
 - Reply, theme, routine, calendar, media, and local wake code are separate modules. Regression checks cover the new behavior.
 
-Open **Settings** to select the observed display, configure a routine with a phrase and 1–8 local commands, import a school `.ics` calendar, or select **Ver lembranças e lembretes** to search old memories. In **Media**, use **☆ Salvar** (Save), **+ Fila** (Queue), and **Próxima** (Next). Complex recurring rules in `.ics` files are imported only as the explicit occurrence in the file; export future occurrences separately if you need them all.
+Open **Settings** to select the observed display. Under **Mostrar recursos opcionais** (Show optional features), configure a routine with a phrase and 1–8 local commands or import an `.ics` calendar. Select **Ver lembranças e lembretes** to search old memories. In **Media**, use **☆ Salvar** (Save), **+ Fila** (Queue), and **Próxima** (Next). Complex recurring rules in `.ics` files are imported only as the explicit occurrence in the file; export future occurrences separately if you need them all.
 
 ## Versão 0.6.1 · interface central e ativação única
 
@@ -357,3 +357,11 @@ O núcleo central foi redesenhado para se aproximar da referência visual enviad
 ## Version 0.6.2 · dense neural brain
 
 The central visual now resembles the supplied reference: thousands of points distributed in three dimensions, thin local connections, a gray base with colored highlights, and slow rotation. Large text no longer covers the network. The version appears below the brain. **Reduce HUD animations** keeps the image still.
+
+## Versão 0.6.3 · configurações para todos
+
+Configurações agora mostra primeiro conexão, voz e tela, aparência e memória, atualizações e início com o Windows. Integrações e ferramentas menos comuns ficam recolhidas em **Mostrar recursos opcionais**. O calendário é descrito de forma geral, sem referência escolar, e a saudação inicial não usa o nome do criador. As preferências podem ser salvas no fim dos controles básicos.
+
+## Version 0.6.3 · settings for everyone
+
+Settings now presents connection, voice and screen, appearance and memory, updates, and Windows startup first. Integrations and less common tools stay collapsed under **Show optional features**. Calendar wording is general, with no school-specific label, and the welcome message no longer uses the creator's name. Preferences can be saved at the end of the basic controls.
