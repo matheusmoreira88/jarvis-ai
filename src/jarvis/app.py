@@ -245,16 +245,7 @@ class SetupDialog(QDialog):
         self.setWindowTitle("Configurar JARVIS")
         form = QFormLayout(self)
         self.gemini = QLineEdit(); self.gemini.setEchoMode(QLineEdit.EchoMode.Password)
-        self.groq = QLineEdit(); self.groq.setEchoMode(QLineEdit.EchoMode.Password)
-        self.email = QLineEdit(); self.phone = QLineEdit()
-        self.provider = QComboBox(); self.provider.addItem("Gemini", "gemini")
-        self.provider.addItem("Groq", "groq")
-        self.provider.setCurrentIndex(0 if load_settings().get("provider", "gemini") == "gemini" else 1)
-        form.addRow("Provedor de conversa", self.provider)
         form.addRow("Chave Gemini", self.gemini)
-        form.addRow("Chave Groq", self.groq)
-        form.addRow("E-mail (opcional, local)", self.email)
-        form.addRow("Telefone (opcional, local)", self.phone)
         save = QPushButton("Salvar neste computador")
         save.clicked.connect(self._save)
         form.addRow(save)
@@ -262,10 +253,7 @@ class SetupDialog(QDialog):
     def _save(self):
         try:
             save_secret("gemini", self.gemini.text())
-            save_secret("groq", self.groq.text())
-            save_secret("user_email", self.email.text())
-            save_secret("user_phone", self.phone.text())
-            save_settings({**load_settings(), "provider": self.provider.currentData()})
+            save_settings({**load_settings(), "provider": "gemini", "setup_completed": True})
             self.accept()
         except Exception as exc:
             QMessageBox.warning(
@@ -598,24 +586,15 @@ class JarvisWindow(QMainWindow):
             integrations_layout.addWidget(card)
             return body
 
-        access = settings_card("Conexão", "Escolha quem responde e guarde suas chaves neste computador.")
+        access = settings_card("Conexão", "Guarde sua chave Gemini no cofre deste computador.")
         credentials_form = QFormLayout()
         credentials_form.setSpacing(12)
         credentials_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.provider_setting = QComboBox()
-        self.provider_setting.addItem("Gemini", "gemini")
-        self.provider_setting.addItem("Groq", "groq")
-        self.provider_setting.setCurrentIndex(
-            0 if load_settings().get("provider", "gemini") == "gemini" else 1)
         self.gemini_key_input = QLineEdit(get_secret("gemini") or "")
         self.gemini_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.groq_key_input = QLineEdit(get_secret("groq") or "")
-        self.groq_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.user_email_input = QLineEdit(get_secret("user_email") or "")
         self.user_phone_input = QLineEdit(get_secret("user_phone") or "")
-        credentials_form.addRow("Provedor principal", self.provider_setting)
         credentials_form.addRow("Chave Gemini", self.gemini_key_input)
-        credentials_form.addRow("Chave Groq", self.groq_key_input)
         self.user_email_input.setPlaceholderText("Seu e-mail, se quiser usar integrações")
         self.user_phone_input.setPlaceholderText("Seu telefone, se quiser usar integrações")
         credentials_form.addRow("Seu e-mail (opcional)", self.user_email_input)
@@ -820,11 +799,9 @@ class JarvisWindow(QMainWindow):
         """Persiste preferências e credenciais editadas na página Configurações."""
         try:
             save_secret("gemini", self.gemini_key_input.text())
-            save_secret("groq", self.groq_key_input.text())
             save_secret("user_email", self.user_email_input.text())
             save_secret("user_phone", self.user_phone_input.text())
-            selected_provider = self.provider_setting.currentData()
-            save_settings({**load_settings(), "provider": selected_provider,
+            save_settings({**load_settings(), "provider": "gemini",
                            "share_long_term_memory": self.share_memory_checkbox.isChecked(),
                            "reduce_motion": self.reduce_motion_checkbox.isChecked(),
                            "screen_monitor": self.screen_monitor_picker.currentData() or 1})
@@ -2203,9 +2180,6 @@ class JarvisWindow(QMainWindow):
     def setup(self):
         dialog = SetupDialog()
         dialog.gemini.setText(get_secret("gemini") or "")
-        dialog.groq.setText(get_secret("groq") or "")
-        dialog.email.setText(get_secret("user_email") or "")
-        dialog.phone.setText(get_secret("user_phone") or "")
         dialog.exec()
 
     def propose_source_change(self):
@@ -2545,19 +2519,14 @@ def main():
             "Já existe uma instância do JARVIS em execução. Abra-a pela bandeja do sistema.")
         return
     try:
-        # Peça as duas chaves na primeira configuração, para deixar os dois serviços prontos.
-        if not get_secret("gemini") or not get_secret("groq"):
+        # A mesma chave Gemini atende conversa, voz, visão e pesquisa.
+        if not get_secret("gemini"):
             dialog = SetupDialog()
             dialog.gemini.setText(get_secret("gemini") or "")
-            dialog.groq.setText(get_secret("groq") or "")
-            dialog.email.setText(get_secret("user_email") or "")
-            dialog.phone.setText(get_secret("user_phone") or "")
             if dialog.exec() != QDialog.DialogCode.Accepted: return
-            missing = [name for name, label in (("gemini", "Gemini"), ("groq", "Groq"))
-                       if not get_secret(name)]
-            if missing:
+            if not get_secret("gemini"):
                 QMessageBox.critical(None, "Configuração necessária",
-                    "Cadastre as chaves de API para iniciar: " + ", ".join(missing) + ".")
+                    "Cadastre a chave Gemini para iniciar.")
                 return
         window = JarvisWindow()
         if "--background" in sys.argv: window.showMinimized()

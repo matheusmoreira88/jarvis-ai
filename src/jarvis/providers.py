@@ -6,7 +6,7 @@ from io import BytesIO
 from google import genai
 from google.genai import types
 from PIL import Image
-from .settings import get_secret, load_settings
+from .settings import get_secret
 
 SYSTEM_INSTRUCTION = (
     "Você é JARVIS AI, um assistente para desktop criado por Matheus Moreira. "
@@ -21,39 +21,15 @@ SYSTEM_INSTRUCTION = (
 
 
 def ask_assistant(prompt: str, history: list[tuple[str, str]], search_web: bool = False) -> str:
-    """Use o provedor de texto escolhido nas preferências locais."""
-    provider = load_settings().get("provider", "gemini")
-    if provider == "groq" and not search_web:
-        return ask_groq(prompt, history)
+    """Use Gemini for text, vision, search, and voice in one consistent adapter."""
     return ask_gemini(prompt, history, search_web=search_web)
 
 
 def stream_assistant(prompt: str, history: list[tuple[str, str]], search_web: bool = False):
     """Yield text as it arrives so the HUD and speech can begin immediately."""
-    provider = load_settings().get("provider", "gemini")
     if search_web:
         # Grounding metadata is retained by the non-streaming adapter.
         yield ask_gemini(prompt, history, search_web=True)
-        return
-    if provider == "groq":
-        from groq import Groq
-        key = get_secret("groq")
-        if not key:
-            raise RuntimeError("Configure a chave Groq nas preferências.")
-        messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
-        messages.extend({"role": role if role in {"user", "assistant"} else "user",
-                         "content": value} for role, value in history)
-        messages.append({"role": "user", "content": prompt})
-        client = Groq(api_key=key, timeout=30.0, max_retries=0)
-        try:
-            for part in client.chat.completions.create(
-                    model="openai/gpt-oss-20b", messages=messages,
-                    temperature=0.7, include_reasoning=False, stream=True):
-                content = part.choices[0].delta.content
-                if content:
-                    yield content
-        finally:
-            client.close()
         return
     key = get_secret("gemini")
     if not key:
@@ -112,29 +88,6 @@ def ask_gemini(prompt: str, history: list[tuple[str, str]], search_web: bool = F
     if sources:
         answer += "\n\nFontes consultadas:\n" + "\n".join(sources)
     return answer
-
-
-def ask_groq(prompt: str, history: list[tuple[str, str]]) -> str:
-    """Conversa textual com Groq; a seleção não altera o provedor de visão."""
-    from groq import Groq
-    key = get_secret("groq")
-    if not key:
-        raise RuntimeError("Configure a chave Groq nas preferências.")
-    messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
-    messages.extend({"role": role if role in {"user", "assistant"} else "user", "content": text}
-                    for role, text in history)
-    messages.append({
-        "role": "user",
-        "content": prompt,
-    })
-    client = Groq(api_key=key, timeout=30.0, max_retries=0)
-    try:
-        result = client.chat.completions.create(
-            model="openai/gpt-oss-20b", messages=messages, temperature=0.7,
-            include_reasoning=False)
-    finally:
-        client.close()
-    return result.choices[0].message.content or "Não recebi uma resposta em texto."
 
 
 def analyze_image(prompt: str, image_bytes: bytes) -> str:
@@ -204,22 +157,6 @@ def propose_screen_action(prompt: str, image_bytes: bytes) -> dict:
     action["source_width"] = source_width
     action["source_height"] = source_height
     return action
-
-
-def transcribe_groq(wav_bytes: bytes) -> str:
-    """Transcreve uma gravação explícita do usuário; o microfone não fica aberto."""
-    from groq import Groq
-    key = get_secret("groq")
-    if not key:
-        raise RuntimeError("Cadastre a chave Groq ou use o campo de texto.")
-    client = Groq(api_key=key, timeout=30.0, max_retries=0)
-    try:
-        result = client.audio.transcriptions.create(
-            file=("utterance.wav", wav_bytes), model="whisper-large-v3-turbo",
-            language="pt", response_format="text")
-    finally:
-        client.close()
-    return str(result).strip()
 
 
 def transcribe_gemini(wav_bytes: bytes) -> str:
