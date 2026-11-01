@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from PySide6.QtCore import (QThread, Signal, QUrl, QTimer, QUrlQuery, QStandardPaths,
                            Qt, QLockFile, QPropertyAnimation, QEasingCurve, QDateTime)
-from PySide6.QtGui import QTextCursor, QPixmap
+from PySide6.QtGui import QTextCursor, QPixmap, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QLabel,
                                QMainWindow, QPushButton, QTextEdit, QVBoxLayout, QWidget,
                                QMessageBox, QHBoxLayout, QFileDialog, QComboBox)
@@ -401,6 +401,11 @@ class JarvisWindow(QMainWindow):
         topbar.addWidget(self.status)
         self.clock_label = QLabel(); self.clock_label.setObjectName("commandClock")
         topbar.addWidget(self.clock_label)
+        panic_button = QPushButton("INTERROMPER")
+        panic_button.setObjectName("panicCommand")
+        panic_button.setToolTip("Desliga imediatamente microfone, visão e palmas (Ctrl+Shift+P)")
+        panic_button.clicked.connect(self.panic_stop)
+        topbar.addWidget(panic_button)
         settings_button = QPushButton("⚙")
         settings_button.setObjectName("roundCommand")
         settings_button.setToolTip("Abrir configurações")
@@ -435,6 +440,8 @@ class JarvisWindow(QMainWindow):
         self.clock_timer.timeout.connect(self._update_clock)
         self.clock_timer.start(1000)
         self._update_clock()
+        self.panic_shortcut = QShortcut(QKeySequence("Ctrl+Shift+P"), self)
+        self.panic_shortcut.activated.connect(self.panic_stop)
 
         dashboard_page = QWidget(); dashboard_page.setObjectName("heroStage")
         dashboard_layout = QVBoxLayout(dashboard_page)
@@ -1292,6 +1299,10 @@ class JarvisWindow(QMainWindow):
         if lowered in {"desligar microfone", "desative o microfone", "pare de ouvir"}:
             self.voice_activation_button.setChecked(False)
             return True
+        if lowered in {"modo pânico", "modo panico", "pare tudo", "interromper tudo",
+                       "interrompa tudo", "desligue tudo"}:
+            self.panic_stop()
+            return True
         if self._handle_media_command(normalized):
             return True
         open_intent = bool(re.match(
@@ -1459,6 +1470,42 @@ class JarvisWindow(QMainWindow):
             self.setWindowOpacity(1.0)
         self.minimize_animation.finished.connect(finish)
         self.minimize_animation.start()
+
+    def panic_stop(self):
+        """Immediately disable every ambient microphone and screen observer."""
+        settings = load_settings()
+        settings.update({
+            "hands_free_enabled": False,
+            "voice_activation_enabled": False,
+            "live_vision_enabled": False,
+            "clap_enabled": False,
+        })
+        save_settings(settings)
+        if getattr(self, "voice_activation_button", None):
+            self.voice_activation_button.setChecked(False)
+        if getattr(self, "live_vision_button", None):
+            self.live_vision_button.blockSignals(True)
+            self.live_vision_button.setChecked(False)
+            self.live_vision_button.blockSignals(False)
+            self.toggle_live_vision(False)
+        if getattr(self, "clap_button", None):
+            self.clap_button.blockSignals(True)
+            self.clap_button.setChecked(False)
+            self.clap_button.blockSignals(False)
+        self._stop_clap_worker()
+        self._stop_screen_preview()
+        worker = getattr(self, "worker", None)
+        if worker and worker.isRunning() and getattr(worker, "mode", None) == "voice":
+            worker.stop_recording()
+        self.core_orb.set_state("ready")
+        self.voice_state.setText("Modo pânico · sensores desligados")
+        self.answer_preview.setText("Microfone, visão e detecção de palmas foram desligados.")
+        self.status.setText("MODO PÂNICO · sensores desligados")
+        self._refresh_privacy_indicators()
+        if self.tray_icon and self.tray_icon.isVisible():
+            self.tray_icon.showMessage(
+                "JARVIS · modo pânico", "Microfone, visão e palmas foram desligados.",
+                QSystemTrayIcon.MessageIcon.Warning, 4000)
 
     def _run_pointer_action(self, action):
         """Mostra no HUD erros do mouse, em vez de deixar a exceção escapar do timer."""
@@ -2480,6 +2527,8 @@ class JarvisWindow(QMainWindow):
         menu = QMenu()
         show_action = menu.addAction("Abrir JARVIS")
         show_action.triggered.connect(self.show_from_tray)
+        panic_action = menu.addAction("Modo pânico · desligar sensores")
+        panic_action.triggered.connect(self.panic_stop)
         menu.addSeparator()
         exit_action = menu.addAction("Encerrar")
         exit_action.triggered.connect(self.quit_from_tray)

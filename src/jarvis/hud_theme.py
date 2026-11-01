@@ -60,6 +60,11 @@ HUD_STYLE = """
             QPushButton#roundCommand { color: #63ddec; background: #071b27;
                 border: 1px solid #1f6378; border-radius: 18px; min-width: 36px;
                 min-height: 36px; max-width: 36px; max-height: 36px; padding: 0; font-size: 17px; }
+            QPushButton#panicCommand { color: #ff7ba9; background: #210b17;
+                border: 1px solid #7b2345; border-radius: 12px; padding: 8px 14px;
+                font-size: 9px; font-weight: 800; letter-spacing: 1.5px; }
+            QPushButton#panicCommand:hover { color: #fff3f8; background: #5b1431;
+                border-color: #ff4e8c; }
             QTabWidget#mainTabs::pane { background: transparent; border: none; }
             QTabBar#hiddenTabs { max-height: 0; }
             QTextBrowser, QTextEdit, QLineEdit, QPlainTextEdit, QComboBox, QListWidget {
