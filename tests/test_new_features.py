@@ -22,9 +22,15 @@ from jarvis import diagnostics
 from jarvis.extensions import load_extensions
 from jarvis import tts
 from jarvis import usage
+from jarvis.app import JarvisWindow
 
 
 class NewFeatureTests(unittest.TestCase):
+    def test_saved_message_markup_escapes_user_html(self):
+        markup = JarvisWindow._message_markup(None, "user", "<script>alert(1)</script>")
+        self.assertNotIn("<script>", markup)
+        self.assertIn("&lt;script&gt;", markup)
+
     def test_declarative_extensions_accept_only_safe_commands(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

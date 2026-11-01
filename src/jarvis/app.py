@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sys
 import re
+import html
 from datetime import datetime
 from pathlib import Path
 from PySide6.QtCore import (QThread, QUrl, QTimer, QStandardPaths,
