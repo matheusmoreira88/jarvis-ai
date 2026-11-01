@@ -177,13 +177,17 @@ def due_reminders(now: str | None = None) -> list[tuple[int, str, str]]:
     return rows
 
 
-def mark_reminders_notified(ids: list[int]) -> None:
+def mark_reminders_notified(ids: list[int], now: str | None = None) -> None:
     """Mark displayed alerts and schedule the next occurrence of recurring ones."""
     from datetime import datetime, timezone, timedelta
     from .reminders import _add_months, _add_years
     if not ids:
         return
-    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    current = datetime.fromisoformat(now) if now else datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    current = current.astimezone(timezone.utc)
+    stamp = current.isoformat(timespec="seconds")
     placeholders = ",".join("?" for _ in ids)
     with _connection() as db:
         recurring = db.execute(
@@ -196,7 +200,6 @@ def mark_reminders_notified(ids: list[int]) -> None:
             "AND notified_at IS NULL",
             (stamp, *ids),
         )
-        now = datetime.now(timezone.utc)
         for title, due_stamp, notify_stamp, repeat_rule in recurring:
             due = datetime.fromisoformat(due_stamp)
             advance = {
@@ -211,7 +214,7 @@ def mark_reminders_notified(ids: list[int]) -> None:
             due = advance(due)
             # Skip expired cycles after a long period with the app closed.
             for _ in range(4000):
-                if due - lead > now:
+                if due - lead > current:
                     break
                 due = advance(due)
             else:

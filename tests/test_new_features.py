@@ -63,7 +63,8 @@ class NewFeatureTests(unittest.TestCase):
                                      parsed["remind_at"], parsed["repeat_rule"])
                 due = memory.due_reminders("2026-11-01T09:00:00+00:00")
                 self.assertEqual(len(due), 1)
-                memory.mark_reminders_notified([due[0][0]])
+                memory.mark_reminders_notified(
+                    [due[0][0]], now="2026-11-01T09:00:00+00:00")
                 next_due = memory.due_reminders("2026-11-02T09:00:00+00:00")
                 self.assertEqual(len(next_due), 1)
                 self.assertNotEqual(next_due[0][0], due[0][0])
@@ -94,7 +95,7 @@ class NewFeatureTests(unittest.TestCase):
             return b"wav"
         with patch("jarvis.local_wake.LocalJarvisFilter") as detector, \
              patch("jarvis.voice_worker.wait_for_spoken_utterance", side_effect=detect_once), \
-             patch("jarvis.voice_worker.transcribe_groq") as transcribe:
+             patch("jarvis.voice_worker.transcribe_gemini") as transcribe:
             detector.return_value.heard_jarvis.return_value = False
             worker._listen_loop(stream=object())
         transcribe.assert_not_called()
@@ -111,7 +112,7 @@ class NewFeatureTests(unittest.TestCase):
             return b"wav"
         with patch("jarvis.local_wake.LocalJarvisFilter") as detector, \
              patch("jarvis.voice_worker.wait_for_spoken_utterance", side_effect=detect_once), \
-             patch("jarvis.voice_worker.transcribe_groq", return_value="Abra o navegador"):
+             patch("jarvis.voice_worker.transcribe_gemini", return_value="Abra o navegador"):
             detector.return_value.heard_jarvis.return_value = True
             worker._listen_loop(stream=Stream())
         self.assertEqual(heard, ["Abra o navegador"])
