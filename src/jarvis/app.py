@@ -663,6 +663,14 @@ class JarvisWindow(QMainWindow):
         open_memories = QPushButton("Ver lembranças e lembretes…")
         open_memories.clicked.connect(self.manage_memory)
         preferences.addWidget(open_memories)
+        memory_backup_row = QHBoxLayout(); memory_backup_row.setSpacing(10)
+        export_memory = QPushButton("Exportar memória…")
+        export_memory.clicked.connect(self.export_memory_backup)
+        memory_backup_row.addWidget(export_memory, 1)
+        import_memory = QPushButton("Importar memória…")
+        import_memory.clicked.connect(self.import_memory_backup)
+        memory_backup_row.addWidget(import_memory, 1)
+        preferences.addLayout(memory_backup_row)
         clear_memory = QPushButton("Apagar conversa e memória local…")
         clear_memory.clicked.connect(self.clear_local_memory)
         preferences.addWidget(clear_memory)
@@ -1133,6 +1141,41 @@ class JarvisWindow(QMainWindow):
         dialog = MemoryManagerDialog(self)
         dialog.exec()
         self._refresh_memory_map()
+
+    def export_memory_backup(self):
+        default_name = f"jarvis-memory-{datetime.now().strftime('%Y-%m-%d')}.sqlite3"
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Exportar memória", default_name, "Backup SQLite (*.sqlite3)")
+        if not path:
+            return
+        if not path.lower().endswith(".sqlite3"):
+            path += ".sqlite3"
+        try:
+            result = memory.export_database(path)
+            QMessageBox.information(self, "Memória exportada", f"Backup salvo em:\n{result}")
+        except Exception as exc:
+            self.error(f"Não foi possível exportar a memória: {exc}")
+
+    def import_memory_backup(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Importar memória", "", "Backup SQLite (*.sqlite3 *.db)")
+        if not path:
+            return
+        answer = QMessageBox.question(
+            self, "Substituir memória local",
+            "Importar este backup substituirá a conversa, lembranças e lembretes atuais. "
+            "Uma cópia automática do banco atual será preservada. Continuar?")
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            backup = memory.import_database(path)
+            QMessageBox.information(
+                self, "Memória importada",
+                "O backup foi importado com sucesso." +
+                (f"\nBanco anterior preservado em:\n{backup}" if backup else ""))
+            self._refresh_memory_map()
+        except Exception as exc:
+            self.error(f"Não foi possível importar a memória: {exc}")
 
     def _refresh_memory_map(self):
         count = memory.long_term_count()

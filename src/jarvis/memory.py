@@ -5,12 +5,15 @@ import sqlite3
 import os
 import re
 import threading
-from contextlib import contextmanager
+from datetime import datetime
+from contextlib import closing, contextmanager
+from pathlib import Path
 from platformdirs import user_data_path
 
 DB_FILE = user_data_path("JarvisAI", "Matheus") / "memory.sqlite3"
 _initialized: set[str] = set()
 _schema_lock = threading.Lock()
+REQUIRED_TABLES = {"messages", "long_term_memory", "reminders"}
 
 
 def _initialize(db: sqlite3.Connection) -> None:
@@ -127,6 +130,50 @@ def clear() -> None:
     """Remove all saved messages without deleting the SQLite database itself."""
     with _connection() as db:
         db.execute("DELETE FROM messages")
+
+
+def export_database(destination: str | Path) -> Path:
+    """Create a consistent SQLite backup even while WAL mode is enabled."""
+    target = Path(destination).resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with _connection() as source, closing(sqlite3.connect(target)) as output:
+        source.backup(output)
+    return target
+
+
+def import_database(source: str | Path) -> Path | None:
+    """Validate and atomically restore a memory backup, preserving the old database."""
+    incoming = Path(source).resolve()
+    if not incoming.is_file() or incoming == DB_FILE.resolve():
+        raise ValueError("Escolha um arquivo de backup SQLite diferente do banco atual.")
+    with closing(sqlite3.connect(
+            f"file:{incoming.as_posix()}?mode=ro", uri=True)) as candidate:
+        tables = {row[0] for row in candidate.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+        if not REQUIRED_TABLES.issubset(tables):
+            raise ValueError("O arquivo não é um backup de memória válido do JARVIS.")
+    backup = None
+    if DB_FILE.exists():
+        backup_dir = DB_FILE.parent / "memory-backups"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup = export_database(backup_dir / f"memory-before-import-{stamp}.sqlite3")
+    DB_FILE.parent.mkdir(parents=True, exist_ok=True)
+    temporary = DB_FILE.with_suffix(".importing")
+    try:
+        with closing(sqlite3.connect(
+                f"file:{incoming.as_posix()}?mode=ro", uri=True)) as candidate, \
+             closing(sqlite3.connect(temporary)) as output:
+            candidate.backup(output)
+        for suffix in ("-wal", "-shm"):
+            Path(str(DB_FILE) + suffix).unlink(missing_ok=True)
+        temporary.replace(DB_FILE)
+        _initialized.discard(str(DB_FILE.resolve()))
+        with _connection():
+            pass
+    finally:
+        temporary.unlink(missing_ok=True)
+    return backup
 
 
 def save_memory(title: str, body: str) -> int:

@@ -17,6 +17,21 @@ from jarvis import updater
 
 
 class NewFeatureTests(unittest.TestCase):
+    def test_memory_export_and_import_round_trip(self):
+        with tempfile.TemporaryDirectory() as folder:
+            database = Path(folder) / "memory.sqlite3"
+            exported = Path(folder) / "exported.sqlite3"
+            with patch.object(memory, "DB_FILE", database):
+                memory.save_memory("Primeira", "lembrança preservada")
+                memory.export_database(exported)
+                memory.save_memory("Segunda", "não deve sobreviver à restauração")
+                backup = memory.import_database(exported)
+                restored = " ".join(memory.context_for_ai("lembrança preservada"))
+                removed = " ".join(memory.context_for_ai("não deve sobreviver"))
+                self.assertIn("lembrança preservada", restored)
+                self.assertNotIn("não deve sobreviver", removed)
+                self.assertTrue(backup and backup.is_file())
+
     def test_update_installer_requires_matching_sha256(self):
         payload = b"signed release payload"
         checksum = hashlib.sha256(payload).hexdigest().encode("ascii")
