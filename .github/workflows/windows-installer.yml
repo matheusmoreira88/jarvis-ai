@@ -32,15 +32,26 @@ jobs:
         run: |
           $compiler = Get-Command ISCC.exe -ErrorAction Stop
           & $compiler.Source installer/JarvisAI.iss
+      - name: Create SHA-256 checksum
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem dist/installer/JARVIS-AI-Setup-*.exe -File | Select-Object -First 1
+          if (-not $installer) { throw "Installer not found" }
+          $hash = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" | Set-Content -LiteralPath "$($installer.FullName).sha256" -Encoding ascii
       - uses: actions/upload-artifact@v4
         with:
           name: JARVIS-AI-Windows-Setup
-          path: dist/installer/JARVIS-AI-Setup-*.exe
+          path: |
+            dist/installer/JARVIS-AI-Setup-*.exe
+            dist/installer/JARVIS-AI-Setup-*.exe.sha256
           if-no-files-found: error
 
       - name: Publish installer as a GitHub release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/installer/JARVIS-AI-Setup-*.exe
+          files: |
+            dist/installer/JARVIS-AI-Setup-*.exe
+            dist/installer/JARVIS-AI-Setup-*.exe.sha256
           body_path: RELEASE_NOTES.md
