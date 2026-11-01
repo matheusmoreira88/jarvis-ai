@@ -335,6 +335,42 @@ class MemoryManagerDialog(QDialog):
             self.refresh()
 
 
+class MemoryMapDialog(QDialog):
+    """Independent animated knowledge window opened by voice or keyboard command."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self.setObjectName("memoryMapWindow")
+        self.setWindowTitle("JARVIS · Mapa de conhecimento")
+        self.resize(820, 720)
+        self.setMinimumSize(560, 500)
+        self.setStyleSheet(HUD_STYLE)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 20, 24, 24)
+        title = QLabel("MAPA DE CONHECIMENTO")
+        title.setObjectName("settingsHeading")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        note = QLabel("Cada lembrança permanente ilumina novas conexões do núcleo neural.")
+        note.setObjectName("settingsIntro")
+        note.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(note)
+        count = memory.long_term_count()
+        self.map = CoreOrb(__version__, self)
+        self.map.set_memory_count(count)
+        self.map.set_motion_enabled(not load_settings().get("reduce_motion", False))
+        layout.addWidget(self.map, 1)
+        counter = QLabel(f"{count:,} LEMBRANÇA(S) PERMANENTE(S)".replace(",", "."))
+        counter.setObjectName("memoryCount")
+        counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(counter)
+        manage = QPushButton("GERENCIAR LEMBRANÇAS")
+        manage.setObjectName("primaryAction")
+        manage.clicked.connect(lambda: MemoryManagerDialog(self).exec())
+        layout.addWidget(manage, 0, Qt.AlignmentFlag.AlignHCenter)
+
+
 class JarvisWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -750,6 +786,7 @@ class JarvisWindow(QMainWindow):
         self.core_orb.set_motion_enabled(not load_settings().get("reduce_motion", False))
         self.memory_brain.set_motion_enabled(not load_settings().get("reduce_motion", False))
         self.pending_voice_command = None
+        self.memory_map_dialog = None
         self._close_when_vision_stops = False
         self._quit_requested = False
         self._waiting_for_workers = False
@@ -1137,7 +1174,8 @@ class JarvisWindow(QMainWindow):
     def _dispatch_computer_command(self, prompt: str) -> bool:
         """Executa apenas ações locais explícitas; nunca interpreta saída do modelo como ação."""
         normalized = prompt.strip()
-        lowered = normalized.lower()
+        lowered = normalized.casefold()
+        lowered = re.sub(r"^\s*(?:oi\s+)?jarvis\s*[,;:.-]?\s*", "", lowered).strip()
         if lowered in {"minimiza", "minimize", "minimize o jarvis", "minimiza o jarvis"}:
             self.minimize_with_animation()
             return True
@@ -1158,11 +1196,27 @@ class JarvisWindow(QMainWindow):
             return True
         if self._handle_media_command(normalized):
             return True
-        destinations = {"abrir painel": 0, "abrir conversa": 1,
-                        "abrir mídia": 2, "abrir configuracoes": 3,
-                        "abrir configurações": 3}
-        if lowered in destinations:
-            self.tabs.setCurrentIndex(destinations[lowered])
+        open_intent = bool(re.match(
+            r"^(?:abra|abre|abrir|mostre|mostra|mostrar|quero ver|vá para|vai para)\b", lowered))
+        if open_intent and any(word in lowered for word in ("configuração", "configurações", "configuracao", "configuracoes", "ajustes")):
+            self.tabs.setCurrentIndex(3)
+            self.status.setText("Configurações abertas")
+            return True
+        if open_intent and any(word in lowered for word in ("conversa", "conversas", "chat", "histórico", "historico")):
+            self.tabs.setCurrentIndex(1)
+            self.status.setText("Conversa aberta")
+            return True
+        if open_intent and any(word in lowered for word in ("mídia", "midia", "música", "musica", "player")):
+            self.tabs.setCurrentIndex(2)
+            self.status.setText("Mídia aberta")
+            return True
+        if open_intent and any(word in lowered for word in ("memória", "memoria", "mapa de conhecimento", "cérebro", "cerebro")):
+            self.open_memory_map()
+            self.status.setText("Mapa de conhecimento aberto")
+            return True
+        if open_intent and any(word in lowered for word in ("painel", "núcleo", "nucleo", "jarvis")):
+            self.tabs.setCurrentIndex(0)
+            self.status.setText("Núcleo aberto")
             return True
         for routine in load_settings().get("routines", []):
             if not isinstance(routine, dict):
@@ -1282,6 +1336,18 @@ class JarvisWindow(QMainWindow):
                 QTimer.singleShot(500, lambda: self._press_in_active_app(key))
             return True
         return False
+
+    def open_memory_map(self):
+        dialog = self.memory_map_dialog
+        if dialog is not None and dialog.isVisible():
+            dialog.showNormal()
+            dialog.raise_()
+            dialog.activateWindow()
+            return
+        dialog = MemoryMapDialog(self)
+        self.memory_map_dialog = dialog
+        dialog.destroyed.connect(lambda *_: setattr(self, "memory_map_dialog", None))
+        dialog.show()
 
     def minimize_with_animation(self):
         """Suaviza a saída antes de entregar a janela à barra de tarefas."""
