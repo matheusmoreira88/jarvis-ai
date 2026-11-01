@@ -10,7 +10,12 @@ hiddenimports = collect_submodules("keyring.backends") + [
 a = Analysis(
     ["run_jarvis.py"], pathex=["src"], binaries=collect_dynamic_libs("vosk"), datas=[],
     hiddenimports=hiddenimports, hookspath=[], hooksconfig={},
-    runtime_hooks=[], excludes=[], noarchive=False, optimize=1,
+    runtime_hooks=[], excludes=[
+        "googleapiclient", "httplib2", "google_auth_httplib2",
+        "PySide6.QtDesigner", "PySide6.QtHelp", "PySide6.QtPdf",
+        "PySide6.QtPdfWidgets", "PySide6.QtQuick3D", "PySide6.Qt3DCore",
+        "PySide6.Qt3DRender", "PySide6.Qt3DExtras", "tkinter",
+    ], noarchive=False, optimize=1,
 )
 pyz = PYZ(a.pure)
 exe = EXE(

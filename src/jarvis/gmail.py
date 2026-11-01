@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import base64
+import json
 import os
 import tempfile
+from urllib.error import HTTPError
+from urllib.request import Request as UrlRequest, urlopen
 from email.message import EmailMessage
 from pathlib import Path
 from platformdirs import user_config_path, user_data_path
@@ -37,7 +40,6 @@ def _write_private(path: Path, content: str) -> None:
 
 
 def install_client_file(source: str) -> None:
-    import json
     data = json.loads(Path(source).read_text(encoding="utf-8"))
     if "installed" not in data:
         raise ValueError("Escolha um arquivo OAuth do tipo aplicativo para computador.")
@@ -48,7 +50,6 @@ def send_email(to: str, subject: str, body: str) -> None:
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
-    from googleapiclient.discovery import build
 
     if not CLIENT_FILE.exists():
         raise RuntimeError("Importe primeiro as credenciais OAuth de desktop do Google Cloud.")
@@ -70,8 +71,20 @@ def send_email(to: str, subject: str, body: str) -> None:
     message["To"] = to; message["Subject"] = subject
     message.set_content(body)
     payload = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
-    service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+    request = UrlRequest(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+        data=json.dumps({"raw": payload}).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {creds.token}",
+            "Content-Type": "application/json; charset=utf-8",
+            "User-Agent": "JARVIS-AI-Desktop",
+        },
+        method="POST",
+    )
     try:
-        service.users().messages().send(userId="me", body={"raw": payload}).execute()
-    finally:
-        service.close()
+        with urlopen(request, timeout=30) as response:
+            response.read()
+    except HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")[:800]
+        raise RuntimeError(
+            f"O Gmail recusou o envio (HTTP {exc.code}). {details}") from exc
