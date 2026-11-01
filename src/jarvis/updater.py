@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from platformdirs import user_data_path
+from PySide6.QtCore import QThread, Signal
 
 RELEASE_API = "https://api.github.com/repos/matheusmoreira88/jarvis-ai/releases/latest"
 UPDATE_DIR = user_data_path("JarvisAI", "Matheus") / "updates"
@@ -65,3 +66,36 @@ def download_verified_installer(installer_url: str, checksum_url: str,
     finally:
         temporary.unlink(missing_ok=True)
     return destination
+
+
+class UpdateWorker(QThread):
+    """Check the public release endpoint without blocking the interface."""
+    latest = Signal(dict)
+    failed = Signal(str)
+
+    def run(self):
+        try:
+            self.latest.emit(latest_release())
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
+
+class UpdateDownloadWorker(QThread):
+    """Download and validate a selected release outside the GUI thread."""
+    completed = Signal(str)
+    failed = Signal(str)
+
+    def __init__(self, metadata: dict):
+        super().__init__()
+        self.metadata = metadata
+
+    def run(self):
+        try:
+            path = download_verified_installer(
+                self.metadata.get("installer_url", ""),
+                self.metadata.get("checksum_url", ""),
+                self.metadata.get("installer_name", ""),
+            )
+            self.completed.emit(str(path))
+        except Exception as exc:
+            self.failed.emit(str(exc))

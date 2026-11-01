@@ -39,6 +39,7 @@ from .computer import open_known_app
 from .autostart import set_enabled
 from .claps import ClapWorker
 from .setup_wizard import SetupDialog
+from .updater import UpdateDownloadWorker, UpdateWorker
 
 
 class DownloadWorker(QThread):
@@ -50,40 +51,6 @@ class DownloadWorker(QThread):
         try:
             from .media import download_audio
             self.completed.emit(download_audio(self.url, self.folder))
-        except Exception as exc:
-            self.failed.emit(str(exc))
-
-
-class UpdateWorker(QThread):
-    """Checks the public GitHub releases API without blocking the HUD."""
-    latest = Signal(dict)
-    failed = Signal(str)
-
-    def run(self):
-        try:
-            from .updater import latest_release
-            self.latest.emit(latest_release())
-        except Exception as exc:
-            self.failed.emit(str(exc))
-
-
-class UpdateDownloadWorker(QThread):
-    completed = Signal(str)
-    failed = Signal(str)
-
-    def __init__(self, metadata: dict):
-        super().__init__()
-        self.metadata = metadata
-
-    def run(self):
-        try:
-            from .updater import download_verified_installer
-            path = download_verified_installer(
-                self.metadata.get("installer_url", ""),
-                self.metadata.get("checksum_url", ""),
-                self.metadata.get("installer_name", ""),
-            )
-            self.completed.emit(str(path))
         except Exception as exc:
             self.failed.emit(str(exc))
 
