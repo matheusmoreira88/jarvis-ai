@@ -134,68 +134,9 @@ def wait_for_spoken_utterance(
             if capture_started_at and time.monotonic() - capture_started_at >= max_seconds:
                 break
 
-    if stop_requested() or pause_requested() or not speech_started or speech_blocks < 3:
+    if stop_requested() or pause_requested() or not speech_started or speech_blocks < 6:
         return None
     return _to_wav_bytes(chunks)
-
-
-class WakeWordListener:
-    """Keeps the local model in memory and captures speech after “Hey Jarvis”.
-
-    The detector's rolling pre-roll is preserved so commands spoken immediately
-    after the wake phrase are not lost between microphone streams.
-    """
-    def __init__(self, threshold: float = 0.55):
-        from openwakeword.model import Model
-        from openwakeword.utils import download_models
-
-        # The public model is downloaded once into the package cache on first use.
-        download_models(model_names=["hey_jarvis_v0.1"])
-        self.detector = Model(
-            wakeword_models=["hey_jarvis"], inference_framework="onnx")
-        self.threshold = threshold
-
-    def listen_for_command(
-        self,
-        stop_requested: Callable[[], bool],
-        pause_requested: Callable[[], bool],
-        *,
-        on_detected: Callable[[], None] | None = None,
-    ) -> bytes | None:
-        """Detect locally, retain pre-roll, and record until the user pauses."""
-        pre_roll: list[np.ndarray] = []
-        with sd.InputStream(
-            samplerate=SAMPLE_RATE, channels=1, blocksize=1_280, dtype="int16"
-        ) as stream:
-            while not stop_requested() and not pause_requested():
-                frame, _overflowed = stream.read(1_280)
-                frame = np.asarray(frame, dtype=np.int16).reshape(-1)
-                prediction = self.detector.predict(frame)
-                pre_roll.append(frame.copy())
-                if len(pre_roll) > 24:  # About 1.9 s to preserve the whole wake phrase.
-                    pre_roll.pop(0)
-                if prediction and max(float(score) for score in prediction.values()) >= self.threshold:
-                    self.detector.reset()
-                    if on_detected:
-                        on_detected()
-                    chunks = list(pre_roll)
-                    last_speech_at = time.monotonic()
-                    capture_started = last_speech_at
-                    while (not stop_requested() and not pause_requested()
-                           and time.monotonic() - capture_started < 180):
-                        block, _overflowed = stream.read(1_280)
-                        block = np.asarray(block, dtype=np.int16).reshape(-1)
-                        chunks.append(block)
-                        level = float(np.sqrt(np.mean(block.astype(np.float32) ** 2))) / 32768.0
-                        now = time.monotonic()
-                        if level >= SPEECH_THRESHOLD:
-                            last_speech_at = now
-                        elif now - last_speech_at >= END_SILENCE_SECONDS:
-                            break
-                    if stop_requested() or pause_requested():
-                        return None
-                    return _to_wav_bytes(chunks)
-        return None
 
 
 def _to_wav_bytes(chunks: list[np.ndarray]) -> bytes:
@@ -242,5 +183,5 @@ def speak_fragments(fragments) -> None:
 def strip_jarvis_prefix(text: str) -> str | None:
     """Return the command after Jarvis, or None when no activation was spoken."""
     import re
-    match = re.match(r"^\s*(?:hey\s+)?jarvis\b[,.:;!\s-]*(.*)$", text, re.I | re.S)
+    match = re.match(r"^\s*jarvis\b[,.:;!\s-]*(.*)$", text, re.I | re.S)
     return match.group(1).strip() if match else None

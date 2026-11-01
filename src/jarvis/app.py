@@ -346,8 +346,7 @@ class JarvisWindow(QMainWindow):
         side_rail = QWidget(); side_rail.setObjectName("sideRail"); side_rail.setFixedWidth(178)
         rail_layout = QVBoxLayout(side_rail); rail_layout.setContentsMargins(16, 22, 16, 18); rail_layout.setSpacing(9)
         head = QLabel("JARVIS"); head.setObjectName("brandTitle")
-        subtitle = QLabel("DESKTOP INTELLIGENCE"); subtitle.setObjectName("brandSubtitle")
-        rail_layout.addWidget(head); rail_layout.addWidget(subtitle)
+        rail_layout.addWidget(head)
         rail_layout.addSpacing(30)
         rail_caption = QLabel("ESPAÇO DE TRABALHO"); rail_caption.setObjectName("sectionLabel")
         rail_layout.addWidget(rail_caption)
@@ -362,8 +361,6 @@ class JarvisWindow(QMainWindow):
         self.voice_state = QLabel("Microfone desligado"); self.voice_state.setObjectName("voiceState")
         rail_layout.addWidget(self.voice_state)
         rail_layout.addSpacing(6)
-        rail_footer = QLabel("GEMINI  ·  GROQ"); rail_footer.setObjectName("brandSubtitle")
-        rail_layout.addWidget(rail_footer)
         layout.addWidget(side_rail)
 
         main_area = QWidget(); main_layout = QVBoxLayout(main_area)
@@ -379,100 +376,26 @@ class JarvisWindow(QMainWindow):
         self.page_fade_animation = None
         self.tabs.currentChanged.connect(self._update_navigation)
 
-        dashboard_page = QWidget(); dashboard_layout = QVBoxLayout(dashboard_page)
-        dashboard_layout.setContentsMargins(12, 14, 12, 14); dashboard_layout.setSpacing(12)
-
-        overview = QWidget(); overview.setObjectName("heroCard")
-        overview_layout = QHBoxLayout(overview); overview_layout.setContentsMargins(24, 20, 24, 20)
-        overview_copy = QVBoxLayout()
-        overview_label = QLabel("JARVIS AI  /  COMMAND CENTER")
-        overview_label.setObjectName("dashboardKicker")
-        overview_copy.addWidget(overview_label)
-        overview_name = QLabel("Sempre pronto para ajudar")
-        overview_name.setObjectName("dashboardMetric")
-        overview_copy.addWidget(overview_name)
-        provider_name = load_settings().get("provider", "gemini").upper()
-        self.provider_hint = QLabel(
-            f"{provider_name}  ·  memória local protegida  ·  voz mãos livres")
-        self.provider_hint.setWordWrap(True)
-        overview_copy.addWidget(self.provider_hint)
-        self.live_voice_hint = QLabel("Fale “Jarvis” para começar")
-        self.live_voice_hint.setObjectName("dashboardHint")
-        overview_copy.addWidget(self.live_voice_hint)
-        overview_copy.addStretch(1)
-        overview_layout.addLayout(overview_copy, 1)
-
-        orb = CoreOrb(__version__)
-        self.core_orb = orb
-        overview_layout.addWidget(orb, 1)
-
-        preview_panel = QWidget(); preview_panel.setObjectName("dashboardCard")
-        preview_layout = QVBoxLayout(preview_panel); preview_layout.setContentsMargins(12, 10, 12, 10)
-        self.screen_preview_title = QLabel("VISÃO DA TELA · DESLIGADA")
-        self.screen_preview_title.setObjectName("dashboardKicker")
-        self.screen_preview_label = QLabel("A prévia local aparece aqui quando a visão estiver ativa")
-        self.screen_preview_label.setObjectName("screenPreview")
-        self.screen_preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.screen_preview_label.setFixedSize(260, 150)
-        self.screen_preview_label.setWordWrap(True)
-        preview_layout.addWidget(self.screen_preview_title)
-        preview_layout.addWidget(self.screen_preview_label)
-        preview_panel.setMaximumHeight(250)
-        overview_layout.addWidget(preview_panel, 0, Qt.AlignmentFlag.AlignVCenter)
-        dashboard_layout.addWidget(overview, 3)
-
+        dashboard_page = QWidget(); dashboard_page.setObjectName("heroStage")
+        dashboard_layout = QVBoxLayout(dashboard_page)
+        dashboard_layout.setContentsMargins(28, 18, 28, 28)
+        dashboard_layout.setSpacing(14)
+        self.core_orb = CoreOrb(__version__)
+        dashboard_layout.addWidget(self.core_orb, 1)
+        self.live_voice_hint = QLabel("Diga “Jarvis” e fale seu pedido")
+        self.live_voice_hint.setObjectName("heroHint")
+        self.live_voice_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.live_voice_hint.setWordWrap(True)
+        dashboard_layout.addWidget(self.live_voice_hint)
+        self.answer_preview = QLabel("")
+        self.answer_preview.setObjectName("answerPreview")
+        self.answer_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.answer_preview.setWordWrap(True)
+        dashboard_layout.addWidget(self.answer_preview)
+        self.screen_preview_title = QLabel("Visão da tela")
+        self.screen_preview_label = QLabel()
+        self.screen_preview_title.hide(); self.screen_preview_label.hide()
         self.dashboard_metrics = {}
-        metrics_row = QHBoxLayout(); metrics_row.setSpacing(8)
-        for metric_name, initial in (("voz", "Desligada"), ("tela", "Desligada"),
-                                     ("privacidade", "Manual"), ("mídia", "Pronta")):
-            metric = QLabel(f"{metric_name.upper()} · {initial}")
-            metric.setObjectName("metricPill")
-            metrics_row.addWidget(metric, 1)
-            self.dashboard_metrics[metric_name] = metric
-        dashboard_layout.addLayout(metrics_row)
-        lower_row = QHBoxLayout(); lower_row.setSpacing(14)
-        monitor = QWidget(); monitor.setObjectName("dashboardCard")
-        monitor_layout = QVBoxLayout(monitor); monitor_layout.setContentsMargins(20, 16, 20, 16)
-        monitor_title = QLabel("SYSTEM MONITOR"); monitor_title.setObjectName("dashboardKicker")
-        monitor_layout.addWidget(monitor_title)
-        monitor_hint = QLabel("Uso atual do computador")
-        monitor_hint.setObjectName("dashboardHint"); monitor_layout.addWidget(monitor_hint)
-        gauges = QHBoxLayout(); gauges.setSpacing(8)
-        self.cpu_gauge = DonutGauge("CPU")
-        self.ram_gauge = DonutGauge("RAM")
-        self.disk_gauge = DonutGauge("Disco")
-        gauges.addWidget(self.cpu_gauge); gauges.addWidget(self.ram_gauge); gauges.addWidget(self.disk_gauge)
-        monitor_layout.addLayout(gauges, 1)
-
-        memory_card = QWidget(); memory_card.setObjectName("dashboardCard")
-        memory_layout = QVBoxLayout(memory_card); memory_layout.setContentsMargins(20, 16, 20, 16)
-        memory_title = QLabel("MEMORY MAP"); memory_title.setObjectName("dashboardKicker")
-        memory_layout.addWidget(memory_title)
-        memory_body = QHBoxLayout(); memory_body.setSpacing(14)
-        self.memory_brain = MemoryBrain()
-        memory_body.addWidget(self.memory_brain, 1)
-        memory_copy = QVBoxLayout()
-        self.memory_count_label = QLabel("0 lembranças")
-        self.memory_count_label.setObjectName("dashboardMetric")
-        memory_copy.addWidget(self.memory_count_label)
-        self.memory_progress_hint = QLabel(
-            "Progresso visual das primeiras 100 lembranças; armazenamento sem limite.")
-        self.memory_progress_hint.setObjectName("dashboardHint")
-        self.memory_progress_hint.setWordWrap(True)
-        memory_copy.addWidget(self.memory_progress_hint)
-        self.upcoming_reminder_label = QLabel("Nenhum lembrete pendente")
-        self.upcoming_reminder_label.setObjectName("dashboardHint")
-        self.upcoming_reminder_label.setWordWrap(True)
-        memory_copy.addWidget(self.upcoming_reminder_label)
-        memories_button = QPushButton("Ver lembranças e lembretes")
-        memories_button.clicked.connect(self.manage_memory)
-        memory_copy.addWidget(memories_button)
-        memory_body.addLayout(memory_copy, 1)
-        memory_layout.addLayout(memory_body, 1)
-
-        lower_row.addWidget(monitor, 1)
-        lower_row.addWidget(memory_card, 1)
-        dashboard_layout.addLayout(lower_row, 2)
         self.tabs.addTab(dashboard_page, "Painel")
 
         assistant_page = QWidget(); assistant_layout = QVBoxLayout(assistant_page)
@@ -577,7 +500,11 @@ class JarvisWindow(QMainWindow):
 
         settings_scroll = QScrollArea(); settings_scroll.setWidgetResizable(True)
         settings_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        integrations_page = QWidget(); settings_scroll.setWidget(integrations_page)
+        settings_scroll.setObjectName("settingsScroll")
+        settings_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        settings_scroll.viewport().setStyleSheet("background:#080b12;")
+        integrations_page = QWidget(); integrations_page.setObjectName("settingsContent")
+        settings_scroll.setWidget(integrations_page)
         integrations_layout = QVBoxLayout(integrations_page)
         integrations_layout.setContentsMargins(20, 18, 20, 18); integrations_layout.setSpacing(12)
         def add_section_title(text: str):
@@ -615,38 +542,19 @@ class JarvisWindow(QMainWindow):
         calendar_button = QPushButton("Importar calendário escolar (.ics)…")
         calendar_button.clicked.connect(self.import_calendar)
         integrations_layout.addWidget(calendar_button)
+        open_memories = QPushButton("Ver lembranças e lembretes…")
+        open_memories.clicked.connect(self.manage_memory)
+        integrations_layout.addWidget(open_memories)
         add_section_title("VOZ, VISÃO E HUD")
         voice_row = QHBoxLayout()
         self.voice_activation_button = QPushButton("Ativar voz mãos livres")
         self.voice_activation_button.setObjectName("listenButton")
         self.voice_activation_button.setCheckable(True)
         self.voice_activation_button.setToolTip(
-            "No modo Jarvis local, a palavra é filtrada no computador antes de "
-            "enviar a frase à Groq. O modo nuvem transcreve toda fala detectada.")
+            "Diga Jarvis e seu pedido. A palavra é reconhecida no computador "
+            "antes de enviar o comando para transcrição.")
         self.voice_activation_button.toggled.connect(self.toggle_voice_activation)
         voice_row.addWidget(self.voice_activation_button, 1)
-        self.activation_mode = QComboBox()
-        self.activation_mode.addItem("Fala contínua", "continuous")
-        self.activation_mode.addItem("Jarvis · filtro local (primeiro uso baixa 31 MB)", "jarvis_local")
-        self.activation_mode.addItem("Jarvis · transcrição na nuvem", "jarvis")
-        self.activation_mode.addItem("Hey Jarvis · detecção local", "wake_word")
-        mode_index = self.activation_mode.findData(load_settings().get("activation_mode", "jarvis"))
-        self.activation_mode.setCurrentIndex(max(0, mode_index))
-        self.activation_mode.currentIndexChanged.connect(self._save_activation_mode)
-        integrations_layout.addWidget(QLabel("Modo de ativação do microfone — sem botão para gravar"))
-        integrations_layout.addWidget(self.activation_mode)
-        privacy_row = QHBoxLayout()
-        self.privacy_profile = QComboBox()
-        for label, key in (("Manual · cada recurso separado", "manual"),
-                            ("Privado · microfone e tela desligados", "private"),
-                            ("Voz · ativação escolhida acima", "voice"),
-                            ("Tela · visão ao ativar", "screen")):
-            self.privacy_profile.addItem(label, key)
-        profile_index = self.privacy_profile.findData(load_settings().get("privacy_profile", "manual"))
-        self.privacy_profile.setCurrentIndex(max(0, profile_index))
-        apply_profile = QPushButton("Aplicar perfil de privacidade")
-        apply_profile.clicked.connect(self.apply_privacy_profile)
-        privacy_row.addWidget(self.privacy_profile, 1); privacy_row.addWidget(apply_profile)
         self.share_memory_checkbox = QCheckBox("Incluir lembranças salvas no contexto enviado à IA")
         self.share_memory_checkbox.setChecked(load_settings().get("share_long_term_memory", True))
         integrations_layout.addWidget(self.share_memory_checkbox)
@@ -668,8 +576,6 @@ class JarvisWindow(QMainWindow):
         self.screen_monitor_picker.setCurrentIndex(max(0, selected_screen))
         integrations_layout.addWidget(QLabel("Tela observada (ações visuais usam a tela principal)"))
         integrations_layout.addWidget(self.screen_monitor_picker)
-        integrations_layout.addWidget(QLabel("PERFIS DE PRIVACIDADE"))
-        integrations_layout.addLayout(privacy_row)
         integrations_layout.addWidget(QLabel(
             "A palavra-chave é processada localmente. Visão contínua e comandos de voz usam as APIs configuradas."))
         quick_row = QHBoxLayout()
@@ -739,6 +645,8 @@ class JarvisWindow(QMainWindow):
         restore_source.clicked.connect(self.restore_source_backup)
         integrations_layout.addWidget(restore_source)
         integrations_layout.addStretch(1)
+        for label in integrations_page.findChildren(QLabel):
+            label.setWordWrap(True)
         self.tabs.addTab(settings_scroll, "Configurações")
         saved_messages = memory.history_page(limit=50)
         self.oldest_message_id = saved_messages[0][0] if saved_messages else None
@@ -766,7 +674,6 @@ class JarvisWindow(QMainWindow):
         self.live_vision_worker = None
         self.screen_frame_store = ScreenFrameStore()
         self.core_orb.set_motion_enabled(not load_settings().get("reduce_motion", False))
-        self.memory_brain.set_motion_enabled(not load_settings().get("reduce_motion", False))
         self.pending_voice_command = None
         self._close_when_vision_stops = False
         self._quit_requested = False
@@ -779,28 +686,23 @@ class JarvisWindow(QMainWindow):
             self.clap_button.setChecked(True)
             self._start_clap_worker()
         settings = load_settings()
-        if settings.get("activation_mode") is None:
-            settings["activation_mode"] = "jarvis"
-            self.activation_mode.blockSignals(True)
-            self.activation_mode.setCurrentIndex(self.activation_mode.findData("jarvis"))
-            self.activation_mode.blockSignals(False)
-        if "hands_free_enabled" not in settings:
-            settings["hands_free_enabled"] = settings.get("privacy_profile", "manual") != "private"
-        if settings.get("privacy_profile") == "private":
-            settings["hands_free_enabled"] = False
+        settings["activation_mode"] = "jarvis_local"
+        if not settings.get("v061_defaults_applied"):
+            settings["hands_free_enabled"] = True
+            settings["live_vision_enabled"] = True
+            settings["v061_defaults_applied"] = True
         settings["voice_activation_enabled"] = bool(settings.get("hands_free_enabled"))
         save_settings(settings)
-        self.system_monitor_timer = QTimer(self)
-        self.system_monitor_timer.timeout.connect(self._refresh_system_monitor)
-        self.system_monitor_timer.start(2000)
         self.reminder_timer = QTimer(self)
         self.reminder_timer.timeout.connect(self._check_due_reminders)
         self.reminder_timer.start(30_000)
-        self._refresh_system_monitor()
         self._refresh_memory_map()
         QTimer.singleShot(1200, self._check_due_reminders)
-        if settings.get("hands_free_enabled") and get_secret("groq"):
+        if settings["hands_free_enabled"] and get_secret("groq"):
             QTimer.singleShot(500, lambda: self.voice_activation_button.setChecked(True))
+        if settings["live_vision_enabled"] and get_secret("gemini"):
+            QTimer.singleShot(900, lambda: (self.live_vision_button.setChecked(True),
+                                           self.toggle_live_vision(True)))
 
     def _save_settings_page(self):
         """Persiste preferências e credenciais editadas na página Configurações."""
@@ -815,9 +717,13 @@ class JarvisWindow(QMainWindow):
                            "reduce_motion": self.reduce_motion_checkbox.isChecked(),
                            "screen_monitor": self.screen_monitor_picker.currentData() or 1})
             self.core_orb.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
-            self.memory_brain.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
-            self.provider_hint.setText(
-                f"Provedor ativo  ·  {selected_provider.upper()}\nMemória local  ·  conversa única")
+            preferences = load_settings()
+            if get_secret("groq") and preferences.get("hands_free_enabled", True):
+                self.voice_activation_button.setChecked(True)
+            if (get_secret("gemini") and preferences.get("live_vision_enabled", True)
+                    and not self.live_vision_worker):
+                self.live_vision_button.setChecked(True)
+                self.toggle_live_vision(True)
             QMessageBox.information(
                 self, "Configurações",
                 "Preferências e chaves salvas neste computador. A seleção de tela entra "
@@ -825,59 +731,16 @@ class JarvisWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.warning(self, "Configurações não salvas", str(exc))
 
-    def _save_activation_mode(self, *_):
-        """Guarda o modo de escuta e reinicia o worker, se o microfone estiver ativo."""
-        mode = self.activation_mode.currentData()
-        save_settings({**load_settings(), "activation_mode": mode})
-        if self.voice_activation_button.isChecked():
-            worker = self.voice_activation_worker
-            if worker and worker.isRunning():
-                worker.stop()
-                self.voice_activation_button.setChecked(False)
-                worker.finished.connect(lambda: QTimer.singleShot(
-                    0, lambda: self.voice_activation_button.setChecked(True)))
-            else:
-                self.voice_activation_button.setChecked(False)
-                self.voice_activation_button.setChecked(True)
-        self._refresh_privacy_indicators()
-
     def _refresh_privacy_indicators(self):
-        """Sincroniza cartões de voz, tela e privacidade com o estado real da aplicação."""
-        settings = load_settings()
-        mode = settings.get("activation_mode", "jarvis")
-        label = {"jarvis_local": "Jarvis local", "jarvis": "Jarvis nuvem",
-                 "wake_word": "Hey Jarvis", "continuous": "Fala contínua"}.get(mode, mode)
+        """Atualiza o estado interno sem poluir o painel central."""
+        label = "Jarvis"
         state = "Ativa" if getattr(self, "voice_activation_button", None) and self.voice_activation_button.isChecked() else "Desligada"
         self._set_dashboard_metric("voz", f"{state} · {label}")
         vision = "Ao vivo" if getattr(self, "live_vision_worker", None) else "Desligada"
         self._set_dashboard_metric("tela", vision)
-        profile = settings.get("privacy_profile", "manual").capitalize()
-        self._set_dashboard_metric("privacidade", profile)
         if hasattr(self, "screen_preview_title"):
             active = bool(getattr(self, "live_vision_worker", None))
             self.screen_preview_title.setText("VISÃO DA TELA · AO VIVO" if active else "VISÃO DA TELA · DESLIGADA")
-
-    def apply_privacy_profile(self):
-        """Aplica preferências conhecidas sem iniciar captura de tela silenciosamente."""
-        profile = self.privacy_profile.currentData()
-        save_settings({**load_settings(), "privacy_profile": profile})
-        if profile == "private":
-            self.voice_activation_button.setChecked(False)
-            self.live_vision_button.setChecked(False)
-            self.toggle_live_vision(False)
-            self.clap_button.setChecked(False)
-            self.status.setText("Perfil privado · microfone e tela desligados")
-        elif profile == "voice":
-            self.live_vision_button.setChecked(False)
-            self.toggle_live_vision(False)
-            self.voice_activation_button.setChecked(True)
-        elif profile == "screen":
-            self.voice_activation_button.setChecked(False)
-            self.live_vision_button.setChecked(True)
-            self.toggle_live_vision(True)
-        else:
-            self.status.setText("Perfil manual · cada recurso é controlado separadamente")
-        self._refresh_privacy_indicators()
 
     def manage_quick_actions(self):
         """Cria aliases para comandos locais já validados pelo despachante do JARVIS."""
@@ -1020,19 +883,6 @@ class JarvisWindow(QMainWindow):
             button.setChecked(position == index)
         if 0 <= index < len(labels):
             self.page_title.setText(labels[index])
-            page = self.tabs.widget(index)
-            if page is not None and index != 2 and not load_settings().get("reduce_motion", False):
-                if self.page_fade_animation:
-                    self.page_fade_animation.stop()
-                effect = QGraphicsOpacityEffect(page)
-                effect.setOpacity(0.72)
-                page.setGraphicsEffect(effect)
-                self.page_fade_animation = QPropertyAnimation(effect, b"opacity", self)
-                self.page_fade_animation.setDuration(240)
-                self.page_fade_animation.setStartValue(0.72)
-                self.page_fade_animation.setEndValue(1.0)
-                self.page_fade_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-                self.page_fade_animation.start()
 
     def _message_markup(self, role: str, body: str) -> str:
         label = "Você" if role in {"user", "private_action"} else "JARVIS"
@@ -1134,14 +984,7 @@ class JarvisWindow(QMainWindow):
         self._refresh_memory_map()
 
     def _refresh_memory_map(self):
-        if not hasattr(self, "memory_brain"):
-            return
-        count = memory.long_term_count()
-        self.memory_brain.set_memory_count(count)
-        self.memory_count_label.setText(f"{count} lembrança(s) salva(s)")
-        pending = memory.pending_reminder_count()
-        self.upcoming_reminder_label.setText(
-            f"{pending} próximo(s) lembrete(s)" if pending else "Nenhum lembrete futuro")
+        return
 
     def import_calendar(self):
         """Bring dated school events into the local reminder database."""
@@ -1186,19 +1029,6 @@ class JarvisWindow(QMainWindow):
         memory.mark_reminders_notified(ids)
         self._refresh_memory_map()
 
-    def _refresh_system_monitor(self):
-        """Refreshes real CPU, memory, and disk usage without blocking the interface."""
-        try:
-            import psutil
-            from pathlib import Path
-            self.cpu_gauge.set_value(psutil.cpu_percent(interval=None))
-            self.ram_gauge.set_value(psutil.virtual_memory().percent)
-            root = Path.home().anchor or "/"
-            self.disk_gauge.set_value(psutil.disk_usage(root).percent)
-        except Exception as exc:
-            if hasattr(self, "status"):
-                self.status.setText(f"Monitor do sistema indisponível: {exc}")
-
     def _start_screen_preview(self):
         worker = getattr(self, "screen_preview_worker", None)
         if worker and worker.isRunning():
@@ -1211,7 +1041,7 @@ class JarvisWindow(QMainWindow):
         worker.start()
 
     def _show_screen_preview_frame(self, image):
-        if not self.live_vision_worker:
+        if not self.live_vision_worker or not self.screen_preview_label.isVisible():
             return
         pixmap = QPixmap.fromImage(image)
         self.screen_preview_label.setPixmap(pixmap)
@@ -1225,6 +1055,24 @@ class JarvisWindow(QMainWindow):
         """Executa apenas ações locais explícitas; nunca interpreta saída do modelo como ação."""
         normalized = prompt.strip()
         lowered = normalized.lower()
+        if lowered in {"minimiza", "minimize", "minimize o jarvis", "minimiza o jarvis"}:
+            self.minimize_with_animation()
+            return True
+        if lowered in {"tela cheia", "jarvis em tela cheia"}:
+            self.showFullScreen()
+            return True
+        if lowered in {"sair da tela cheia", "sair do modo tela cheia", "janela normal"}:
+            self.showNormal()
+            return True
+        if lowered in {"desligar visão", "desative a visão", "pare de ver a tela"}:
+            self.live_vision_button.setChecked(False); self.toggle_live_vision(False)
+            return True
+        if lowered in {"ligar visão", "ative a visão", "veja minha tela"}:
+            self.live_vision_button.setChecked(True); self.toggle_live_vision(True)
+            return True
+        if lowered in {"desligar microfone", "desative o microfone", "pare de ouvir"}:
+            self.voice_activation_button.setChecked(False)
+            return True
         if self._handle_media_command(normalized):
             return True
         destinations = {"abrir painel": 0, "abrir conversa": 1,
@@ -1351,6 +1199,19 @@ class JarvisWindow(QMainWindow):
                 QTimer.singleShot(500, lambda: self._press_in_active_app(key))
             return True
         return False
+
+    def minimize_with_animation(self):
+        """Suaviza a saída antes de entregar a janela à barra de tarefas."""
+        self.minimize_animation = QPropertyAnimation(self, b"windowOpacity", self)
+        self.minimize_animation.setDuration(220)
+        self.minimize_animation.setStartValue(1.0)
+        self.minimize_animation.setEndValue(0.35)
+        self.minimize_animation.setEasingCurve(QEasingCurve.Type.InCubic)
+        def finish():
+            self.showMinimized()
+            self.setWindowOpacity(1.0)
+        self.minimize_animation.finished.connect(finish)
+        self.minimize_animation.start()
 
     def _run_pointer_action(self, action):
         """Mostra no HUD erros do mouse, em vez de deixar a exceção escapar do timer."""
@@ -1578,8 +1439,7 @@ class JarvisWindow(QMainWindow):
         self._stop_clap_worker()
         self.voice_activation_button.setText("Desativar voz mãos livres")
         self.voice_state.setText("Abrindo microfone…")
-        worker = VoiceActivationWorker(
-            mode=self.activation_mode.currentData())
+        worker = VoiceActivationWorker(mode="jarvis_local")
         self.voice_activation_worker = worker
         worker.phrase.connect(self._handle_spoken_phrase)
         worker.state_changed.connect(self._voice_activation_state)
@@ -1590,13 +1450,11 @@ class JarvisWindow(QMainWindow):
 
     def _voice_activation_state(self, state: str):
         labels = {
-            "escutando": ("Aguardando Jarvis · filtro local ativo"
-                          if self.activation_mode.currentData() == "jarvis_local"
-                          else "Aguardando Jarvis · fala detectada vai à Groq"),
+            "escutando": "Diga Jarvis",
             "transcrevendo": "Fala detectada · transcrevendo com Groq",
             "erro": "Falha no microfone",
             "desligado": "Microfone desligado",
-            "palavra-chave": "Microfone ativo · aguardando Hey Jarvis localmente",
+            "palavra-chave": "Microfone ativo · aguardando Jarvis localmente",
             "comando": "Palavra-chave detectada · continue falando",
             "carregando-palavra-chave": "Preparando detector local (primeiro uso pode baixar o modelo)…",
         }
@@ -1612,7 +1470,9 @@ class JarvisWindow(QMainWindow):
 
     def _voice_activation_failed(self, message: str):
         self.voice_activation_button.setChecked(False)
-        save_settings({**load_settings(), "voice_activation_enabled": False, "hands_free_enabled": False})
+        # Falha transitória do dispositivo ou da rede não muda a preferência
+        # escolhida pelo usuário para a próxima inicialização.
+        save_settings({**load_settings(), "voice_activation_enabled": True, "hands_free_enabled": True})
         self.error(f"Escuta automática foi desligada: {message}")
 
     def _voice_activation_finished(self, worker):
@@ -1634,8 +1494,14 @@ class JarvisWindow(QMainWindow):
 
     def _handle_spoken_phrase(self, phrase: str):
         """Despacha cada frase reconhecida sem exigir botão para iniciar/parar gravação."""
+        if phrase == "__WAKE__":
+            self.answer_preview.setText("Estou ouvindo. Pode falar.")
+            self.core_orb.set_state("listening")
+            self._resume_voice_activation()
+            return
         if self._quit_requested or not phrase.strip():
             return
+        self.answer_preview.setText("Você: " + phrase)
         self._append("user", phrase)
         memory.add("user", phrase)
         if self._handle_memory_command(phrase, already_recorded=True):
@@ -2095,6 +1961,7 @@ class JarvisWindow(QMainWindow):
             self.pending_voice_command = value[len("__VOICE_COMMAND__"):]
         elif value.startswith("__STREAM_DONE__"):
             answer = value[len("__STREAM_DONE__"):]
+            self.answer_preview.setText(answer[:420])
             if not getattr(self, "_stream_reply_started", False):
                 self._append("assistant", answer)
             memory.add("assistant", answer)
@@ -2144,11 +2011,13 @@ class JarvisWindow(QMainWindow):
             self.input.setEnabled(True)
 
     def reply(self, text: str):
+        self.answer_preview.setText(text[:280])
         memory.add("assistant", text); self._append("assistant", text); self.input.setEnabled(True); self.input.setFocus()
 
     def _stream_reply_part(self, text: str):
         """Append only the new text; avoid rebuilding a long chat document per token."""
         self.core_orb.set_state("speaking")
+        self.answer_preview.setText((self.answer_preview.text() + text)[-280:])
         cursor = self.chat.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         if not getattr(self, "_stream_reply_started", False):
@@ -2176,6 +2045,7 @@ class JarvisWindow(QMainWindow):
         self._start(prompt, "spoken")
 
     def error(self, text: str):
+        self.answer_preview.setText("Falha: " + text[:240])
         self._stream_reply_started = False
         self.chat.append(f"<span style='color:#ff8998'>Falha: {html.escape(text)}</span>")
         self.input.setEnabled(True)

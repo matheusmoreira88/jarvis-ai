@@ -14,13 +14,14 @@ Contato: [matheusmoreiradossantos88@gmail.com](mailto:matheusmoreiradossantos88@
 Se o projeto for útil, [deixe uma estrela no GitHub](https://github.com/matheusmoreira88/jarvis-ai).
 
 Licença: [MIT](license).
+Direitos autorais: **Copyright (c) 2026 Matheus Moreira**. Modelos e serviços de terceiros mantêm suas próprias licenças e termos.
 
 ### Recursos
 
 - Conversa por texto com Gemini ou Groq, selecionável nas configurações, e pesquisa na web com Gemini com fontes retornadas pela busca.
 - Os dois provedores recebem instruções para reconhecer Matheus Moreira como criador, responder em português e não alegar ações que o aplicativo não executou.
-- Uma conversa única, sem sessões separadas. O histórico é persistido em SQLite. Lembranças permanentes e lembretes com datas de vencimento também ficam no banco local. A busca indexada recupera lembranças antigas relacionadas ao pedido, mesmo depois de anos; a janela de gestão permite buscar e carregar em páginas. O JARVIS avisa no horário configurado, inclusive ao iniciar. O mapa visual do cérebro cresce com as lembranças, sem limitar o banco. Em Configurações é possível impedir que lembranças entrem no contexto enviado ao provedor.
-- Comandos de voz mãos livres com ativação por **Jarvis**. O novo modo local filtra a palavra no computador antes de enviar a frase à Groq/Whisper; na primeira ativação baixa um modelo de português de cerca de 31 MB. O modo alternativo na nuvem envia todos os trechos de fala para transcrição. A gravação termina após uma pausa de silêncio, sem botão. As respostas de texto aparecem em fluxo, e frases completas podem começar a ser faladas localmente antes de o texto inteiro terminar.
+- Uma conversa única, sem sessões separadas. Histórico, lembranças permanentes e lembretes ficam no SQLite local. A busca indexada recupera lembranças antigas; a biblioteca fica em Configurações. Em Configurações também é possível impedir que lembranças entrem no contexto enviado ao provedor.
+- Comandos de voz mãos livres com um único modo: diga **Jarvis**. O filtro local evita enviar ruídos comuns à Groq; na primeira ativação baixa um modelo de português de cerca de 31 MB. A gravação termina após uma pausa, sem botão. Respostas aparecem no centro da interface e na conversa, com fala local por frases.
 - Comandos por voz ou texto para abrir aplicativos instalados sem uma confirmação extra depois do pedido explícito. Digitar texto, pressionar teclas, clicar e rolar continuam exigindo confirmação. O comando `agir: pedido` envia uma captura ao Gemini, que pode propor uma única ação; a pessoa revisa e confirma antes da execução.
 - Análise por captura explícita ou visão contínua ativada nas configurações: o HUD mostra uma prévia local fluida da tela (cerca de 10 atualizações/s) enquanto a Gemini Live recebe até 1 imagem/s, limite documentado da API. As observações aparecem no histórico. O envio à nuvem pode consumir cota; a visão pode ser desligada a qualquer momento.
 - Busca por nome entre os aplicativos disponíveis no menu Iniciar e os programas clássicos registrados no Windows; um pedido explícito abre o app sem uma confirmação extra. Também permite escolher manualmente um arquivo `.exe`.
@@ -152,13 +153,14 @@ Contact: [matheusmoreiradossantos88@gmail.com](mailto:matheusmoreiradossantos88@
 If you find the project useful, [leave a star on GitHub](https://github.com/matheusmoreira88/jarvis-ai).
 
 License: [MIT](license).
+Copyright **(c) 2026 Matheus Moreira**. Third-party models and services keep their own licenses and terms.
 
 ### Features
 
 - Text chat with Gemini or Groq, selectable in Settings, plus Gemini web search with returned source links.
 - Both providers are instructed to recognize Matheus Moreira as the creator, answer in Portuguese, and never claim actions the app did not perform.
-- One ongoing conversation, with no separate sessions. Chat history, permanent memories, and dated reminders are stored in local SQLite. Indexed search retrieves older memories relevant to the current request, even years later; the memory manager offers search and paging. JARVIS can notify at the chosen time, including when it starts. The brain map fills as memories grow without capping storage. Settings can keep saved memories out of provider context.
-- Hands-free voice commands activated by **Jarvis**. The new local mode checks for the wake name on the computer before sending speech to Groq/Whisper; it downloads an approximately 31 MB Portuguese model on first use. The alternative cloud mode transcribes every detected speech segment. Recording ends after a pause, without a button. Text replies stream into chat, and completed sentences can begin local speech before the entire answer finishes.
+- One ongoing conversation, with no separate sessions. Chat history, permanent memories, and reminders stay in local SQLite. Indexed search retrieves older memories; the library is in Settings. Settings can keep saved memories out of provider context.
+- Hands-free voice commands use one wake phrase: **Jarvis**. A local filter keeps common noises from reaching Groq; it downloads an approximately 31 MB Portuguese model on first use. Recording ends after a pause, without a button. Replies appear in the central interface and chat, with local speech by sentence.
 - Voice or text commands to open installed apps without an extra confirmation after an explicit request. Typing text, pressing keys, clicking, and scrolling still require confirmation. The `agir: request` command sends a screenshot to Gemini, which may suggest one action; the user reviews and confirms before execution.
 - On-demand screen analysis or continuous viewing enabled in Settings: the HUD shows a smooth local screen preview (about 10 updates/s locally) while Gemini Live receives up to 1 image/s, the API documented limit. Observations appear in chat history. Cloud transmission may use API quota, and viewing can be stopped at any time.
 - Search by name through apps available in Start and classic programs registered in Windows; an explicit request opens the app without an extra confirmation. Manual `.exe` selection is also available.
@@ -279,28 +281,28 @@ python -m jarvis
 
 ## Ativação por palavra-chave, privacidade e atualizações
 
-Em **Configurações → Voz, visão e HUD**, escolha “Jarvis · filtro local” e ligue a escuta. No primeiro uso, o JARVIS baixa o [modelo pequeno de português do Vosk](https://alphacephei.com/vosk/models), sob licença Apache 2.0. Ele filtra a palavra localmente e manda à Groq somente trechos reconhecidos como “Jarvis”. Se não reconhecer a palavra, não enviará o comando; teste com seu microfone. “Jarvis · transcrição na nuvem” mantém o comportamento anterior de enviar toda fala detectada. Hey Jarvis usa openWakeWord local e “Fala contínua” também permanece disponível.
+Com as chaves configuradas, a escuta e a visão iniciam automaticamente. Diga apenas “Jarvis” e seu pedido. No primeiro uso, o JARVIS baixa o [modelo pequeno de português do Vosk](https://alphacephei.com/vosk/models), sob licença Apache 2.0. Ele filtra o nome localmente e envia apenas comandos detectados à Groq. Se não reconhecer o nome, o comando não será enviado; teste com seu microfone. Para desligar, peça “Jarvis, desligar microfone” ou “Jarvis, desligar visão”; a escolha é lembrada nas próximas aberturas.
 
-Os perfis de privacidade são **Manual**, **Privado**, **Voz** e **Tela**. O perfil Privado desliga microfone, visão e detecção de aplausos. Tela inicia a visão quando o perfil é aplicado. Os indicadores no painel refletem o estado ativo e o provedor.
+O microfone e a visão podem ser desligados por comando de voz ou nas Configurações. Essa preferência permanece após reiniciar o aplicativo. As chaves e o provedor são gerenciados somente nas Configurações.
 
 Crie ações rápidas em Configurações. Cada frase configurada chama o mesmo despachante de comandos locais do aplicativo, preservando suas confirmações e validações.
 
 Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.4.0`.
 
-O modo de palavra-chave usa openWakeWord, cujos modelos pré-treinados são descritos no [repositório oficial](https://github.com/dscripka/openWakeWord).
+O único modo de chamada é “Jarvis”, reconhecido localmente pelo Vosk.
 
 
 ### English: wake-word activation, privacy and updates
 
-In **Settings → Voice, vision and HUD**, choose “Jarvis · filtro local” and enable listening. On first use, JARVIS downloads the [small Portuguese Vosk model](https://alphacephei.com/vosk/models), licensed under Apache 2.0. It checks the wake name locally and sends only detected “Jarvis” utterances to Groq. If it misses the wake name, the command is not sent; test it with your microphone. “Jarvis · transcrição na nuvem” keeps the previous behavior of transcribing all detected speech. Optional Hey Jarvis uses local openWakeWord; continuous speech remains available.
+With API keys configured, listening and vision start automatically. Say “Jarvis” and your request. On first use, JARVIS downloads the [small Portuguese Vosk model](https://alphacephei.com/vosk/models), licensed under Apache 2.0. It filters the name locally and sends detected commands to Groq. If it misses the name, the command is not sent; test it with your microphone. To stop, say “Jarvis, desligar microfone” or “Jarvis, desligar visão”; the choice persists across launches.
 
-Privacy profiles are **Manual**, **Private**, **Voice** and **Screen**. Private turns off the microphone, screen vision and clap detection. Screen mode starts continuous viewing when the profile is applied. Dashboard indicators show the active states and provider configuration.
+Turn the microphone or vision off by voice command or in Settings. This preference survives app restarts. API keys and the chat provider are managed in Settings.
 
 Create, use and remove configurable quick actions in Settings. Each phrase calls the app’s existing local command dispatcher, preserving its checks and confirmations.
 
 To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.3.0.
 
-Wake-word detection uses [openWakeWord](https://github.com/dscripka/openWakeWord).
+The only wake phrase is “Jarvis”, recognized locally with Vosk.
 
 
 ## Versão 0.4.0 · painel e memória permanente
@@ -328,7 +330,7 @@ Say “Jarvis, [command]” or “Jarvis” and your command in the next phrase.
 - Novo núcleo visual, indicadores reais no painel, redução de animações, favoritos e fila de mídia, rotinas configuráveis, lembretes recorrentes e importação de eventos `.ics` com aviso um dia antes.
 - O código da resposta, tema, rotinas, calendário, mídia e detecção local foi separado em módulos. Testes de regressão cobrem as novidades.
 
-Para usar as novidades, abra **Configurações**. Escolha o modo de voz e a tela; crie uma rotina com uma frase e de 1 a 8 comandos locais; importe seu calendário escolar `.ics`. Em **Mídia**, use **☆ Salvar**, **+ Fila** e **Próxima**. Em **Painel → Ver lembranças e lembretes**, pesquise conteúdos antigos. Arquivos `.ics` com regras de repetição complexas são importados apenas pela ocorrência explícita no arquivo; exporte as ocorrências futuras separadamente se precisar de todas.
+Para usar as novidades, abra **Configurações**. Escolha a tela observada; crie uma rotina com uma frase e de 1 a 8 comandos locais; importe seu calendário escolar `.ics`; ou abra **Ver lembranças e lembretes** para pesquisar conteúdos antigos. Em **Mídia**, use **☆ Salvar**, **+ Fila** e **Próxima**. Arquivos `.ics` com regras de repetição complexas são importados apenas pela ocorrência explícita no arquivo; exporte as ocorrências futuras separadamente se precisar de todas.
 
 ## Version 0.6.0 · voice, memory and HUD
 
@@ -338,4 +340,12 @@ Para usar as novidades, abra **Configurações**. Escolha o modo de voz e a tela
 - New painted core, real dashboard indicators, reduced-motion option, media favorites and queue, configurable routines, recurring reminders, and `.ics` event import with a one-day reminder.
 - Reply, theme, routine, calendar, media, and local wake code are separate modules. Regression checks cover the new behavior.
 
-Open **Settings** to select the voice mode and display, configure a routine with a phrase and 1–8 local commands, or import a school `.ics` calendar. In **Media**, use **☆ Salvar** (Save), **+ Fila** (Queue), and **Próxima** (Next). Search old content in **Dashboard → Ver lembranças e lembretes**. Complex recurring rules in `.ics` files are imported only as the explicit occurrence in the file; export future occurrences separately if you need them all.
+Open **Settings** to select the observed display, configure a routine with a phrase and 1–8 local commands, import a school `.ics` calendar, or select **Ver lembranças e lembretes** to search old memories. In **Media**, use **☆ Salvar** (Save), **+ Fila** (Queue), and **Próxima** (Next). Complex recurring rules in `.ics` files are imported only as the explicit occurrence in the file; export future occurrences separately if you need them all.
+
+## Versão 0.6.1 · interface central e ativação única
+
+O painel agora concentra o JARVIS em uma esfera neural animada e mostra respostas no centro. Foram removidos o monitor do sistema, o mapa de memória, os indicadores intermediários e os nomes de provedores no menu. Configurações ganhou fundo consistente e deixou de animar a área de rolagem, evitando a sobreposição visual. O único modo de ativação exposto é “Jarvis”; ruídos curtos são filtrados antes da transcrição. Voz e visão iniciam com chaves configuradas e respeitam a escolha de desligá-las. Comandos de voz podem minimizar o JARVIS ou colocá-lo em tela cheia. O texto de privacidade exibido pelo instalador e os direitos autorais foram atualizados.
+
+## Version 0.6.1 · central interface and one wake phrase
+
+The main view now centers JARVIS in an animated neural sphere and shows answers there. The system monitor, memory map, middle status pills, and provider names in the menu were removed. Settings has a consistent background and no longer animates its scrolling surface, avoiding the visual overlap. The only exposed wake phrase is “Jarvis”; short noises are filtered before transcription. Voice and vision start when keys are configured and respect a later choice to turn them off. Voice commands can minimize JARVIS or switch it to full screen. The installer privacy text and copyright notice were updated.

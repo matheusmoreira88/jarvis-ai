@@ -1,6 +1,11 @@
 """Visual tokens and widget styles for the JARVIS HUD."""
 
 HUD_STYLE = """
+            QScrollArea#settingsScroll, QScrollArea#settingsScroll > QWidget,
+            QScrollArea#settingsScroll QWidget#settingsContent { background: #080b12; }
+            QWidget#heroStage { background: #060b12; }
+            QLabel#heroHint { color: #83dbe8; font-size: 17px; font-weight: 600; }
+            QLabel#answerPreview { color: #e9f6fa; font-size: 18px; padding: 12px; }
             QMainWindow, QWidget#centralSurface { background: #080b12; color: #edf2fb; }
             QWidget { color: #edf2fb; font-family: 'Segoe UI'; font-size: 13px; }
             QLabel { background: transparent; }

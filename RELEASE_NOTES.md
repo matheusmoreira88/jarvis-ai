@@ -1,25 +1,25 @@
-# JARVIS AI 0.6.0
+# JARVIS AI 0.6.1
 
 ## Português (Brasil)
 
-- **Voz mais ágil:** resposta em fluxo, fala por frases, ajuste de detecção ao ruído do ambiente e reutilização do microfone entre comandos.
-- **“Jarvis” local:** filtro Vosk opcional antes da transcrição Groq. O modelo pequeno de português é baixado no primeiro uso. O modo de transcrição na nuvem continua disponível.
-- **Memória de longo prazo:** busca indexada em lembranças antigas, gestão com pesquisa e paginação, contexto de IA com tamanho limitado e lembretes persistidos antes de serem marcados como entregues.
-- **Visão mais eficiente:** a prévia local e o envio à Gemini compartilham a captura; é possível escolher a tela observada. Ações visuais continuam na tela principal.
-- **HUD e mídia:** novo núcleo animado conforme o estado real, indicadores visíveis, opção para reduzir animações, favoritos e fila de reprodução no player.
-- **Organização pessoal:** rotinas configuráveis, lembretes recorrentes e importação de calendário `.ics` com aviso um dia antes dos eventos.
-- **Manutenção:** tema e fluxos de resposta, calendário, rotinas e mídia separados em módulos; testes de regressão ampliados.
+- Interface principal refeita como uma esfera neural animada e ampliável, com respostas visíveis no centro.
+- Removidos o monitor do sistema, mapa de memória, indicadores intermediários e nomes dos provedores no menu.
+- Página de Configurações corrigida: fundo consistente, sem sobreposição da animação e sem rolagem horizontal.
+- Uma única ativação por voz: “Jarvis”. O filtro local e a exigência de fala mais longa reduzem acionamentos por ruídos curtos.
+- Com chaves configuradas, voz e visão iniciam automaticamente. Pedidos para desligá-las são lembrados nas próximas aberturas.
+- Comandos para minimizar ou colocar a janela em tela cheia; respostas e erros ficam visíveis na interface principal.
+- Informações de privacidade do instalador e aviso de direitos autorais atualizados.
 
-O instalador preserva as preferências e o banco de memória do perfil do usuário. Confira as [informações de privacidade](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) antes de ativar voz ou visão.
+O código é de Matheus Moreira, sob licença MIT. Modelos e serviços de terceiros seguem suas próprias licenças e termos. Leia as [informações de privacidade](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) antes de instalar.
 
 ## English
 
-- **Faster voice:** streaming replies, sentence-sized local speech, adaptive speech threshold, and one microphone stream across commands.
-- **Local “Jarvis”:** optional Vosk filter before Groq transcription. A small Portuguese model downloads on first use. Cloud transcription remains available.
-- **Long-term memory:** indexed retrieval of older notes, search and paging in the memory manager, bounded AI context, and alerts persisted before they are marked delivered.
-- **More efficient vision:** local preview and Gemini share one capture stream; the observed display can be selected. Visual actions still use the primary display.
-- **HUD and media:** state-aware animated core, visible indicators, reduced-motion option, media favorites, and a playback queue.
-- **Personal organization:** configurable routines, recurring reminders, and `.ics` calendar import with one-day advance reminders.
-- **Maintenance:** theme, reply pipeline, calendar, routines, and media split into modules, with expanded regression checks.
+- Rebuilt the main view around a larger animated neural sphere, with answers visible in the center.
+- Removed the system monitor, memory map, middle status pills, and provider names from the menu.
+- Fixed Settings: consistent background, no page fade overlap, and no horizontal scrolling.
+- One voice wake phrase: “Jarvis”. Local filtering and a longer speech requirement reduce triggers from short noises.
+- With keys configured, voice and vision start automatically. Requests to turn them off persist across launches.
+- Voice commands minimize or maximize the window; answers and errors are visible on the main view.
+- Updated installer privacy information and copyright notice.
 
-The installer preserves user settings and the local memory database. Read the [privacy information](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) before enabling voice or vision.
+Copyright (c) 2026 Matheus Moreira, licensed under MIT. Third-party models and services retain their own licenses and terms. Read the [privacy information](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) before installation.

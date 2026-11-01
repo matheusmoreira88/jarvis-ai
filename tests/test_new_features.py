@@ -99,6 +99,23 @@ class NewFeatureTests(unittest.TestCase):
             worker._listen_loop(stream=object())
         transcribe.assert_not_called()
 
+    def test_local_wake_accepts_command_when_cloud_omits_jarvis(self):
+        worker = VoiceActivationWorker("jarvis_local")
+        heard = []
+        worker.phrase.connect(heard.append)
+        class Stream:
+            def stop(self):
+                pass
+        def detect_once(*args, **kwargs):
+            worker._stop_event.set()
+            return b"wav"
+        with patch("jarvis.local_wake.LocalJarvisFilter") as detector, \
+             patch("jarvis.voice_worker.wait_for_spoken_utterance", side_effect=detect_once), \
+             patch("jarvis.voice_worker.transcribe_groq", return_value="Abra o navegador"):
+            detector.return_value.heard_jarvis.return_value = True
+            worker._listen_loop(stream=Stream())
+        self.assertEqual(heard, ["Abra o navegador"])
+
 
 if __name__ == "__main__":
     unittest.main()

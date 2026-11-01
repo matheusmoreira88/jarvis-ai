@@ -11,24 +11,31 @@ from PySide6.QtWidgets import QWidget, QSizePolicy
 
 
 class CoreOrb(QWidget):
-    """Paint the central status indicator without a fixed bitmap or decorative text label."""
+    """Animated neural sphere that grows to fill the main JARVIS window."""
     def __init__(self, version: str, parent=None):
         super().__init__(parent)
         self.version = version
         self.state = "ready"
         self.phase = 0.0
         self.motion_enabled = True
-        self.setMinimumSize(165, 165)
-        self.setMaximumSize(270, 270)
+        self.setMinimumSize(320, 320)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.nodes = []
+        count = 320
+        for index in range(count):
+            y = 1 - 2 * (index + 0.5) / count
+            ring = math.sqrt(max(0, 1 - y * y))
+            angle = index * math.pi * (3 - math.sqrt(5))
+            self.nodes.append((math.cos(angle) * ring, y, math.sin(angle) * ring))
+        self.edges = [(index, (index + jump) % count)
+                      for index in range(count) for jump in (1, 13)]
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)
         self.timer.start(50)
 
     def set_state(self, state: str):
-        if state != self.state:
-            self.state = state
-            self.update()
+        self.state = state
+        self.update()
 
     def set_motion_enabled(self, enabled: bool):
         self.motion_enabled = bool(enabled)
@@ -36,56 +43,59 @@ class CoreOrb(QWidget):
 
     def _tick(self):
         if self.motion_enabled and self.isVisible():
-            self.phase = (self.phase + 0.018) % (2 * math.pi)
+            self.phase = (self.phase + 0.012) % (2 * math.pi)
             self.update()
 
     def paintEvent(self, event):
         del event
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        center = QPointF(self.width() / 2, self.height() / 2)
-        radius = min(self.width(), self.height()) * 0.40
-        active = self.state in {"listening", "thinking", "speaking", "observing"}
-        pulse = math.sin(self.phase) if self.motion_enabled and active else 0.0
-        glow = QRadialGradient(center, radius * 1.28)
-        glow.setColorAt(0.0, QColor(24, 186, 221, 78 + int(12 * pulse)))
-        glow.setColorAt(0.64, QColor(9, 74, 103, 58))
-        glow.setColorAt(1.0, QColor(4, 14, 27, 0))
+        cx, cy = self.width() / 2, self.height() / 2
+        radius = min(self.width() * 0.43, self.height() * 0.45)
+        glow = QRadialGradient(QPointF(cx, cy), radius * 1.35)
+        glow.setColorAt(0, QColor(12, 72, 94, 60))
+        glow.setColorAt(0.7, QColor(6, 21, 37, 25))
+        glow.setColorAt(1, QColor(2, 10, 18, 0))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(glow)
-        painter.drawEllipse(center, radius * 1.28, radius * 1.28)
-        painter.setBrush(QColor("#071927"))
-        painter.setPen(QPen(QColor("#18455e"), 1))
-        painter.drawEllipse(center, radius * 0.87, radius * 0.87)
-        for index, fraction in enumerate((0.72, 0.90, 1.05)):
-            color = QColor("#42e4f5") if index == 1 else QColor("#245d76")
-            painter.setPen(QPen(color, 1.5 if index == 1 else 1))
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawEllipse(center, radius * fraction, radius * fraction)
-        for index in range(36):
-            angle = index * (2 * math.pi / 36) + (self.phase * 0.13 if self.motion_enabled else 0)
-            inner = radius * (0.96 if index % 3 else 0.91)
-            outer = radius * 1.02
-            painter.setPen(QPen(QColor("#58dbe9" if index % 3 == 0 else "#2a718c"), 1))
-            painter.drawLine(QPointF(center.x() + math.cos(angle) * inner,
-                                     center.y() + math.sin(angle) * inner),
-                             QPointF(center.x() + math.cos(angle) * outer,
-                                     center.y() + math.sin(angle) * outer))
-        painter.setPen(QColor("#e7fcff"))
-        font = self.font(); font.setPixelSize(max(17, int(radius * 0.22))); font.setBold(True)
+        painter.drawEllipse(QPointF(cx, cy), radius * 1.35, radius * 1.35)
+        angle = self.phase if self.motion_enabled else 0.0
+        cos_a, sin_a = math.cos(angle), math.sin(angle)
+        projected = []
+        for x, y, z in self.nodes:
+            rx = x * cos_a - z * sin_a
+            rz = x * sin_a + z * cos_a
+            depth = (rz + 1) / 2
+            projected.append((QPointF(cx + rx * radius, cy + y * radius), depth))
+        for left, right in self.edges:
+            p1, d1 = projected[left]
+            p2, d2 = projected[right]
+            if (p1 - p2).manhattanLength() > radius * 0.7:
+                continue
+            painter.setPen(QPen(QColor(95, 152, 177, int(12 + 27 * (d1 + d2) / 2)), 0.7))
+            painter.drawLine(p1, p2)
+        palette = (QColor('#4de8ef'), QColor('#5b78e7'), QColor('#d857b3'),
+                   QColor('#d9b64a'), QColor('#58d58d'))
+        for index in sorted(range(len(projected)), key=lambda idx: projected[idx][1]):
+            point, depth = projected[index]
+            color = QColor(palette[index % len(palette)])
+            color.setAlpha(int(72 + 160 * depth))
+            size = (1.0 + depth * 2.4) * (1.5 if index % 17 == 0 else 1)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(color)
+            painter.drawEllipse(point, size, size)
+        painter.setPen(QColor('#e9fbff'))
+        font = self.font(); font.setBold(True)
+        font.setPixelSize(max(28, min(64, int(radius * 0.18))))
         painter.setFont(font)
-        painter.drawText(QRectF(center.x() - radius, center.y() - 33,
-                                radius * 2, 27), Qt.AlignmentFlag.AlignCenter, "J A R V I S")
-        painter.setPen(QColor("#63d9ea"))
-        font.setPixelSize(10); font.setBold(False); painter.setFont(font)
-        label = {"ready": "PRONTO", "listening": "OUVINDO", "thinking": "PENSANDO",
-                 "speaking": "FALANDO", "observing": "OBSERVANDO"}.get(self.state, self.state.upper())
-        painter.drawText(QRectF(center.x() - radius, center.y() + 2,
-                                radius * 2, 20), Qt.AlignmentFlag.AlignCenter, label)
-        painter.setPen(QColor("#729aaf"))
-        painter.drawText(QRectF(center.x() - radius, center.y() + 24,
-                                radius * 2, 20), Qt.AlignmentFlag.AlignCenter,
-                         f"AI CORE  ·  v{self.version}")
+        painter.drawText(QRectF(cx - radius, cy - 26, radius * 2, 60),
+                         Qt.AlignmentFlag.AlignCenter, 'J A R V I S')
+        painter.setPen(QColor('#7bc7d8'))
+        font.setBold(False); font.setPixelSize(13); painter.setFont(font)
+        state = {'ready':'PRONTO','listening':'OUVINDO','thinking':'PENSANDO',
+                 'speaking':'RESPONDENDO','observing':'OBSERVANDO'}.get(self.state, self.state.upper())
+        painter.drawText(QRectF(cx - radius, cy + 40, radius * 2, 24),
+                         Qt.AlignmentFlag.AlignCenter, state)
 
 
 class DonutGauge(QWidget):

@@ -5,16 +5,15 @@ from threading import Event
 import sounddevice as sd
 from PySide6.QtCore import QThread, Signal
 from .providers import transcribe_groq
-from .voice import (BLOCK_SIZE, SAMPLE_RATE, wait_for_spoken_utterance,
-                    WakeWordListener, strip_jarvis_prefix)
+from .voice import BLOCK_SIZE, SAMPLE_RATE, wait_for_spoken_utterance, strip_jarvis_prefix
 
 class VoiceActivationWorker(QThread):
-    """Accept Jarvis-prefixed transcripts or the optional local Hey Jarvis detector."""
+    """Listen for Jarvis locally, then send only the command to transcription."""
     phrase = Signal(str)
     state_changed = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, mode: str = "jarvis"):
+    def __init__(self, mode: str = "jarvis_local"):
         super().__init__()
         self.mode = mode
         self.armed_until = 0.0
@@ -32,24 +31,19 @@ class VoiceActivationWorker(QThread):
         self._pause_event.clear()
 
     def run(self):
-        if self.mode == "wake_word":
-            self._listen_loop()
-        else:
-            # A single stream avoids repeatedly opening the audio device while idle.
-            try:
-                with sd.InputStream(samplerate=SAMPLE_RATE, channels=1,
-                                    blocksize=BLOCK_SIZE, dtype="int16") as stream:
-                    self._listen_loop(stream)
-            except Exception as exc:
-                self.failed.emit(str(exc))
+        # A single stream avoids repeatedly opening the audio device while idle.
+        try:
+            with sd.InputStream(samplerate=SAMPLE_RATE, channels=1,
+                                blocksize=BLOCK_SIZE, dtype="int16") as stream:
+                self._listen_loop(stream)
+        except Exception as exc:
+            self.failed.emit(str(exc))
         self.state_changed.emit("desligado")
 
     def _listen_loop(self, stream=None):
-        local_filter = None
-        if self.mode == "jarvis_local":
-            self.state_changed.emit("carregando-palavra-chave")
-            from .local_wake import LocalJarvisFilter
-            local_filter = LocalJarvisFilter()
+        self.state_changed.emit("carregando-palavra-chave")
+        from .local_wake import LocalJarvisFilter
+        local_filter = LocalJarvisFilter()
         stream_running = stream is not None
         while not self._stop_event.is_set():
             if self._pause_event.is_set():
@@ -62,25 +56,17 @@ class VoiceActivationWorker(QThread):
                 stream.start()
                 stream_running = True
             try:
-                if self.mode == "wake_word":
-                    if not hasattr(self, "_wake_listener"):
-                        self.state_changed.emit("carregando-palavra-chave")
-                        self._wake_listener = WakeWordListener()
-                    self.state_changed.emit("palavra-chave")
-                    audio = self._wake_listener.listen_for_command(
-                        self._stop_event.is_set,
-                        self._pause_event.is_set,
-                        on_detected=lambda: self.state_changed.emit("comando"),
-                    )
-                else:
-                    self.state_changed.emit("escutando")
-                    audio = wait_for_spoken_utterance(
-                        self._stop_event.is_set, self._pause_event.is_set,
-                        stream=stream)
+                self.state_changed.emit("escutando")
+                audio = wait_for_spoken_utterance(
+                    self._stop_event.is_set, self._pause_event.is_set,
+                    stream=stream)
                 if audio is None:
                     continue
+                locally_woken = (local_filter is not None
+                                 and time.monotonic() >= self.armed_until
+                                 and local_filter.heard_jarvis(audio))
                 if (local_filter is not None and time.monotonic() >= self.armed_until
-                        and not local_filter.heard_jarvis(audio)):
+                        and not locally_woken):
                     # Only a locally detected wake name can send audio to Groq.
                     continue
                 self._pause_event.set()
@@ -89,15 +75,15 @@ class VoiceActivationWorker(QThread):
                     stream_running = False
                 self.state_changed.emit("transcrevendo")
                 phrase = transcribe_groq(audio).strip()
-                if self.mode == "wake_word":
-                    phrase = strip_jarvis_prefix(phrase) or ""
-                elif self.mode in {"jarvis", "jarvis_local"}:
-                    detected = strip_jarvis_prefix(phrase)
-                    if detected is None and time.monotonic() < self.armed_until:
-                        detected = phrase
-                    if detected == "":
-                        self.armed_until = time.monotonic() + 6
-                    phrase = detected or ""
+                detected = strip_jarvis_prefix(phrase)
+                # Groq occasionally omits the wake name from an otherwise valid
+                # transcription. The local recognizer has already confirmed it.
+                if detected is None and (locally_woken or time.monotonic() < self.armed_until):
+                    detected = phrase
+                if detected == "":
+                    self.armed_until = time.monotonic() + 6
+                    self.phrase.emit("__WAKE__")
+                phrase = detected or ""
                 if phrase:
                     self.armed_until = 0.0
                     self.phrase.emit(phrase)
