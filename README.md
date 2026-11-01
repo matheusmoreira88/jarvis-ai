@@ -349,3 +349,11 @@ O painel agora concentra o JARVIS em uma esfera neural animada e mostra resposta
 ## Version 0.6.1 · central interface and one wake phrase
 
 The main view now centers JARVIS in an animated neural sphere and shows answers there. The system monitor, memory map, middle status pills, and provider names in the menu were removed. Settings has a consistent background and no longer animates its scrolling surface, avoiding the visual overlap. The only exposed wake phrase is “Jarvis”; short noises are filtered before transcription. Voice and vision start when keys are configured and respect a later choice to turn them off. Voice commands can minimize JARVIS or switch it to full screen. The installer privacy text and copyright notice were updated.
+
+## Versão 0.6.2 · cérebro neural denso
+
+O núcleo central foi redesenhado para se aproximar da referência visual enviada: milhares de pontos distribuídos em três dimensões, conexões curtas e finas, base cinza com detalhes coloridos e rotação lenta. A palavra grande foi retirada do centro para não encobrir a rede. A versão aparece abaixo do cérebro. A opção **Reduzir animações do HUD** mantém o desenho estático.
+
+## Version 0.6.2 · dense neural brain
+
+The central visual now resembles the supplied reference: thousands of points distributed in three dimensions, thin local connections, a gray base with colored highlights, and slow rotation. Large text no longer covers the network. The version appears below the brain. **Reduce HUD animations** keeps the image still.

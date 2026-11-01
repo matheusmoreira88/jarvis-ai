@@ -2,16 +2,17 @@
 from __future__ import annotations
 
 import math
+import random
 import time
 from threading import Lock
 
-from PySide6.QtCore import Qt, QThread, Signal, QRectF, QPointF, QVariantAnimation, QBuffer, QIODevice, QTimer
+from PySide6.QtCore import Qt, QThread, Signal, QRectF, QPointF, QLineF, QVariantAnimation, QBuffer, QIODevice, QTimer
 from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QRadialGradient, QBrush
 from PySide6.QtWidgets import QWidget, QSizePolicy
 
 
 class CoreOrb(QWidget):
-    """Animated neural sphere that grows to fill the main JARVIS window."""
+    """Dense, slowly rotating neural cloud inspired by the supplied reference."""
     def __init__(self, version: str, parent=None):
         super().__init__(parent)
         self.version = version
@@ -20,18 +21,60 @@ class CoreOrb(QWidget):
         self.motion_enabled = True
         self.setMinimumSize(320, 320)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        rng = random.Random(271828)
         self.nodes = []
-        count = 320
+        self.node_colors = []
+        self.node_sizes = []
+        # Most particles occupy the volume, not just the surface. This gives the
+        # mesh the depth and crowded center visible in the reference image.
+        count = 2050
         for index in range(count):
-            y = 1 - 2 * (index + 0.5) / count
-            ring = math.sqrt(max(0, 1 - y * y))
-            angle = index * math.pi * (3 - math.sqrt(5))
-            self.nodes.append((math.cos(angle) * ring, y, math.sin(angle) * ring))
-        self.edges = [(index, (index + jump) % count)
-                      for index in range(count) for jump in (1, 13)]
+            y = rng.uniform(-1, 1)
+            angle = rng.uniform(0, 2 * math.pi)
+            distance = rng.random() ** (1 / 3)
+            if index % 4 == 0:
+                distance = 0.84 + rng.random() * 0.16
+            ring = math.sqrt(max(0, 1 - y * y)) * distance
+            x, y, z = (math.cos(angle) * ring, y * distance,
+                       math.sin(angle) * ring)
+            self.nodes.append((x, y, z))
+            choice = rng.random()
+            if choice < (0.27 if y > -0.05 else 0.16):
+                color = QColor("#35d8d9")
+            elif choice < 0.80:
+                color = QColor("#a9aeb3")
+            elif choice < 0.86:
+                color = QColor("#e2c04a")
+            elif choice < 0.92:
+                color = QColor("#5e67d7")
+            elif choice < 0.96:
+                color = QColor("#e1438c")
+            else:
+                color = QColor("#41c969")
+            self.node_colors.append(color)
+            self.node_sizes.append(3.0 if index % 83 == 0 else
+                                   1.8 if index % 23 == 0 else
+                                   rng.uniform(0.7, 1.3))
+        # Nearby 3D neighbors make short irregular fibers instead of the long
+        # latitude-like lines of a globe. Build the graph once, not per frame.
+        cells: dict[tuple[int, int, int], list[int]] = {}
+        self.edges = []
+        for index, (x, y, z) in enumerate(self.nodes):
+            cell = (int((x + 1) / 0.2), int((y + 1) / 0.2), int((z + 1) / 0.2))
+            nearby = []
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    for dz in (-1, 0, 1):
+                        for other in cells.get((cell[0]+dx, cell[1]+dy, cell[2]+dz), ()):
+                            ox, oy, oz = self.nodes[other]
+                            dist = (x-ox)**2 + (y-oy)**2 + (z-oz)**2
+                            if dist < 0.08:
+                                nearby.append((dist, other))
+            self.edges.extend((index, other) for _, other in sorted(nearby)[:4])
+            cells.setdefault(cell, []).append(index)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)
-        self.timer.start(50)
+        self.timer.start(80)
 
     def set_state(self, state: str):
         self.state = state
@@ -43,7 +86,7 @@ class CoreOrb(QWidget):
 
     def _tick(self):
         if self.motion_enabled and self.isVisible():
-            self.phase = (self.phase + 0.012) % (2 * math.pi)
+            self.phase = (self.phase + 0.004) % (2 * math.pi)
             self.update()
 
     def paintEvent(self, event):
@@ -51,14 +94,14 @@ class CoreOrb(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         cx, cy = self.width() / 2, self.height() / 2
-        radius = min(self.width() * 0.43, self.height() * 0.45)
-        glow = QRadialGradient(QPointF(cx, cy), radius * 1.35)
-        glow.setColorAt(0, QColor(12, 72, 94, 60))
-        glow.setColorAt(0.7, QColor(6, 21, 37, 25))
-        glow.setColorAt(1, QColor(2, 10, 18, 0))
+        radius = min(self.width() * 0.46, self.height() * 0.47)
+        glow = QRadialGradient(QPointF(cx, cy), radius * 1.08)
+        glow.setColorAt(0, QColor(78, 81, 84, 68))
+        glow.setColorAt(0.63, QColor(48, 53, 58, 30))
+        glow.setColorAt(1, QColor(12, 16, 21, 0))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(glow)
-        painter.drawEllipse(QPointF(cx, cy), radius * 1.35, radius * 1.35)
+        painter.drawEllipse(QPointF(cx, cy), radius * 1.08, radius * 1.08)
         angle = self.phase if self.motion_enabled else 0.0
         cos_a, sin_a = math.cos(angle), math.sin(angle)
         projected = []
@@ -67,35 +110,26 @@ class CoreOrb(QWidget):
             rz = x * sin_a + z * cos_a
             depth = (rz + 1) / 2
             projected.append((QPointF(cx + rx * radius, cy + y * radius), depth))
+        edge_pens = [QPen(QColor(139, 145, 151, alpha), 0.6)
+                     for alpha in (12, 18, 25, 35)]
+        edge_layers = [[], [], [], []]
         for left, right in self.edges:
             p1, d1 = projected[left]
             p2, d2 = projected[right]
-            if (p1 - p2).manhattanLength() > radius * 0.7:
-                continue
-            painter.setPen(QPen(QColor(95, 152, 177, int(12 + 27 * (d1 + d2) / 2)), 0.7))
-            painter.drawLine(p1, p2)
-        palette = (QColor('#4de8ef'), QColor('#5b78e7'), QColor('#d857b3'),
-                   QColor('#d9b64a'), QColor('#58d58d'))
+            edge_layers[min(3, int((d1 + d2) * 2))].append(QLineF(p1, p2))
+        for pen, lines in zip(edge_pens, edge_layers):
+            painter.setPen(pen)
+            painter.drawLines(lines)
         for index in sorted(range(len(projected)), key=lambda idx: projected[idx][1]):
             point, depth = projected[index]
-            color = QColor(palette[index % len(palette)])
-            color.setAlpha(int(72 + 160 * depth))
-            size = (1.0 + depth * 2.4) * (1.5 if index % 17 == 0 else 1)
+            color = QColor(self.node_colors[index])
+            color.setAlpha(int(95 + 145 * depth))
+            size = self.node_sizes[index] * (0.7 + depth * 0.85)
+            if index % 83 == 0:
+                size *= 1.4
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
             painter.drawEllipse(point, size, size)
-        painter.setPen(QColor('#e9fbff'))
-        font = self.font(); font.setBold(True)
-        font.setPixelSize(max(28, min(64, int(radius * 0.18))))
-        painter.setFont(font)
-        painter.drawText(QRectF(cx - radius, cy - 26, radius * 2, 60),
-                         Qt.AlignmentFlag.AlignCenter, 'J A R V I S')
-        painter.setPen(QColor('#7bc7d8'))
-        font.setBold(False); font.setPixelSize(13); painter.setFont(font)
-        state = {'ready':'PRONTO','listening':'OUVINDO','thinking':'PENSANDO',
-                 'speaking':'RESPONDENDO','observing':'OBSERVANDO'}.get(self.state, self.state.upper())
-        painter.drawText(QRectF(cx - radius, cy + 40, radius * 2, 24),
-                         Qt.AlignmentFlag.AlignCenter, state)
 
 
 class DonutGauge(QWidget):

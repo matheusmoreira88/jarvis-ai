@@ -1,25 +1,19 @@
-# JARVIS AI 0.6.1
+# JARVIS AI 0.6.2
 
 ## Português (Brasil)
 
-- Interface principal refeita como uma esfera neural animada e ampliável, com respostas visíveis no centro.
-- Removidos o monitor do sistema, mapa de memória, indicadores intermediários e nomes dos provedores no menu.
-- Página de Configurações corrigida: fundo consistente, sem sobreposição da animação e sem rolagem horizontal.
-- Uma única ativação por voz: “Jarvis”. O filtro local e a exigência de fala mais longa reduzem acionamentos por ruídos curtos.
-- Com chaves configuradas, voz e visão iniciam automaticamente. Pedidos para desligá-las são lembrados nas próximas aberturas.
-- Comandos para minimizar ou colocar a janela em tela cheia; respostas e erros ficam visíveis na interface principal.
-- Informações de privacidade do instalador e aviso de direitos autorais atualizados.
+- O núcleo visual agora segue a referência enviada: rede neural tridimensional densa, milhares de partículas, conexões finas e pontos coloridos sobre um fundo cinza escuro.
+- A rotação é lenta e pode ser desativada pela opção de reduzir animações em Configurações.
+- O texto grande saiu do centro da esfera. A versão e a dica de voz aparecem abaixo dela, preservando o desenho.
+- O desenho agrupa as conexões por profundidade para reduzir o custo por quadro.
 
 O código é de Matheus Moreira, sob licença MIT. Modelos e serviços de terceiros seguem suas próprias licenças e termos. Leia as [informações de privacidade](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) antes de instalar.
 
 ## English
 
-- Rebuilt the main view around a larger animated neural sphere, with answers visible in the center.
-- Removed the system monitor, memory map, middle status pills, and provider names from the menu.
-- Fixed Settings: consistent background, no page fade overlap, and no horizontal scrolling.
-- One voice wake phrase: “Jarvis”. Local filtering and a longer speech requirement reduce triggers from short noises.
-- With keys configured, voice and vision start automatically. Requests to turn them off persist across launches.
-- Voice commands minimize or maximize the window; answers and errors are visible on the main view.
-- Updated installer privacy information and copyright notice.
+- The central visual now follows the supplied reference: a dense three-dimensional neural network with thousands of particles, thin links, and colored highlights over a charcoal background.
+- Rotation is slow and can be disabled with Reduce animations in Settings.
+- Large text no longer covers the sphere. The version and voice hint appear below it.
+- Links are drawn in depth groups to reduce rendering work per frame.
 
 Copyright (c) 2026 Matheus Moreira, licensed under MIT. Third-party models and services retain their own licenses and terms. Read the [privacy information](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) before installation.

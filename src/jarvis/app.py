@@ -382,7 +382,7 @@ class JarvisWindow(QMainWindow):
         dashboard_layout.setSpacing(14)
         self.core_orb = CoreOrb(__version__)
         dashboard_layout.addWidget(self.core_orb, 1)
-        self.live_voice_hint = QLabel("Diga “Jarvis” e fale seu pedido")
+        self.live_voice_hint = QLabel(f"JARVIS v{__version__} · Diga “Jarvis” e fale seu pedido")
         self.live_voice_hint.setObjectName("heroHint")
         self.live_voice_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.live_voice_hint.setWordWrap(True)
