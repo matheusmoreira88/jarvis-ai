@@ -49,6 +49,7 @@ from .integration_ui import (
     WhatsAppComposeDialog,
     WhatsAppWebDialog,
 )
+from .media_commands import parse_media_command
 
 
 class JarvisWindow(QMainWindow):
@@ -1589,69 +1590,35 @@ class JarvisWindow(QMainWindow):
         self._start(phrase, "spoken")
 
     def _handle_media_command(self, prompt: str) -> bool:
-        """Recognizes spoken or typed YouTube searches and player window commands."""
-        text = prompt.strip()
-        lowered = text.casefold()
-        if lowered in {"pausar música", "pausar musica", "continuar música", "continuar musica"}:
+        """Apply the UI-independent media command parsed from speech or text."""
+        command = parse_media_command(prompt)
+        if command is None:
+            return False
+        if command.action == "pause":
             self.pause_media()
             return True
-        if lowered in {"próxima música", "proxima musica", "próxima da fila", "proxima da fila"}:
+        if command.action == "next":
             self.play_next_media()
             return True
-        is_media_search = lowered.startswith((
-            "toca ", "toque ", "tocar ", "reproduz ", "reproduza ",
-            "pesquise no youtube", "pesquisa no youtube", "pesquisar no youtube",
-            "busque no youtube", "buscar no youtube", "busca no youtube",
-            "procure no youtube", "procurar no youtube", "youtube:"))
-        if any(term in lowered for term in ("tela cheia", "fullscreen", "full screen")) and not is_media_search:
+        if command.action == "fullscreen":
             if self.tabs.currentIndex() == 2 or self.mini_player_dialog:
                 self.toggle_media_fullscreen()
-                return True
-        if any(term in lowered for term in ("minimiza o player", "minimize player", "minimizar player", "minimizada", "minimizado")) and not is_media_search:
+            return True
+        if command.action == "minimize":
             if self.mini_player_dialog:
                 self.mini_player_dialog.showMinimized()
             else:
                 self._set_compact_media(True)
             return True
-        if any(term in lowered for term in ("abre em uma janela", "abrir em janela", "janela flutuante", "abre janela")):
+        if command.action == "window":
             self.open_mini_player()
             return True
-
-        query = None
-        search_prefixes = (
-            "pesquise no youtube", "pesquisa no youtube", "pesquisar no youtube",
-            "busque no youtube", "buscar no youtube", "busca no youtube",
-            "procure no youtube", "procurar no youtube", "youtube:"
-        )
-        for prefix in search_prefixes:
-            if lowered.startswith(prefix):
-                query = text[len(prefix):].strip(" :,-")
-                break
-        if query is None:
-            match = re.match(
-                r"^(?:toca|toque|tocar|reproduz|reproduza)\s+(.*)$", text, re.IGNORECASE)
-            if match:
-                query = match.group(1).strip()
-                query = re.sub(
-                    r"^(?:a\s+)?(?:m[uú]sica|som|can[cç][aã]o)(?:\s+(?:de|do|da))?\s*",
-                    "", query, flags=re.IGNORECASE)
-                query = re.sub(r"\s+no\s+youtube$", "", query, flags=re.IGNORECASE).strip()
-        if query is None and lowered in {"abrir youtube", "abre youtube", "abrir música", "abrir musica"}:
-            query = ""
-        if query is None:
-            return False
-        wants_fullscreen = any(term in lowered for term in ("tela cheia", "fullscreen", "full screen"))
-        wants_window = any(term in lowered for term in ("em janela", "janela flutuante", "modo janela"))
-        wants_minimized = "minimiz" in lowered
-        for suffix in (" em tela cheia", " fullscreen", " full screen", " em janela flutuante", " em modo janela", " em janela", " minimiza o player", " minimizada", " minimizado"):
-            if query.casefold().endswith(suffix):
-                query = query[:-len(suffix)].strip()
-        self.search_youtube_in_hud(query)
-        if wants_window:
+        self.search_youtube_in_hud(command.query)
+        if command.window:
             QTimer.singleShot(1400, self.open_mini_player)
-        if wants_fullscreen:
+        if command.fullscreen:
             QTimer.singleShot(1800, self.toggle_media_fullscreen)
-        if wants_minimized:
+        if command.minimized:
             QTimer.singleShot(1400, lambda: self._set_compact_media(True))
         return True
 

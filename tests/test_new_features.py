@@ -13,12 +13,24 @@ from jarvis.routines import validate_routine
 from jarvis.reminders import parse_reminder_request
 from jarvis.reply_worker import ReplyWorker
 from jarvis.voice_worker import VoiceActivationWorker
+from jarvis.media_commands import parse_media_command
 from jarvis import updater
 from jarvis import diagnostics
 from jarvis import usage
 
 
 class NewFeatureTests(unittest.TestCase):
+    def test_media_commands_preserve_query_and_window_intent(self):
+        command = parse_media_command("toca música de Daft Punk em janela")
+        self.assertIsNotNone(command)
+        self.assertEqual(command.action, "search")
+        self.assertEqual(command.query, "Daft Punk")
+        self.assertTrue(command.window)
+
+        self.assertEqual(parse_media_command("pausar música").action, "pause")
+        self.assertEqual(parse_media_command("próxima da fila").action, "next")
+        self.assertIsNone(parse_media_command("qual é a previsão do tempo"))
+
     def test_api_usage_counter_is_local_and_grouped(self):
         with tempfile.TemporaryDirectory() as folder, \
              patch.object(usage, "USAGE_FILE", Path(folder) / "usage.json"):
