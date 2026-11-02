@@ -20,7 +20,7 @@ class LiveVisionWorker(QThread):
             import asyncio
             from google import genai
             from google.genai import types
-            from .providers import SYSTEM_INSTRUCTION
+            from .instructions import system_prompt
             from .settings import get_secret
 
             asyncio.run(self._stream(genai, types, get_secret("gemini")))
@@ -45,7 +45,7 @@ class LiveVisionWorker(QThread):
                     config={
                         "response_modalities": ["AUDIO"],
                         "output_audio_transcription": {},
-                        "system_instruction": SYSTEM_INSTRUCTION,
+                        "system_instruction": system_prompt(),
                     },
                 ) as session:
                     async def receive_updates():

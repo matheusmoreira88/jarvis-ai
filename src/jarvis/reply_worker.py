@@ -6,7 +6,8 @@ import re
 from queue import SimpleQueue
 from threading import Event, Thread
 from PySide6.QtCore import QThread, Signal
-from .providers import analyze_image, stream_assistant, propose_screen_action, transcribe_gemini
+from .providers import (analyze_image, fast_local_reply, stream_assistant,
+                        propose_screen_action, transcribe_gemini)
 from .vision import capture_primary_screen
 from .voice import record_utterance, speak_fragments
 
@@ -59,6 +60,14 @@ class ReplyWorker(QThread):
                 self.finished_text.emit("__BUSY__")
                 action = propose_screen_action(prompt, image)
                 self.finished_text.emit("__PLAN__" + json.dumps(action, ensure_ascii=False))
+                return
+            local_answer = fast_local_reply(prompt) if self.mode in {"text", "spoken"} else None
+            if local_answer:
+                self.partial_text.emit(local_answer)
+                self.finished_text.emit("__STREAM_DONE__" + local_answer)
+                if self.mode == "spoken":
+                    from .voice import speak
+                    speak(local_answer)
                 return
             speech_queue = SimpleQueue() if self.mode == "spoken" else None
             speech_thread = None

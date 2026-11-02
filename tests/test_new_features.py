@@ -20,7 +20,7 @@ from jarvis.media_commands import parse_media_command
 from jarvis import updater
 from jarvis import diagnostics
 from jarvis.extensions import load_extensions
-from jarvis import tts
+from jarvis import providers, tts
 from jarvis import usage
 from jarvis.app import JarvisWindow
 
@@ -215,7 +215,7 @@ class NewFeatureTests(unittest.TestCase):
             validate_routine("X", "x", ["abrir painel"] * 9)
 
     def test_reply_emits_partial_text_before_final_result(self):
-        worker = ReplyWorker("olá")
+        worker = ReplyWorker("explique algo")
         events = []
         worker.partial_text.connect(lambda value: events.append(("part", value)))
         worker.finished_text.connect(lambda value: events.append(("done", value)))
@@ -223,6 +223,24 @@ class NewFeatureTests(unittest.TestCase):
             worker.run()
         self.assertEqual(events, [("part", "Olá"), ("part", " mundo"),
                                   ("done", "__STREAM_DONE__Olá mundo")])
+
+    def test_greetings_reply_locally_without_calling_gemini(self):
+        worker = ReplyWorker("Alô, Jarvis?")
+        events = []
+        worker.partial_text.connect(lambda value: events.append(("part", value)))
+        worker.finished_text.connect(lambda value: events.append(("done", value)))
+        with patch("jarvis.reply_worker.stream_assistant") as cloud:
+            worker.run()
+        cloud.assert_not_called()
+        self.assertEqual(events[0], ("part", "Olá! Estou ouvindo. Como posso ajudar?"))
+        self.assertTrue(events[1][1].startswith("__STREAM_DONE__"))
+
+    def test_gemini_requests_use_low_thinking_and_short_timeout(self):
+        config = providers._config()
+        self.assertEqual(config.thinking_config.thinking_level.value, "LOW")
+        self.assertEqual(providers.REQUEST_TIMEOUT_MS, 15_000)
+        error = providers._network_error(TimeoutError("The read operation timed out"))
+        self.assertIn("15 segundos", str(error))
 
     def test_local_wake_filter_skips_cloud_transcription_for_other_speech(self):
         worker = VoiceActivationWorker("jarvis_local")

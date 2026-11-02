@@ -1,85 +1,37 @@
-# JARVIS AI 0.7.0
+# JARVIS AI 0.7.1
 
 ## Português (Brasil)
 
-Esta é a maior atualização do JARVIS AI até agora.
+Esta atualização corrige o JARVIS que permanecia em **Processando** sem responder.
 
-### Interface
+- Conversa, transcrição e análise da tela agora usam o Gemini 3.5 Flash-Lite, otimizado para baixa latência.
+- Teste real neste computador: resposta completa iniciada e concluída em aproximadamente 1,5 segundo.
+- Somente propostas de código continuam usando Gemini 3.8 Flash; a visão ao vivo mantém o modelo Gemini Live.
+- “Oi”, “olá” e “alô, Jarvis” recebem resposta local instantânea, mesmo sem internet.
+- O Gemini usa raciocínio baixo para começar a transmitir texto mais cedo.
+- O histórico enviado caiu para 13 mensagens no texto e 7 na voz; o histórico completo continua salvo no SQLite.
+- Uma chamada que não responder em 15 segundos libera o HUD e mostra uma mensagem clara em português.
+- A instrução de identidade foi separada do adaptador de rede, corrigindo `SYSTEM_INSTRUCTION is not defined`.
+- O fluxo foi validado com 26 testes automatizados e uma chamada real à Gemini.
 
-- Novo Command Center futurista, responsivo e com animações suaves.
-- Núcleo central animado com estados reais de escuta, processamento e resposta.
-- Conversa contínua integrada ao HUD e player do YouTube em janela interna.
-- Mapa de conhecimento separado, que cresce conforme lembranças são salvas.
-- Configurações reorganizadas para mostrar primeiro apenas o essencial.
+O instalador não possui certificado comercial de assinatura de código. O Windows SmartScreen pode mostrar fornecedor desconhecido; baixe somente desta release oficial e confira o arquivo SHA-256 publicado.
 
-### Voz, visão e inteligência
-
-- Um único modo de ativação: diga “Jarvis” e o comando.
-- Reconhecimento local da palavra de ativação e filtro adaptativo de ruídos curtos.
-- Respostas transmitidas em fluxo para começar a aparecer e falar mais cedo.
-- Visão contínua com prévia local fluida e envio limitado de quadros à Gemini.
-- Uma única chave Gemini, guardada no cofre de credenciais do sistema.
-
-### Memória e automação
-
-- Uma conversa permanente em SQLite, busca de lembranças e lembretes duradouros.
-- Backup e restauração da memória local.
-- Rotinas, ações rápidas, calendário, abertura de aplicativos e comandos do computador.
-- Confirmações continuam obrigatórias para ações sensíveis.
-
-### Segurança, desempenho e distribuição
-
-- Arquitetura modular para voz, visão, respostas, mídia, integrações e controle do PC.
-- Navegador interno carregado somente quando necessário, acelerando a inicialização.
-- Diagnóstico exportável sem chaves, contatos ou conteúdo de conversas.
-- Medidor local de uso da API e atualizador com verificação SHA-256.
-- Histórico de instaladores verificados para retorno à versão anterior.
-- Voz neural Piper opcional, com retorno automático à voz do Windows.
-- Extensões JSON declarativas limitadas aos comandos locais seguros.
-- Site oficial: https://matheusmoreira88.github.io/jarvis-ai/
-
-O instalador ainda não possui certificado comercial de assinatura de código. Por isso, o Windows SmartScreen pode exibir um aviso de fornecedor desconhecido. Baixe somente pela release oficial e confira o SHA-256 publicado.
-
-Copyright (c) 2026 Matheus Moreira. Código sob licença MIT. Modelos, APIs e serviços de terceiros mantêm suas próprias licenças e termos. Leia as [informações de privacidade](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) antes de instalar.
+Copyright (c) 2026 Matheus Moreira. Código sob licença MIT. Modelos, APIs e serviços de terceiros mantêm suas próprias licenças e termos.
 
 ## English
 
-This is the largest JARVIS AI update so far.
+This update fixes JARVIS remaining stuck in **Processing** without answering.
 
-### Interface
+- Chat, transcription, and screen analysis now use Gemini 3.5 Flash-Lite, optimized for low latency.
+- Live test on this computer: the complete reply started and finished in approximately 1.5 seconds.
+- Only code proposals remain on Gemini 3.8 Flash; live vision keeps the Gemini Live model.
+- “Oi”, “olá”, and “alô, Jarvis” receive an instant local reply, even without internet.
+- Gemini uses low reasoning so streamed text begins sooner.
+- Sent history is reduced to 13 text messages and 7 voice messages; the full history remains stored in SQLite.
+- A request that does not answer within 15 seconds releases the HUD and shows a clear Portuguese error.
+- The identity instruction is separated from the network adapter, fixing `SYSTEM_INSTRUCTION is not defined`.
+- The flow was validated with 26 automated tests and a live Gemini request.
 
-- New responsive futuristic Command Center with smooth animations.
-- Animated central core driven by real listening, processing, and speaking states.
-- Continuous conversation inside the HUD and an embedded YouTube player.
-- Separate knowledge map that grows as memories are saved.
-- Reorganized settings that present the essentials first.
+The installer does not have a commercial code-signing certificate. Windows SmartScreen may show an unknown publisher; download only from this official release and verify the published SHA-256 file.
 
-### Voice, vision, and intelligence
-
-- One activation mode: say “Jarvis” followed by the command.
-- Local wake-word recognition and adaptive filtering of short background noises.
-- Streamed replies so text and speech can begin sooner.
-- Continuous vision with a smooth local preview and rate-limited Gemini frames.
-- A single Gemini key stored in the operating system credential vault.
-
-### Memory and automation
-
-- One permanent SQLite conversation, searchable memories, and long-term reminders.
-- Local memory backup and restore.
-- Routines, quick actions, calendars, installed-app launching, and computer commands.
-- Sensitive actions continue to require confirmation.
-
-### Security, performance, and distribution
-
-- Modular architecture for voice, vision, replies, media, integrations, and PC control.
-- The embedded browser loads only when needed, improving startup time.
-- Exportable diagnostics exclude keys, contacts, and conversation content.
-- Local API usage meter and SHA-256-verified updates.
-- Verified installer history for returning to the previous version.
-- Optional Piper neural voice with automatic Windows-voice fallback.
-- Declarative JSON extensions limited to safe local commands.
-- Official website: https://matheusmoreira88.github.io/jarvis-ai/
-
-The installer does not yet have a commercial code-signing certificate, so Windows SmartScreen may show an unknown-publisher warning. Download only from the official release and verify the published SHA-256 value.
-
-Copyright (c) 2026 Matheus Moreira. Licensed under MIT. Third-party models, APIs, and services retain their own licenses and terms. Read the [privacy information](https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt) before installation.
+Copyright (c) 2026 Matheus Moreira. Licensed under MIT. Third-party models, APIs, and services retain their own licenses and terms.

@@ -306,7 +306,7 @@ O microfone e a visão podem ser desligados por comando de voz ou nas Configura�
 
 Crie ações rápidas em Configurações. Cada frase configurada chama o mesmo despachante de comandos locais do aplicativo, preservando suas confirmações e validações.
 
-Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.7.0`.
+Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.7.1`.
 
 O atualizador guarda um histórico curto dos pacotes que ele próprio validou. A partir da segunda atualização baixada pelo aplicativo, **Restaurar instalador anterior verificado** permite executar o pacote anterior somente se seu SHA-256 continuar intacto.
 
@@ -321,7 +321,7 @@ Turn the microphone or vision off by voice command or in Settings. This preferen
 
 Create, use and remove configurable quick actions in Settings. Each phrase calls the app’s existing local command dispatcher, preserving its checks and confirmations.
 
-To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.7.0.
+To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.7.1.
 
 The updater keeps a short history of packages it verified itself. Starting with the second in-app download, **Restore previous verified installer** can run the preceding package only while its saved SHA-256 remains valid.
 
@@ -408,3 +408,19 @@ Em **Configurações → Mostrar recursos opcionais**, a voz padrão do Windows 
 The interface is now a responsive futuristic Command Center with an animated central core, continuous conversation, embedded YouTube playback, and a separate knowledge map. Activation uses only “Jarvis”, with local filtering of short noises, streamed replies, and continuous vision. Voice, vision, replies, media, installed-app discovery, integrations, and computer control now live in independent modules. The embedded browser loads only when needed, reducing startup time. The project includes an official website, secret-free diagnostics, memory backups, API usage metering, SHA-256-verified updates, and declarative JSON extensions limited to already-approved local commands.
 
 Under **Settings → Show optional features**, the default Windows voice can be replaced by [Piper](https://github.com/rhasspy/piper), running fully on the computer. Select `piper.exe` and a compatible `.onnx` model. If Piper or the model fails, JARVIS automatically falls back to the Windows voice so the reply is not lost.
+
+## Versão 0.7.1 · respostas rápidas e HUD destravado
+
+- Conversas, transcrições e análise da tela usam Gemini 3.5 Flash-Lite para baixa latência; somente propostas de código continuam no Gemini 3.8 Flash.
+- Saudações simples como “oi” e “alô, Jarvis” respondem localmente, sem depender da internet.
+- O raciocínio de baixa latência reduz o tempo até o primeiro trecho e a chamada termina com uma mensagem clara se a Gemini não responder em 15 segundos.
+- A instrução de identidade foi isolada do cliente de rede, eliminando o erro `SYSTEM_INSTRUCTION is not defined`.
+- O histórico enviado por pergunta foi reduzido sem apagar nenhuma conversa ou lembrança do SQLite.
+
+## Version 0.7.1 · faster replies and a responsive HUD
+
+- Chat, transcription, and screen analysis use Gemini 3.5 Flash-Lite for low latency; only code proposals remain on Gemini 3.8 Flash.
+- Simple greetings such as “oi” and “alô, Jarvis” are answered locally without an internet request.
+- Low-latency reasoning reduces time to first text, and a clear message replaces an endless processing state if Gemini does not answer within 15 seconds.
+- The identity instruction is isolated from the network client, removing the `SYSTEM_INSTRUCTION is not defined` failure.
+- Less recent history is sent with each prompt without deleting any SQLite conversation or memory.

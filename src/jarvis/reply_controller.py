@@ -29,7 +29,7 @@ class ReplyControllerMixin:
             self._append("user", prompt); memory.add("user", prompt)
         # Na voz, um contexto menor diminui o tempo até o primeiro trecho.
         # O histórico completo continua salvo e pesquisável no SQLite.
-        history = memory.context_recent(limit=9 if mode == "spoken" else 21)
+        history = memory.context_recent(limit=7 if mode == "spoken" else 13)
         if mode in {"text", "spoken"} and load_settings().get("share_long_term_memory", True):
             saved_context = memory.context_for_ai(prompt)
             if saved_context:
@@ -45,11 +45,11 @@ class ReplyControllerMixin:
             status = "Abrindo o microfone para o comando por voz…"
         elif mode == "spoken":
             provider = load_settings().get("provider", "gemini").capitalize()
-            status = f"Enviando transcrição e contexto recente à {provider}…"
+            status = f"Enviando à {provider} · resposta em até 15 s…"
         else:
             provider = "Gemini" if search_web else load_settings().get("provider", "gemini").capitalize()
             detail = "mensagem, contexto recente e pesquisa" if search_web else "mensagem e contexto recente"
-            status = f"Enviando {detail} à {provider}…"
+            status = f"Enviando {detail} à {provider} · limite de 15 s…"
         self.status.setText(status)
         self.core_orb.set_state("thinking")
         if mode in {"screen", "plan"}:
