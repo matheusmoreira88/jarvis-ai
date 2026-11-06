@@ -103,8 +103,29 @@ class VoiceControllerMixin:
         if self._handle_memory_command(phrase, already_recorded=True):
             self._resume_voice_activation()
             return
-        if self._dispatch_computer_command(phrase):
-            self._resume_voice_activation()
-            return
+        self._spoken_command_recorded = True
+        try:
+            if self._dispatch_computer_command(phrase):
+                if not getattr(self, "_control_response_speaking", False):
+                    self._resume_voice_activation()
+                return
+        finally:
+            self._spoken_command_recorded = False
         self._start(phrase, "spoken")
+
+    def _speak_local_response(self, text: str):
+        """Fala também os resultados locais e mantém o texto visível na conversa."""
+        from .reply_worker import SpeechTestWorker
+        self._pause_voice_activation()
+        self._control_response_speaking = True
+        worker = SpeechTestWorker(text)
+        self._track_worker(worker)
+        worker.failed.connect(self._speech_error)
+
+        def finished():
+            self._control_response_speaking = False
+            self._resume_voice_activation()
+
+        worker.finished.connect(finished)
+        worker.start()
 

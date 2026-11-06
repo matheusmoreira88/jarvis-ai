@@ -67,6 +67,15 @@ class ComputerControllerMixin:
             self.tabs.setCurrentIndex(0)
             self.status.setText("Núcleo aberto")
             return True
+        computer_action = re.match(
+            r"^(?:abrir aplicativo:|abrir exe:|agir:|clicar$|clique(?: aqui)?$|"
+            r"rolar:\s*|role\s+para\s+|(?:abrir|abra|abre)\s+|digitar:|digite\s+|"
+            r"pressionar:|pressione\s+)", lowered)
+        if computer_action and not load_settings().get("computer_control_enabled", True):
+            result = ("O controle do computador está desligado. Ative “Controle do computador” "
+                      "em Configurações e repita o pedido.")
+            self._record_control_action(prompt, result)
+            return True
         for routine in load_settings().get("routines", []):
             if not isinstance(routine, dict):
                 continue
@@ -119,7 +128,7 @@ class ComputerControllerMixin:
             self._start(request, "plan")
             return True
 
-        if lowered == "clicar":
+        if lowered in {"clicar", "clique", "clique aqui"}:
             from .computer import click_pointer
             answer = QMessageBox.question(
                 self, "Confirmar clique",
@@ -130,9 +139,10 @@ class ComputerControllerMixin:
                 QTimer.singleShot(500, lambda: self._run_pointer_action(click_pointer))
             return True
 
-        if lowered in {"rolar: cima", "rolar: baixo"}:
+        scroll_match = re.match(r"^(?:rolar\s*:\s*|role\s+para\s+)(cima|baixo)$", lowered)
+        if scroll_match:
             from .computer import scroll_page
-            direction = lowered.split(":", 1)[1].strip()
+            direction = scroll_match.group(1)
             answer = QMessageBox.question(
                 self, "Confirmar rolagem",
                 f"Rolar a página para {direction} no aplicativo ativo?")
@@ -143,8 +153,10 @@ class ComputerControllerMixin:
                     lambda: scroll_page(direction)))
             return True
 
-        if lowered.startswith("abrir "):
-            target = normalized[6:].strip().lower()
+        open_app_match = re.match(r"^(?:abrir|abra|abre)\s+(.+)$", normalized, re.I)
+        if open_app_match:
+            requested_app = open_app_match.group(1).strip()
+            target = requested_app.lower()
             if target in {"bloco de notas", "calculadora", "explorador de arquivos"}:
                 try:
                     result = open_known_app(target)
@@ -152,11 +164,12 @@ class ComputerControllerMixin:
                 except Exception as exc:
                     self.error(str(exc))
                 return True
-            self._launch_installed_by_name(normalized[6:].strip(), prompt)
+            self._launch_installed_by_name(requested_app, prompt)
             return True
 
-        if lowered.startswith("digitar:"):
-            text = normalized.split(":", 1)[1].strip()
+        type_match = re.match(r"^(?:digitar\s*:\s*|digite\s+)(.+)$", normalized, re.I | re.S)
+        if type_match:
+            text = type_match.group(1).strip()
             if not text:
                 QMessageBox.information(self, "Digitar texto", "Use ‘digitar: seu texto’.")
                 return True
@@ -167,16 +180,15 @@ class ComputerControllerMixin:
                 "Deixe o cursor no campo de destino antes de confirmar.\n\n" + text[:1200])
             if answer == QMessageBox.StandardButton.Yes:
                 QApplication.clipboard().setText(text)
-                self._append("private_action", prompt)
-                memory.add("private_action", prompt)
-                self._append("assistant", "Texto colado no aplicativo ativo.")
-                memory.add("assistant", "Texto colado no aplicativo ativo.")
+                self._record_private_control_action(
+                    prompt, "Texto colado no aplicativo ativo.")
                 self._yield_focus_to_active_app()
                 QTimer.singleShot(500, self._paste_into_active_app)
             return True
 
-        if lowered.startswith("pressionar:"):
-            key = normalized.split(":", 1)[1].strip().lower().replace(" ", "")
+        key_match = re.match(r"^(?:pressionar\s*:\s*|pressione\s+)(.+)$", normalized, re.I)
+        if key_match:
+            key = key_match.group(1).strip().lower().replace(" ", "")
             from .computer import SAFE_KEYS, SAFE_SHORTCUTS
             if key not in SAFE_KEYS | SAFE_SHORTCUTS:
                 self.error("Tecla fora da lista permitida; consulte a seção de controle local no README.")
@@ -260,14 +272,22 @@ class ComputerControllerMixin:
         except Exception as exc:
             self.error(f"Não foi possível controlar o mouse: {exc}")
 
-    def _record_control_action(self, prompt: str, result: str):
-        self._append("user", prompt); memory.add("user", prompt)
+    def _record_control_action(self, prompt: str, result: str, *, already_recorded=False):
+        spoken = already_recorded or getattr(self, "_spoken_command_recorded", False)
+        if not spoken:
+            self._append("user", prompt); memory.add("user", prompt)
         self._append("assistant", result); memory.add("assistant", result)
+        if spoken and hasattr(self, "_speak_local_response"):
+            self._speak_local_response(result)
 
     def _record_private_control_action(self, prompt: str, result: str):
         """Mantém caminhos locais no histórico, mas fora do contexto enviado às APIs."""
-        self._append("private_action", prompt); memory.add("private_action", prompt)
+        spoken = getattr(self, "_spoken_command_recorded", False)
+        if not spoken:
+            self._append("private_action", prompt); memory.add("private_action", prompt)
         self._append("assistant", result); memory.add("assistant", result)
+        if spoken and hasattr(self, "_speak_local_response"):
+            self._speak_local_response(result)
 
     def _track_worker(self, worker: QThread):
         """Keep a thread alive until Qt tells us its background task has finished."""

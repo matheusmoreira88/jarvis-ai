@@ -19,6 +19,7 @@ class ReplyControllerMixin:
     def _start(self, prompt: str, mode: str):
         self._pause_voice_activation()
         self._stream_reply_started = False
+        self._dashboard_stream_reply_started = False
         search_web = self.search_checkbox.isChecked() and mode in {"text", "spoken"}
         if search_web and not get_secret("gemini"):
             self.error("Pesquisa na web usa Gemini. Cadastre uma chave Gemini em Configurações.")
@@ -59,6 +60,7 @@ class ReplyControllerMixin:
         self.worker.finished_text.connect(self._worker_event)
         self.worker.partial_text.connect(self._stream_reply_part)
         self.worker.failed.connect(self.error)
+        self.worker.speech_failed.connect(self._speech_error)
         self.worker.finished.connect(lambda: self.status.setText("Pronto"))
         self.worker.finished.connect(lambda mode=mode: self._finish_reply_indicators(mode))
         self.worker.finished.connect(self._resume_voice_activation)
@@ -91,6 +93,7 @@ class ReplyControllerMixin:
                 self._append("assistant", answer)
             memory.add("assistant", answer)
             self._stream_reply_started = False
+            self._dashboard_stream_reply_started = False
             self.input.setEnabled(True)
             self.input.setFocus()
         elif value.startswith("__ANSWER__"):
@@ -143,14 +146,28 @@ class ReplyControllerMixin:
         """Append only the new text; avoid rebuilding a long chat document per token."""
         self.core_orb.set_state("speaking")
         self.answer_preview.setText((self.answer_preview.text() + text)[-280:])
-        cursor = self.chat.textCursor()
+        self._append_stream_text(self.chat, text, "_stream_reply_started")
+        if hasattr(self, "dashboard_chat"):
+            self._append_stream_text(
+                self.dashboard_chat, text, "_dashboard_stream_reply_started")
+
+    def _append_stream_text(self, widget, text: str, state_name: str):
+        """Espelha a resposta incremental em cada área de conversa do HUD."""
+        cursor = widget.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
-        if not getattr(self, "_stream_reply_started", False):
+        if not getattr(self, state_name, False):
             cursor.insertBlock()
             cursor.insertHtml("<b>JARVIS</b><br>")
-            self._stream_reply_started = True
+            setattr(self, state_name, True)
         cursor.insertText(text)
-        self.chat.setTextCursor(cursor)
+        widget.setTextCursor(cursor)
+
+    def _speech_error(self, text: str):
+        """Informa falha de áudio sem transformar uma resposta correta em erro geral."""
+        self.status.setText("Resposta exibida · não foi possível reproduzir a voz")
+        self.voice_state.setText("Voz indisponível · confira a saída de áudio do Windows")
+        self.answer_preview.setText(
+            "A resposta está na conversa, mas a voz falhou: " + text[:180])
 
     def _after_voice_recording(self):
         if self._quit_requested:
@@ -172,6 +189,10 @@ class ReplyControllerMixin:
     def error(self, text: str):
         self.answer_preview.setText("Falha: " + text[:240])
         self._stream_reply_started = False
-        self.chat.append(f"<span style='color:#ff8998'>Falha: {html.escape(text)}</span>")
+        self._dashboard_stream_reply_started = False
+        markup = f"<span style='color:#ff8998'>Falha: {html.escape(text)}</span>"
+        self.chat.append(markup)
+        if hasattr(self, "dashboard_chat"):
+            self.dashboard_chat.append(markup)
         self.input.setEnabled(True)
 

@@ -304,8 +304,8 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         heading = QLabel("Seu JARVIS")
         heading.setObjectName("settingsHeading")
         integrations_layout.addWidget(heading)
-        intro = QLabel("Ajuste o essencial para conversar, ouvir e usar sua tela."
-                       " Recursos opcionais ficam recolhidos no fim da página.")
+        intro = QLabel("Configure o essencial em poucos passos. As ferramentas menos usadas "
+                       "continuam disponíveis em Recursos opcionais.")
         intro.setObjectName("settingsIntro")
         intro.setWordWrap(True)
         integrations_layout.addWidget(intro)
@@ -322,26 +322,22 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
             integrations_layout.addWidget(card)
             return body
 
-        access = settings_card("Conexão", "Guarde sua chave Gemini no cofre deste computador.")
+        access = settings_card("Conexão", "A chave fica protegida no cofre do Windows.")
         credentials_form = QFormLayout()
         credentials_form.setSpacing(12)
         credentials_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
         self.gemini_key_input = QLineEdit(get_secret("gemini") or "")
         self.gemini_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.user_email_input = QLineEdit(get_secret("user_email") or "")
-        self.user_phone_input = QLineEdit(get_secret("user_phone") or "")
         credentials_form.addRow("Chave Gemini", self.gemini_key_input)
-        self.user_email_input.setPlaceholderText("Seu e-mail, se quiser usar integrações")
-        self.user_phone_input.setPlaceholderText("Seu telefone, se quiser usar integrações")
-        credentials_form.addRow("Seu e-mail (opcional)", self.user_email_input)
-        credentials_form.addRow("Seu telefone (opcional)", self.user_phone_input)
         access.addLayout(credentials_form)
         save_settings_button = QPushButton("Salvar configurações")
         save_settings_button.setObjectName("primaryAction")
         save_settings_button.clicked.connect(self._save_settings_page)
         access.addWidget(save_settings_button)
 
-        voice_card = settings_card("Voz e tela", "Diga “Jarvis” para falar. Escolha qual tela ele pode observar.")
+        voice_card = settings_card(
+            "Voz e controle",
+            "Diga “Jarvis” e seu pedido. A voz usa o sintetizador do Windows.")
         voice_row = QHBoxLayout(); voice_row.setSpacing(10)
         self.voice_activation_button = QPushButton("Ativar voz mãos livres")
         self.voice_activation_button.setObjectName("settingsToggle")
@@ -351,12 +347,24 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
             "antes de enviar o comando para transcrição.")
         self.voice_activation_button.toggled.connect(self.toggle_voice_activation)
         voice_row.addWidget(self.voice_activation_button, 1)
+        test_voice = QPushButton("Testar voz")
+        test_voice.clicked.connect(self._test_system_voice)
+        voice_row.addWidget(test_voice)
+        voice_card.addLayout(voice_row)
+        self.computer_control_checkbox = QCheckBox(
+            "Permitir abrir aplicativos e controlar o computador quando eu pedir")
+        self.computer_control_checkbox.setChecked(
+            load_settings().get("computer_control_enabled", True))
+        self.computer_control_checkbox.setToolTip(
+            "Abrir aplicativos é direto. Cliques, digitação e teclas continuam pedindo revisão.")
+        voice_card.addWidget(self.computer_control_checkbox)
+        vision_row = QHBoxLayout(); vision_row.setSpacing(10)
         self.live_vision_button = QPushButton("Iniciar visão contínua")
         self.live_vision_button.setObjectName("settingsToggle")
         self.live_vision_button.setCheckable(True)
         self.live_vision_button.clicked.connect(self.toggle_live_vision)
-        voice_row.addWidget(self.live_vision_button, 1)
-        voice_card.addLayout(voice_row)
+        vision_row.addWidget(self.live_vision_button, 1)
+        voice_card.addLayout(vision_row)
         self.screen_monitor_picker = QComboBox()
         try:
             from mss import mss
@@ -459,29 +467,6 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self.extensions_hint = QLabel()
         extensions_row.addWidget(extensions_button); extensions_row.addWidget(self.extensions_hint, 1)
         advanced_layout.addLayout(extensions_row)
-        voice_engine_row = QHBoxLayout()
-        self.tts_engine_picker = QComboBox()
-        self.tts_engine_picker.addItem("Voz do Windows (padrão)", "system")
-        self.tts_engine_picker.addItem("Piper neural local (opcional)", "piper")
-        tts_index = self.tts_engine_picker.findData(load_settings().get("tts_engine", "system"))
-        self.tts_engine_picker.setCurrentIndex(max(0, tts_index))
-        voice_engine_row.addWidget(QLabel("Voz de resposta"))
-        voice_engine_row.addWidget(self.tts_engine_picker, 1)
-        advanced_layout.addLayout(voice_engine_row)
-        piper_row = QHBoxLayout()
-        self.piper_executable_input = QLineEdit(load_settings().get("piper_executable", ""))
-        self.piper_executable_input.setPlaceholderText("piper.exe")
-        choose_piper = QPushButton("Executável…")
-        choose_piper.clicked.connect(self.select_piper_executable)
-        piper_row.addWidget(self.piper_executable_input, 1); piper_row.addWidget(choose_piper)
-        advanced_layout.addLayout(piper_row)
-        piper_model_row = QHBoxLayout()
-        self.piper_model_input = QLineEdit(load_settings().get("piper_model", ""))
-        self.piper_model_input.setPlaceholderText("modelo-de-voz.onnx")
-        choose_piper_model = QPushButton("Modelo…")
-        choose_piper_model.clicked.connect(self.select_piper_model)
-        piper_model_row.addWidget(self.piper_model_input, 1); piper_model_row.addWidget(choose_piper_model)
-        advanced_layout.addLayout(piper_model_row)
         analyze_screen_button = QPushButton("Analisar minha tela…")
         analyze_screen_button.clicked.connect(self.analyze_screen)
         advanced_layout.addWidget(analyze_screen_button)
@@ -575,6 +560,8 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
             self._start_clap_worker()
         settings = load_settings()
         settings["activation_mode"] = "jarvis_local"
+        settings.setdefault("computer_control_enabled", True)
+        settings["tts_engine"] = "system"
         if not settings.get("v061_defaults_applied"):
             settings["hands_free_enabled"] = True
             settings["live_vision_enabled"] = True
@@ -596,14 +583,11 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         """Persiste preferências e credenciais editadas na página Configurações."""
         try:
             save_secret("gemini", self.gemini_key_input.text())
-            save_secret("user_email", self.user_email_input.text())
-            save_secret("user_phone", self.user_phone_input.text())
             save_settings({**load_settings(), "provider": "gemini",
                            "share_long_term_memory": self.share_memory_checkbox.isChecked(),
                            "reduce_motion": self.reduce_motion_checkbox.isChecked(),
-                           "tts_engine": self.tts_engine_picker.currentData(),
-                           "piper_executable": self.piper_executable_input.text().strip(),
-                           "piper_model": self.piper_model_input.text().strip(),
+                           "tts_engine": "system",
+                           "computer_control_enabled": self.computer_control_checkbox.isChecked(),
                            "screen_monitor": self.screen_monitor_picker.currentData() or 1})
             self.core_orb.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
             self.memory_brain.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
@@ -621,18 +605,15 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         except Exception as exc:
             QMessageBox.warning(self, "Configurações não salvas", str(exc))
 
-    def select_piper_executable(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Selecionar Piper", self.piper_executable_input.text(), "Piper (piper.exe)")
-        if path:
-            self.piper_executable_input.setText(path)
-
-    def select_piper_model(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Selecionar modelo de voz", self.piper_model_input.text(),
-            "Modelo Piper (*.onnx)")
-        if path:
-            self.piper_model_input.setText(path)
+    def _test_system_voice(self):
+        """Testa exatamente o mesmo sintetizador usado nas respostas por voz."""
+        from .reply_worker import SpeechTestWorker
+        worker = SpeechTestWorker("Olá. A voz do JARVIS está funcionando.")
+        self._track_worker(worker)
+        worker.failed.connect(lambda error: self.error(f"A voz do Windows falhou: {error}"))
+        worker.succeeded.connect(lambda: self.status.setText("Teste de voz concluído"))
+        self.status.setText("Testando a voz do Windows…")
+        worker.start()
 
     def _refresh_privacy_indicators(self):
         """Atualiza o estado interno sem poluir o painel central."""

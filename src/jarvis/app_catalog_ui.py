@@ -61,7 +61,8 @@ class AppCatalogControllerMixin:
             QMessageBox.information(self, "Abrir aplicativo", "Informe o nome do aplicativo.")
             return
         if self.installed_apps_cache is None:
-            self.pending_app_launch = (requested, prompt)
+            self.pending_app_launch = (
+                requested, prompt, bool(getattr(self, "_spoken_command_recorded", False)))
             if getattr(self, "app_catalog_worker", None) and self.app_catalog_worker.isRunning():
                 return
             self.status.setText("Procurando o aplicativo instalado…")
@@ -72,7 +73,9 @@ class AppCatalogControllerMixin:
             self._track_worker(self.app_catalog_worker)
             self.app_catalog_worker.start()
             return
-        self._complete_pending_app_launch(self.installed_apps_cache, (requested, prompt))
+        self._complete_pending_app_launch(
+            self.installed_apps_cache,
+            (requested, prompt, bool(getattr(self, "_spoken_command_recorded", False))))
 
     def _complete_pending_app_launch(self, apps: list[dict[str, str]], request=None):
         """Resolve uma busca pendente pelo nome depois de carregar o catálogo."""
@@ -82,7 +85,7 @@ class AppCatalogControllerMixin:
         self.pending_app_launch = None
         if not request:
             return
-        requested, prompt = request
+        requested, prompt, already_recorded = request
         try:
             from .computer import launch_installed_app
             exact = [app for app in apps if app["name"].casefold() == requested.casefold()]
@@ -92,7 +95,9 @@ class AppCatalogControllerMixin:
                 return
             selected = matches[0] if len(matches) == 1 else self._choose_installed_app(matches, requested)
             if selected:
-                self._record_control_action(prompt, launch_installed_app(selected))
+                self._record_control_action(
+                    prompt, launch_installed_app(selected),
+                    already_recorded=already_recorded)
         except Exception as exc:
             self.error(f"Não foi possível abrir o aplicativo: {exc}")
 

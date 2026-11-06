@@ -54,6 +54,17 @@ class JarvisRegressionTests(unittest.TestCase):
              patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.No):
             self.assertTrue(JarvisWindow._dispatch_computer_command(Window(), "clicar"))
 
+    def test_computer_control_can_be_disabled_in_simple_settings(self):
+        class Window:
+            def _handle_media_command(self, prompt): return False
+            def _record_control_action(self, prompt, result): self.recorded = (prompt, result)
+        window = Window()
+        with patch("jarvis.computer_controller.load_settings", return_value={
+                "computer_control_enabled": False}):
+            self.assertTrue(JarvisWindow._dispatch_computer_command(
+                window, "abra calculadora"))
+        self.assertIn("controle do computador está desligado", window.recorded[1].lower())
+
     def test_whatsapp_media_permission_restricted_to_official_host(self):
         class Origin:
             def __init__(self, host): self._host = host

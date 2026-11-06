@@ -11,10 +11,29 @@ from .providers import (analyze_image, fast_local_reply, stream_assistant,
 from .vision import capture_primary_screen
 from .voice import record_utterance, speak_fragments
 
+
+class SpeechTestWorker(QThread):
+    """Reproduz uma frase curta sem congelar a janela de configurações."""
+    failed = Signal(str)
+    succeeded = Signal()
+
+    def __init__(self, text: str):
+        super().__init__()
+        self.text = text
+
+    def run(self):
+        try:
+            from .voice import speak
+            speak(self.text)
+            self.succeeded.emit()
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
 class ReplyWorker(QThread):
     finished_text = Signal(str)
     partial_text = Signal(str)
     failed = Signal(str)
+    speech_failed = Signal(str)
 
     def __init__(self, prompt: str, mode: str = "text", search_web: bool = False,
                  history: list[tuple[str, str]] | None = None):
@@ -33,7 +52,8 @@ class ReplyWorker(QThread):
         try:
             speak_fragments(fragments)
         except Exception as exc:
-            self.failed.emit(f"A fala local falhou: {exc}")
+            # A resposta de texto continua válida mesmo se o alto-falante falhar.
+            self.speech_failed.emit(str(exc))
 
     def run(self):
         try:

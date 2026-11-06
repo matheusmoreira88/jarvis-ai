@@ -8,13 +8,14 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from jarvis import memory
 from jarvis.calendar_import import import_events
 from jarvis.routines import validate_routine
 from jarvis.reminders import parse_reminder_request
 from jarvis.reply_worker import ReplyWorker
+from jarvis.reply_controller import ReplyControllerMixin
 from jarvis.voice_worker import VoiceActivationWorker
 from jarvis.media_commands import parse_media_command
 from jarvis import updater
@@ -30,6 +31,27 @@ class NewFeatureTests(unittest.TestCase):
         markup = JarvisWindow._message_markup(None, "user", "<script>alert(1)</script>")
         self.assertNotIn("<script>", markup)
         self.assertIn("&lt;script&gt;", markup)
+
+    def test_streamed_answer_is_mirrored_in_both_conversations(self):
+        class Window(ReplyControllerMixin):
+            pass
+        window = Window()
+        window.core_orb = MagicMock()
+        window.answer_preview = MagicMock()
+        window.answer_preview.text.return_value = ""
+        window.chat = MagicMock()
+        window.dashboard_chat = MagicMock()
+        main_cursor = MagicMock()
+        dashboard_cursor = MagicMock()
+        window.chat.textCursor.return_value = main_cursor
+        window.dashboard_chat.textCursor.return_value = dashboard_cursor
+
+        window._stream_reply_part("Olá, Matheus.")
+
+        main_cursor.insertText.assert_called_once_with("Olá, Matheus.")
+        dashboard_cursor.insertText.assert_called_once_with("Olá, Matheus.")
+        self.assertTrue(window._stream_reply_started)
+        self.assertTrue(window._dashboard_stream_reply_started)
 
     def test_declarative_extensions_accept_only_safe_commands(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -53,6 +75,15 @@ class NewFeatureTests(unittest.TestCase):
              patch("jarvis.tts._system_speak") as system_voice:
             tts.speak_text("Olá")
         system_voice.assert_called_once_with("Olá")
+
+    def test_windows_voice_initializes_com_in_each_speech_thread(self):
+        windows_com = MagicMock()
+        with patch.object(tts.os, "name", "nt"), \
+             patch.dict(sys.modules, {"pythoncom": windows_com}):
+            with tts._speech_thread_context():
+                pass
+        windows_com.CoInitialize.assert_called_once_with()
+        windows_com.CoUninitialize.assert_called_once_with()
 
     def test_regular_app_import_does_not_start_webengine(self):
         check = (

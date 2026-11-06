@@ -4,19 +4,79 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
+import warnings
+from contextlib import contextmanager
+from importlib import import_module
 from pathlib import Path
 
 from .settings import load_settings
 
 
-def _system_speak(text: str) -> None:
-    import pyttsx3
-    engine = pyttsx3.init()
+def _load_pyttsx3():
+    """Carrega o driver sem exibir avisos internos incompatíveis com o HUD sem console."""
+    with warnings.catch_warnings():
+        # O aviso vem de uma dependência do driver SAPI no Python 3.15; ele não
+        # representa falha de reprodução e não deve poluir diagnósticos do JARVIS.
+        warnings.simplefilter("ignore", FutureWarning)
+        return import_module("pyttsx3")
+
+
+@contextmanager
+def _speech_thread_context():
+    """Inicializa o COM na thread atual antes de usar a voz do Windows.
+
+    A resposta é falada por uma nova thread a cada pedido. No Windows, importar
+    o mecanismo uma vez não inicializa automaticamente as threads seguintes;
+    esse detalhe fazia a primeira resposta funcionar e as próximas ficarem mudas.
+    """
+    pythoncom = None
+    if os.name == "nt":
+        try:
+            import pythoncom as windows_com
+            windows_com.CoInitialize()
+            pythoncom = windows_com
+        except Exception:
+            # O sintetizador ainda pode funcionar sem COM explícito em outros
+            # drivers; o erro real será mostrado caso a inicialização falhe.
+            pythoncom = None
     try:
-        engine.say(text)
-        engine.runAndWait()
+        yield
     finally:
-        engine.stop()
+        if pythoncom is not None:
+            pythoncom.CoUninitialize()
+
+
+def _configure_system_voice(engine, settings: dict) -> None:
+    """Aplica preferências simples e favorece uma voz em português quando houver."""
+    volume = max(0.0, min(1.0, float(settings.get("voice_volume", 1.0))))
+    rate = max(120, min(260, int(settings.get("voice_rate", 185))))
+    engine.setProperty("volume", volume)
+    engine.setProperty("rate", rate)
+    preferred = str(settings.get("voice_id", "")).strip()
+    voices = engine.getProperty("voices") or []
+    if preferred and any(voice.id == preferred for voice in voices):
+        engine.setProperty("voice", preferred)
+        return
+    for voice in voices:
+        identity = f"{getattr(voice, 'name', '')} {getattr(voice, 'id', '')}".casefold()
+        languages = " ".join(str(value) for value in getattr(voice, "languages", [])).casefold()
+        if any(marker in identity + " " + languages for marker in ("portugu", "pt-br", "brazil")):
+            engine.setProperty("voice", voice.id)
+            return
+
+
+def _system_speak(text: str) -> None:
+    pyttsx3 = _load_pyttsx3()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        with _speech_thread_context():
+            engine = pyttsx3.init()
+            try:
+                _configure_system_voice(engine, load_settings())
+                engine.say(text)
+                engine.runAndWait()
+            finally:
+                engine.stop()
 
 
 def _piper_paths(settings: dict) -> tuple[Path, Path]:
@@ -91,15 +151,19 @@ def speak_queue(fragments) -> None:
                 except Exception:
                     _system_speak(fragment.strip())
     else:
-        import pyttsx3
-        engine = pyttsx3.init()
-        try:
-            while True:
-                fragment = fragments.get()
-                if fragment is None:
-                    break
-                if fragment.strip():
-                    engine.say(fragment.strip())
-                    engine.runAndWait()
-        finally:
-            engine.stop()
+        pyttsx3 = _load_pyttsx3()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            with _speech_thread_context():
+                engine = pyttsx3.init()
+                try:
+                    _configure_system_voice(engine, settings)
+                    while True:
+                        fragment = fragments.get()
+                        if fragment is None:
+                            break
+                        if fragment.strip():
+                            engine.say(fragment.strip())
+                            engine.runAndWait()
+                finally:
+                    engine.stop()
