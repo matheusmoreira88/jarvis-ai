@@ -1,5 +1,5 @@
 #define AppName "JARVIS AI"
-#define AppVersion "0.7.1"
+#define AppVersion "0.7.2"
 #define AppPublisher "Matheus Moreira"
 #define AppExeName "JarvisAI.exe"
 
@@ -8,6 +8,11 @@ AppId={{0F3E7067-9D10-4AF2-8B16-69E3A8FA8C01}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
+VersionInfoVersion={#AppVersion}.0
+VersionInfoCompany={#AppPublisher}
+VersionInfoDescription=Assistente pessoal JARVIS AI para Windows
+VersionInfoProductName={#AppName}
+VersionInfoCopyright=Copyright (c) 2026 Matheus Moreira
 DefaultDirName={localappdata}\Programs\JarvisAI
 DefaultGroupName={#AppName}
 PrivilegesRequired=lowest

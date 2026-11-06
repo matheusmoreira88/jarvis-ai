@@ -89,7 +89,7 @@ Se o PowerShell bloquear a ativação do ambiente virtual, rode o aplicativo sem
 
 Na primeira abertura, informe a chave Gemini. Ela é guardada no cofre de credenciais do sistema operacional, não nos arquivos do repositório; nas próximas aberturas não será necessário digitá-la novamente. Para trocá-la, abra **Configurações**.
 
-Os campos opcionais de e-mail e telefone nas configurações são referências privadas deste computador, guardadas no cofre do sistema. O aplicativo não os envia aos provedores. A conta que envia e-mails é a conta autorizada pela janela OAuth do Gmail.
+A conta que envia e-mails é sempre a conta autorizada pela janela OAuth do Gmail. Dados de integração e credenciais permanecem no cofre do sistema ou no armazenamento local do aplicativo.
 
 ### Controlar aplicativos
 
@@ -233,7 +233,7 @@ If PowerShell blocks virtual-environment activation, run the app without activat
 
 On first launch, enter the Gemini API key. It is stored in the operating system's credential vault, not in repository files, so you will not need to enter it again on later launches. To change it, open **Settings**.
 
-The optional email and phone fields in Settings are private references stored in this computer's credential vault. The app does not send them to providers. Gmail sends from the account authorized in the OAuth window.
+Gmail always sends from the account authorized in its OAuth window. Integration data and credentials remain in the operating-system vault or the app's local storage.
 
 ### Controlling apps
 
@@ -306,7 +306,7 @@ O microfone e a visão podem ser desligados por comando de voz ou nas Configura�
 
 Crie ações rápidas em Configurações. Cada frase configurada chama o mesmo despachante de comandos locais do aplicativo, preservando suas confirmações e validações.
 
-Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.7.1`.
+Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.7.2`.
 
 O atualizador guarda um histórico curto dos pacotes que ele próprio validou. A partir da segunda atualização baixada pelo aplicativo, **Restaurar instalador anterior verificado** permite executar o pacote anterior somente se seu SHA-256 continuar intacto.
 
@@ -321,7 +321,7 @@ Turn the microphone or vision off by voice command or in Settings. This preferen
 
 Create, use and remove configurable quick actions in Settings. Each phrase calls the app’s existing local command dispatcher, preserving its checks and confirmations.
 
-To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.7.1.
+To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.7.2.
 
 The updater keeps a short history of packages it verified itself. Starting with the second in-app download, **Restore previous verified installer** can run the preceding package only while its saved SHA-256 remains valid.
 
@@ -401,13 +401,13 @@ The main JARVIS status indicator is back. The colorful neural sphere is now a se
 
 A interface foi consolidada em um Command Center futurista e responsivo, com núcleo central animado, conversa contínua, player do YouTube integrado e mapa de conhecimento separado. A ativação usa somente “Jarvis”, com filtro local de ruídos curtos, resposta transmitida em fluxo e visão contínua. Voz, visão, respostas, mídia, catálogo de aplicativos, integrações e controle do computador agora vivem em módulos independentes. O navegador interno é carregado somente quando necessário, reduzindo o tempo de abertura. O projeto inclui site oficial, diagnóstico sem segredos, backup de memória, medidor de uso da API, atualizações verificadas por SHA-256 e extensões JSON declarativas que só podem chamar comandos locais já permitidos.
 
-Em **Configurações → Mostrar recursos opcionais**, a voz padrão do Windows pode ser substituída pelo [Piper](https://github.com/rhasspy/piper), executado inteiramente no computador. Selecione o `piper.exe` e um modelo `.onnx` compatível. Se o Piper ou o modelo falhar, o JARVIS volta automaticamente à voz do Windows para não perder a resposta.
+As configurações principais foram reduzidas a conexão, voz e controle, aparência e aplicativo. A voz padrão utiliza o sintetizador do Windows e pode ser verificada pelo botão **Testar voz**.
 
 ## Version 0.7.0 · modular Command Center
 
 The interface is now a responsive futuristic Command Center with an animated central core, continuous conversation, embedded YouTube playback, and a separate knowledge map. Activation uses only “Jarvis”, with local filtering of short noises, streamed replies, and continuous vision. Voice, vision, replies, media, installed-app discovery, integrations, and computer control now live in independent modules. The embedded browser loads only when needed, reducing startup time. The project includes an official website, secret-free diagnostics, memory backups, API usage metering, SHA-256-verified updates, and declarative JSON extensions limited to already-approved local commands.
 
-Under **Settings → Show optional features**, the default Windows voice can be replaced by [Piper](https://github.com/rhasspy/piper), running fully on the computer. Select `piper.exe` and a compatible `.onnx` model. If Piper or the model fails, JARVIS automatically falls back to the Windows voice so the reply is not lost.
+The main settings are reduced to connection, voice and control, appearance, and application. Responses use the Windows synthesizer and can be checked with the **Test voice** button.
 
 ## Versão 0.7.1 · respostas rápidas e HUD destravado
 
@@ -424,3 +424,21 @@ Under **Settings → Show optional features**, the default Windows voice can be 
 - Low-latency reasoning reduces time to first text, and a clear message replaces an endless processing state if Gemini does not answer within 15 seconds.
 - The identity instruction is isolated from the network client, removing the `SYSTEM_INSTRUCTION is not defined` failure.
 - Less recent history is sent with each prompt without deleting any SQLite conversation or memory.
+
+## Versão 0.7.2 · voz restaurada e controles mais simples
+
+- Corrige a voz do Windows em respostas consecutivas e adiciona um teste audível nas configurações.
+- Toda resposta transmitida aparece ao mesmo tempo na conversa principal e no painel ao vivo.
+- Simplifica as configurações e deixa o acesso ao computador explícito e ativado por padrão.
+- Reconhece comandos naturais como “abra”, “clique”, “role”, “digite” e “pressione”.
+- Evita mensagens duplicadas em comandos falados e mantém a resposta textual caso o áudio falhe.
+- O executável e o instalador agora incluem metadados oficiais de versão nas propriedades do Windows.
+
+## Version 0.7.2 · restored voice and simpler controls
+
+- Fixes Windows speech across consecutive replies and adds an audible test in Settings.
+- Every streamed reply appears in both the full conversation and the live dashboard.
+- Simplifies Settings and makes computer access explicit and enabled by default.
+- Recognizes natural Portuguese commands such as “abra”, “clique”, “role”, “digite”, and “pressione”.
+- Prevents duplicate voice-command messages and preserves the text reply if audio fails.
+- The executable and installer now include official Windows version metadata.

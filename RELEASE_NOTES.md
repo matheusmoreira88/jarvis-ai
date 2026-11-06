@@ -1,18 +1,19 @@
-# JARVIS AI 0.7.1
+# JARVIS AI 0.7.2
 
 ## Português (Brasil)
 
-Esta atualização corrige o JARVIS que permanecia em **Processando** sem responder.
+Esta versão restaura a saída de voz, simplifica as configurações e melhora o controle local do computador.
 
-- Conversa, transcrição e análise da tela agora usam o Gemini 3.5 Flash-Lite, otimizado para baixa latência.
-- Teste real neste computador: resposta completa iniciada e concluída em aproximadamente 1,5 segundo.
-- Somente propostas de código continuam usando Gemini 3.8 Flash; a visão ao vivo mantém o modelo Gemini Live.
-- “Oi”, “olá” e “alô, Jarvis” recebem resposta local instantânea, mesmo sem internet.
-- O Gemini usa raciocínio baixo para começar a transmitir texto mais cedo.
-- O histórico enviado caiu para 13 mensagens no texto e 7 na voz; o histórico completo continua salvo no SQLite.
-- Uma chamada que não responder em 15 segundos libera o HUD e mostra uma mensagem clara em português.
-- A instrução de identidade foi separada do adaptador de rede, corrigindo `SYSTEM_INSTRUCTION is not defined`.
-- O fluxo foi validado com 26 testes automatizados e uma chamada real à Gemini.
+- A voz do Windows agora é inicializada corretamente em cada thread, inclusive após várias respostas consecutivas.
+- Um botão **Testar voz** permite validar o áudio diretamente nas configurações.
+- Respostas transmitidas em tempo real aparecem simultaneamente na conversa completa e no painel ao vivo.
+- Falhas do alto-falante não apagam nem transformam uma resposta textual válida em erro geral.
+- As configurações principais agora mostram somente conexão, voz e controle, aparência e aplicativo; ferramentas menos usadas continuam recolhidas.
+- O acesso ao computador fica explícito e ativado por padrão, mantendo revisão para cliques, digitação e teclas.
+- O JARVIS entende formas naturais como “abra calculadora”, “clique”, “role para baixo”, “digite…” e “pressione Enter”.
+- Comandos falados deixam de aparecer duplicados no histórico; resultados de ações locais também podem ser falados.
+- Dependências de voz e metadados de versão do executável e do instalador foram revisados.
+- A versão foi validada com 30 testes automatizados, abertura real do HUD e testes audíveis no Windows.
 
 O instalador não possui certificado comercial de assinatura de código. O Windows SmartScreen pode mostrar fornecedor desconhecido; baixe somente desta release oficial e confira o arquivo SHA-256 publicado.
 
@@ -20,17 +21,18 @@ Copyright (c) 2026 Matheus Moreira. Código sob licença MIT. Modelos, APIs e se
 
 ## English
 
-This update fixes JARVIS remaining stuck in **Processing** without answering.
+This release restores speech output, simplifies Settings, and improves local computer control.
 
-- Chat, transcription, and screen analysis now use Gemini 3.5 Flash-Lite, optimized for low latency.
-- Live test on this computer: the complete reply started and finished in approximately 1.5 seconds.
-- Only code proposals remain on Gemini 3.8 Flash; live vision keeps the Gemini Live model.
-- “Oi”, “olá”, and “alô, Jarvis” receive an instant local reply, even without internet.
-- Gemini uses low reasoning so streamed text begins sooner.
-- Sent history is reduced to 13 text messages and 7 voice messages; the full history remains stored in SQLite.
-- A request that does not answer within 15 seconds releases the HUD and shows a clear Portuguese error.
-- The identity instruction is separated from the network adapter, fixing `SYSTEM_INSTRUCTION is not defined`.
-- The flow was validated with 26 automated tests and a live Gemini request.
+- Windows speech is now initialized correctly in every thread, including consecutive replies.
+- A **Test voice** button validates audio directly from Settings.
+- Streamed replies appear simultaneously in the full conversation and the live dashboard.
+- Speaker failures no longer erase or turn a valid text reply into a general error.
+- Primary settings now show only connection, voice and control, appearance, and application; less common tools remain collapsed.
+- Computer access is explicit and enabled by default, while clicks, typing, and key presses retain review safeguards.
+- JARVIS understands natural Portuguese commands such as “abra calculadora”, “clique”, “role para baixo”, “digite…”, and “pressione Enter”.
+- Spoken commands no longer appear twice in history; local action results can also be spoken.
+- Voice dependencies and Windows executable/installer version metadata were reviewed.
+- The release was validated with 30 automated tests, a real HUD launch, and audible Windows tests.
 
 The installer does not have a commercial code-signing certificate. Windows SmartScreen may show an unknown publisher; download only from this official release and verify the published SHA-256 file.
 

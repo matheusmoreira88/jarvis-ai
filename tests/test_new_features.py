@@ -4,13 +4,15 @@ import unittest
 import sqlite3
 import hashlib
 import json
+import re
 import subprocess
 import sys
+import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from jarvis import memory
+from jarvis import memory, __version__
 from jarvis.calendar_import import import_events
 from jarvis.routines import validate_routine
 from jarvis.reminders import parse_reminder_request
@@ -27,6 +29,20 @@ from jarvis.app import JarvisWindow
 
 
 class NewFeatureTests(unittest.TestCase):
+    def test_release_version_is_consistent_across_project_files(self):
+        root = Path(__file__).resolve().parents[1]
+        package = tomllib.loads(
+            (root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+        installer = (root / "installer" / "JarvisAI.iss").read_text(encoding="utf-8")
+        release_notes = (root / "RELEASE_NOTES.md").read_text(encoding="utf-8")
+        metadata = (root / "version_info.txt").read_text(encoding="utf-8")
+        installer_version = re.search(r'#define AppVersion "([^"]+)"', installer).group(1)
+
+        self.assertEqual(package, __version__)
+        self.assertEqual(installer_version, __version__)
+        self.assertTrue(release_notes.startswith(f"# JARVIS AI {__version__}"))
+        self.assertIn(f"FileVersion', '{__version__}.0'", metadata)
+
     def test_saved_message_markup_escapes_user_html(self):
         markup = JarvisWindow._message_markup(None, "user", "<script>alert(1)</script>")
         self.assertNotIn("<script>", markup)
