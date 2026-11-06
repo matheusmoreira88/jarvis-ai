@@ -8,7 +8,8 @@ hiddenimports = collect_submodules("keyring.backends") + [
 ]
 
 a = Analysis(
-    ["run_jarvis.py"], pathex=["src"], binaries=collect_dynamic_libs("vosk"), datas=[],
+    ["run_jarvis.py"], pathex=["src"], binaries=collect_dynamic_libs("vosk"),
+    datas=[("assets/jarvis-ai-icon.png", "assets")],
     hiddenimports=hiddenimports, hookspath=[], hooksconfig={},
     runtime_hooks=[], excludes=[
         "googleapiclient", "httplib2", "google_auth_httplib2",
@@ -21,6 +22,7 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz, a.scripts, [], exclude_binaries=True, name="JarvisAI",
     version="version_info.txt",
+    icon="assets/jarvis-ai-icon.ico",
     debug=False, bootloader_ignore_signals=False, strip=False, upx=True,
     console=False, disable_windowed_traceback=False, argv_emulation=False,
     target_arch=None, codesign_identity=None, entitlements_file=None,

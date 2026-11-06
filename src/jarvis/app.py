@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from PySide6.QtCore import (QThread, QUrl, QTimer, QStandardPaths,
                            Qt, QLockFile, QDateTime)
-from PySide6.QtGui import QTextCursor, QPixmap, QKeySequence, QShortcut
+from PySide6.QtGui import QTextCursor, QPixmap, QKeySequence, QShortcut, QIcon
 from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QLabel,
                                QMainWindow, QPushButton, QTextEdit, QVBoxLayout, QWidget,
                                QMessageBox, QHBoxLayout, QFileDialog, QComboBox)
@@ -46,10 +46,19 @@ from .vision_controller import VisionControllerMixin
 from .reply_controller import ReplyControllerMixin
 
 
+def _asset_path(filename: str) -> Path:
+    """Resolve assets in both the source tree and the PyInstaller bundle."""
+    bundled_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
+    return bundled_root / "assets" / filename
+
+
 class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerControllerMixin, VoiceControllerMixin, VisionControllerMixin, ReplyControllerMixin, QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("JARVIS · Assistente desktop")
+        icon_path = _asset_path("jarvis-ai-icon.png")
+        if icon_path.is_file():
+            self.setWindowIcon(QIcon(str(icon_path)))
         self.resize(1280, 860)
         self.setMinimumSize(900, 640)
         self.setStyleSheet(HUD_STYLE)
@@ -1296,8 +1305,10 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
 
     def _create_tray_icon(self):
         """Mantém o HUD disponível na bandeja quando a janela é fechada."""
-        self.tray_icon = QSystemTrayIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon), self)
+        icon_path = _asset_path("jarvis-ai-icon.png")
+        icon = QIcon(str(icon_path)) if icon_path.is_file() else self.style().standardIcon(
+            QStyle.StandardPixmap.SP_ComputerIcon)
+        self.tray_icon = QSystemTrayIcon(icon, self)
         self.tray_icon.setToolTip("JARVIS AI · assistente em segundo plano")
         menu = QMenu()
         show_action = menu.addAction("Abrir JARVIS")

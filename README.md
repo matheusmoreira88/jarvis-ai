@@ -306,7 +306,7 @@ O microfone e a visão podem ser desligados por comando de voz ou nas Configura�
 
 Crie ações rápidas em Configurações. Cada frase configurada chama o mesmo despachante de comandos locais do aplicativo, preservando suas confirmações e validações.
 
-Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.7.2`.
+Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.7.3`.
 
 O atualizador guarda um histórico curto dos pacotes que ele próprio validou. A partir da segunda atualização baixada pelo aplicativo, **Restaurar instalador anterior verificado** permite executar o pacote anterior somente se seu SHA-256 continuar intacto.
 
@@ -321,7 +321,7 @@ Turn the microphone or vision off by voice command or in Settings. This preferen
 
 Create, use and remove configurable quick actions in Settings. Each phrase calls the app’s existing local command dispatcher, preserving its checks and confirmations.
 
-To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.7.2.
+To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.7.3.
 
 The updater keeps a short history of packages it verified itself. Starting with the second in-app download, **Restore previous verified installer** can run the preceding package only while its saved SHA-256 remains valid.
 
@@ -442,3 +442,15 @@ The main settings are reduced to connection, voice and control, appearance, and 
 - Recognizes natural Portuguese commands such as “abra”, “clique”, “role”, “digite”, and “pressione”.
 - Prevents duplicate voice-command messages and preserves the text reply if audio fails.
 - The executable and installer now include official Windows version metadata.
+
+## Version 0.7.3 · new application icon
+
+- Replaces the generic Windows icon with a dedicated JARVIS AI holographic core.
+- The same mark is used by the executable, installer, shortcuts, and system tray.
+- Includes crisp small and large sizes with a transparent background.
+
+## Versão 0.7.3 · novo ícone do aplicativo
+
+- Substitui o ícone genérico do Windows por um núcleo holográfico próprio do JARVIS AI.
+- O mesmo símbolo aparece no executável, no instalador, nos atalhos e na bandeja do sistema.
+- Inclui versões nítidas para tamanhos pequenos e grandes, com fundo transparente.

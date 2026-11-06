@@ -1,19 +1,14 @@
-# JARVIS AI 0.7.2
+# JARVIS AI 0.7.3
 
 ## Português (Brasil)
 
-Esta versão restaura a saída de voz, simplifica as configurações e melhora o controle local do computador.
+Esta atualização visual substitui o ícone genérico do Windows por uma identidade própria do JARVIS AI.
 
-- A voz do Windows agora é inicializada corretamente em cada thread, inclusive após várias respostas consecutivas.
-- Um botão **Testar voz** permite validar o áudio diretamente nas configurações.
-- Respostas transmitidas em tempo real aparecem simultaneamente na conversa completa e no painel ao vivo.
-- Falhas do alto-falante não apagam nem transformam uma resposta textual válida em erro geral.
-- As configurações principais agora mostram somente conexão, voz e controle, aparência e aplicativo; ferramentas menos usadas continuam recolhidas.
-- O acesso ao computador fica explícito e ativado por padrão, mantendo revisão para cliques, digitação e teclas.
-- O JARVIS entende formas naturais como “abra calculadora”, “clique”, “role para baixo”, “digite…” e “pressione Enter”.
-- Comandos falados deixam de aparecer duplicados no histórico; resultados de ações locais também podem ser falados.
-- Dependências de voz e metadados de versão do executável e do instalador foram revisados.
-- A versão foi validada com 30 testes automatizados, abertura real do HUD e testes audíveis no Windows.
+- Novo ícone holográfico com núcleo azul/ciano e anel orbital tecnológico.
+- Fundo transparente para permanecer nítido em atalhos, menu Iniciar, barra de tarefas e bandeja.
+- O mesmo símbolo foi integrado ao executável, ao instalador, aos atalhos e ao ícone da bandeja.
+- Inclui arquivos PNG e ICO com tamanhos adequados para telas pequenas e grandes.
+- Mantém todas as correções de voz, conversa, configurações e controle local da versão 0.7.2.
 
 O instalador não possui certificado comercial de assinatura de código. O Windows SmartScreen pode mostrar fornecedor desconhecido; baixe somente desta release oficial e confira o arquivo SHA-256 publicado.
 
@@ -21,18 +16,13 @@ Copyright (c) 2026 Matheus Moreira. Código sob licença MIT. Modelos, APIs e se
 
 ## English
 
-This release restores speech output, simplifies Settings, and improves local computer control.
+This visual update replaces the generic Windows icon with a dedicated JARVIS AI identity.
 
-- Windows speech is now initialized correctly in every thread, including consecutive replies.
-- A **Test voice** button validates audio directly from Settings.
-- Streamed replies appear simultaneously in the full conversation and the live dashboard.
-- Speaker failures no longer erase or turn a valid text reply into a general error.
-- Primary settings now show only connection, voice and control, appearance, and application; less common tools remain collapsed.
-- Computer access is explicit and enabled by default, while clicks, typing, and key presses retain review safeguards.
-- JARVIS understands natural Portuguese commands such as “abra calculadora”, “clique”, “role para baixo”, “digite…”, and “pressione Enter”.
-- Spoken commands no longer appear twice in history; local action results can also be spoken.
-- Voice dependencies and Windows executable/installer version metadata were reviewed.
-- The release was validated with 30 automated tests, a real HUD launch, and audible Windows tests.
+- New holographic icon with a blue/cyan core and technological orbital ring.
+- Transparent background keeps it crisp in shortcuts, Start menu, taskbar, and system tray.
+- The same mark is integrated into the executable, installer, shortcuts, and tray icon.
+- Includes PNG and ICO assets with sizes suitable for small and large displays.
+- Keeps all voice, conversation, settings, and local-control fixes from version 0.7.2.
 
 The installer does not have a commercial code-signing certificate. Windows SmartScreen may show an unknown publisher; download only from this official release and verify the published SHA-256 file.
 

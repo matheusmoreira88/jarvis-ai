@@ -42,6 +42,8 @@ class NewFeatureTests(unittest.TestCase):
         self.assertEqual(installer_version, __version__)
         self.assertTrue(release_notes.startswith(f"# JARVIS AI {__version__}"))
         self.assertIn(f"FileVersion', '{__version__}.0'", metadata)
+        self.assertTrue((root / "assets" / "jarvis-ai-icon.png").is_file())
+        self.assertTrue((root / "assets" / "jarvis-ai-icon.ico").is_file())
 
     def test_saved_message_markup_escapes_user_html(self):
         markup = JarvisWindow._message_markup(None, "user", "<script>alert(1)</script>")

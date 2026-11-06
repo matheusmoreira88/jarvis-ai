@@ -1,5 +1,5 @@
 #define AppName "JARVIS AI"
-#define AppVersion "0.7.2"
+#define AppVersion "0.7.3"
 #define AppPublisher "Matheus Moreira"
 #define AppExeName "JarvisAI.exe"
 
@@ -21,6 +21,7 @@ OutputBaseFilename=JARVIS-AI-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\assets\jarvis-ai-icon.ico
 InfoBeforeFile=..\PRIVACY.txt
 UninstallDisplayName={#AppName}
 CloseApplications=yes
