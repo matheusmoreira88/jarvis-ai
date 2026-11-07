@@ -30,10 +30,13 @@ class LiveVisionWorker(QThread):
     async def _stream(self, genai, types, api_key: str | None):
         """Envia imagens pela sessão Live e renova a sessão antes do limite de duração."""
         import asyncio
+        import hashlib
         if not api_key:
             raise RuntimeError("Configure a chave Gemini para usar visão contínua.")
         client = genai.Client(api_key=api_key)
         frames_sent = 0
+        last_digest = None
+        unchanged_frames = 0
         try:
             while self._active:
                 async with client.aio.live.connect(
@@ -71,11 +74,19 @@ class LiveVisionWorker(QThread):
                             frame = self.frame_source() if self.frame_source else None
                             if frame is None:
                                 frame = capture_primary_screen_jpeg()
-                            await session.send_realtime_input(video=types.Blob(
-                                data=frame, mime_type="image/jpeg"))
-                            frames_sent += 1
+                            digest = hashlib.blake2b(frame, digest_size=8).digest()
+                            changed = digest != last_digest
+                            unchanged_frames = 0 if changed else unchanged_frames + 1
+                            # Imagens idênticas não precisam consumir cota a cada segundo.
+                            # Um quadro de manutenção a cada 10 s mantém a sessão contextual.
+                            if changed or unchanged_frames >= 10:
+                                await session.send_realtime_input(video=types.Blob(
+                                    data=frame, mime_type="image/jpeg"))
+                                frames_sent += 1
+                                last_digest = digest
+                                unchanged_frames = 0
                             # Vídeo sozinho não inicia uma resposta: peça uma leitura após cinco quadros.
-                            if frame_number % 5 == 4:
+                            if frames_sent and frames_sent % 5 == 0 and (changed or unchanged_frames == 0):
                                 await session.send_realtime_input(text=(
                                     "Analise as imagens recentes da tela. Em português, informe "
                                     "somente mudanças importantes ou algo que pareça exigir ajuda. "

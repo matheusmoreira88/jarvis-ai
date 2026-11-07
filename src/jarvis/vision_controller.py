@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QMessageBox
 from . import memory
 from .settings import get_secret, load_settings, save_settings
 from .vision_worker import LiveVisionWorker
+from .privacy import live_vision_allowed
 
 
 class VisionControllerMixin:
@@ -20,6 +21,12 @@ class VisionControllerMixin:
 
     def toggle_live_vision(self, enabled: bool):
         if enabled:
+            if not live_vision_allowed(load_settings()):
+                QMessageBox.information(
+                    self, "Perfil restrito",
+                    "Mude o perfil de privacidade para Equilibrado ou Integrado antes de ligar a visão.")
+                self.live_vision_button.setChecked(False)
+                return
             if not get_secret("gemini"):
                 QMessageBox.warning(self, "Gemini necessário",
                                     "A visão de tela usa Gemini. Cadastre a chave em Configurações.")

@@ -32,6 +32,11 @@ def _initialize(db: sqlite3.Connection) -> None:
         "notify_at TEXT NOT NULL, notified_at TEXT, created_at TEXT NOT NULL, "
         "repeat_rule TEXT)"
     )
+    db.execute(
+        "CREATE TABLE IF NOT EXISTS action_audit ("
+        "id INTEGER PRIMARY KEY, kind TEXT NOT NULL, outcome TEXT NOT NULL, "
+        "created_at TEXT NOT NULL)"
+    )
     if "repeat_rule" not in {row[1] for row in db.execute("PRAGMA table_info(reminders)")}:
         db.execute("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT")
     db.execute("CREATE INDEX IF NOT EXISTS reminders_due_idx ON reminders(notify_at) WHERE notified_at IS NULL")
@@ -99,6 +104,24 @@ def _connection():
 def add(role: str, body: str) -> None:
     with _connection() as db:
         db.execute("INSERT INTO messages(role, body) VALUES (?, ?)", (role, body))
+
+
+def audit_action(kind: str, outcome: str) -> None:
+    """Record a privacy-safe local action result without prompts, paths or message text."""
+    from datetime import datetime, timezone
+    safe_kind = re.sub(r"[^a-z0-9_.-]", "_", kind.casefold())[:64] or "unknown"
+    safe_outcome = outcome if outcome in {"success", "cancelled", "failed"} else "failed"
+    with _connection() as db:
+        db.execute(
+            "INSERT INTO action_audit(kind, outcome, created_at) VALUES (?, ?, ?)",
+            (safe_kind, safe_outcome,
+             datetime.now(timezone.utc).isoformat(timespec="seconds")),
+        )
+
+
+def action_audit_count() -> int:
+    with _connection() as db:
+        return int(db.execute("SELECT COUNT(*) FROM action_audit").fetchone()[0])
 
 
 def recent(limit: int = 20) -> list[tuple[str, str]]:

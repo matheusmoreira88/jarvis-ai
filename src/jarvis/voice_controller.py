@@ -4,6 +4,7 @@ from __future__ import annotations
 from . import memory
 from .settings import get_secret, load_settings, save_settings
 from .voice_worker import VoiceActivationWorker
+from .assistant_state import AssistantState, set_window_state
 
 
 class VoiceControllerMixin:
@@ -58,11 +59,14 @@ class VoiceControllerMixin:
         if hasattr(self, "live_voice_hint"):
             self.live_voice_hint.setText(labels.get(state, state))
         if state in {"escutando", "palavra-chave"}:
-            self.core_orb.set_state("listening")
+            set_window_state(self, AssistantState.LISTENING)
         elif state in {"transcrevendo", "comando"}:
-            self.core_orb.set_state("thinking")
+            set_window_state(
+                self,
+                AssistantState.TRANSCRIBING if state == "transcrevendo" else AssistantState.THINKING,
+            )
         elif state == "desligado" and not self.live_vision_worker:
-            self.core_orb.set_state("ready")
+            set_window_state(self, AssistantState.READY)
 
     def _voice_activation_failed(self, message: str):
         self.voice_activation_button.setChecked(False)
@@ -92,7 +96,7 @@ class VoiceControllerMixin:
         """Despacha cada frase reconhecida sem exigir botão para iniciar/parar gravação."""
         if phrase == "__WAKE__":
             self.answer_preview.setText("Estou ouvindo. Pode falar.")
-            self.core_orb.set_state("listening")
+            set_window_state(self, AssistantState.LISTENING)
             self._resume_voice_activation()
             return
         if self._quit_requested or not phrase.strip():

@@ -26,6 +26,11 @@ from jarvis.extensions import load_extensions
 from jarvis import providers, tts
 from jarvis import usage
 from jarvis.app import JarvisWindow
+from jarvis.assistant_state import AssistantState, set_window_state
+from jarvis.logging_config import redact
+from jarvis.smoke_test import run_smoke_test
+from jarvis.privacy import (computer_control_allowed, live_vision_allowed,
+                            memory_sharing_allowed, normalized_profile)
 
 
 class NewFeatureTests(unittest.TestCase):
@@ -71,6 +76,30 @@ class NewFeatureTests(unittest.TestCase):
         self.assertTrue(window._stream_reply_started)
         self.assertTrue(window._dashboard_stream_reply_started)
 
+    def test_assistant_state_updates_the_reactor_from_one_source(self):
+        window = MagicMock()
+        set_window_state(window, AssistantState.TRANSCRIBING, "Transcrevendo…")
+        self.assertEqual(window.assistant_state, AssistantState.TRANSCRIBING)
+        window.core_orb.set_state.assert_called_once_with("thinking")
+        window.status.setText.assert_called_once_with("Transcrevendo…")
+
+    def test_diagnostic_logs_redact_credentials(self):
+        rendered = redact("api_key=AIzaABCDEFGHIJKLMNOPQRSTUVWXYZ123456 token: abcdef")
+        self.assertNotIn("AIza", rendered)
+        self.assertNotIn("abcdef", rendered)
+        self.assertGreaterEqual(rendered.count("[REDACTED]"), 2)
+
+    def test_restricted_privacy_profile_blocks_cloud_memory_vision_and_control(self):
+        settings = {
+            "privacy_profile": "restricted",
+            "computer_control_enabled": True,
+            "share_long_term_memory": True,
+        }
+        self.assertFalse(computer_control_allowed(settings))
+        self.assertFalse(memory_sharing_allowed(settings))
+        self.assertFalse(live_vision_allowed(settings))
+        self.assertEqual(normalized_profile({"privacy_profile": "unknown"}), "balanced")
+
     def test_declarative_extensions_accept_only_safe_commands(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -115,6 +144,9 @@ class NewFeatureTests(unittest.TestCase):
             timeout=30,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_packaged_smoke_test_imports_core_subsystems(self):
+        run_smoke_test()
 
     def test_media_commands_preserve_query_and_window_intent(self):
         command = parse_media_command("toca música de Daft Punk em janela")
@@ -246,6 +278,17 @@ class NewFeatureTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     memory.import_database(source)
 
+    def test_action_audit_stores_only_bounded_categories(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(memory, "DB_FILE", Path(folder) / "memory.sqlite3"):
+                memory.audit_action("Open app: C:/private/path", "success")
+                self.assertEqual(memory.action_audit_count(), 1)
+                with memory._connection() as db:
+                    kind, outcome = db.execute(
+                        "SELECT kind, outcome FROM action_audit").fetchone()
+                self.assertNotIn("/", kind)
+                self.assertEqual(outcome, "success")
+
     def test_calendar_import_schedules_previous_day_and_skips_old_event(self):
         now = datetime(2026, 10, 31, 10, tzinfo=timezone.utc)
         sample = ("BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Prova de matemática\n"
@@ -293,6 +336,20 @@ class NewFeatureTests(unittest.TestCase):
             worker.run()
         self.assertEqual(events, [("part", "Olá"), ("part", " mundo"),
                                   ("done", "__STREAM_DONE__Olá mundo")])
+
+    def test_reply_can_be_cancelled_between_stream_fragments(self):
+        worker = ReplyWorker("explique algo")
+        failures = []
+        worker.failed.connect(failures.append)
+
+        def stream():
+            yield "primeiro"
+            worker.stop()
+            yield "segundo"
+
+        with patch("jarvis.reply_worker.stream_assistant", return_value=stream()):
+            worker.run()
+        self.assertEqual(failures, ["Resposta interrompida pelo usuário."])
 
     def test_greetings_reply_locally_without_calling_gemini(self):
         worker = ReplyWorker("Alô, Jarvis?")

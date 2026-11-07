@@ -10,11 +10,13 @@ from pathlib import Path
 from . import __version__, memory
 from .local_wake import MODEL_NAME, MODEL_ROOT, _valid_model
 from .settings import get_secret, load_settings
+from .runtime_health import collect_runtime_health
 
 SAFE_SETTING_KEYS = (
     "hands_free_enabled", "live_vision_enabled", "reduce_motion",
     "share_long_term_memory", "clap_enabled", "screen_monitor",
     "activation_mode", "provider", "setup_completed", "tts_engine",
+    "privacy_profile",
 )
 
 
@@ -42,12 +44,14 @@ def build_report() -> dict:
             "routines": len(settings.get("routines", [])),
             "extension_actions": 0,
             "memories": 0,
+            "audited_actions": 0,
         },
         "voice_model": {
             "name": MODEL_NAME,
             "installed": _valid_model(MODEL_ROOT / MODEL_NAME),
         },
         "database": {"exists": memory.DB_FILE.exists(), "size_bytes": 0},
+        "runtime_health": collect_runtime_health(),
     }
     try:
         from .gmail import CLIENT_FILE
@@ -61,6 +65,7 @@ def build_report() -> dict:
         pass
     try:
         report["counts"]["memories"] = memory.long_term_count()
+        report["counts"]["audited_actions"] = memory.action_audit_count()
         if memory.DB_FILE.exists():
             report["database"]["size_bytes"] = memory.DB_FILE.stat().st_size
     except Exception as exc:

@@ -11,6 +11,7 @@ from . import memory
 from .computer import open_known_app
 from .memory_ui import MemoryMapDialog
 from .settings import get_secret, load_settings, save_settings
+from .privacy import computer_control_allowed
 
 
 class ComputerControllerMixin:
@@ -71,7 +72,8 @@ class ComputerControllerMixin:
             r"^(?:abrir aplicativo:|abrir exe:|agir:|clicar$|clique(?: aqui)?$|"
             r"rolar:\s*|role\s+para\s+|(?:abrir|abra|abre)\s+|digitar:|digite\s+|"
             r"pressionar:|pressione\s+)", lowered)
-        if computer_action and not load_settings().get("computer_control_enabled", True):
+        control_settings = load_settings()
+        if computer_action and not computer_control_allowed(control_settings):
             result = ("O controle do computador está desligado. Ative “Controle do computador” "
                       "em Configurações e repita o pedido.")
             self._record_control_action(prompt, result)
@@ -252,8 +254,10 @@ class ComputerControllerMixin:
         self._stop_clap_worker()
         self._stop_screen_preview()
         worker = getattr(self, "worker", None)
-        if worker and worker.isRunning() and getattr(worker, "mode", None) == "voice":
-            worker.stop_recording()
+        if worker and worker.isRunning():
+            stop = getattr(worker, "stop", None) or getattr(worker, "stop_recording", None)
+            if stop:
+                stop()
         self.core_orb.set_state("ready")
         self.voice_state.setText("Modo pânico · sensores desligados")
         self.answer_preview.setText("Microfone, visão e detecção de palmas foram desligados.")
@@ -277,6 +281,7 @@ class ComputerControllerMixin:
         if not spoken:
             self._append("user", prompt); memory.add("user", prompt)
         self._append("assistant", result); memory.add("assistant", result)
+        self._audit_control_action("computer_control", "success")
         if spoken and hasattr(self, "_speak_local_response"):
             self._speak_local_response(result)
 
@@ -286,6 +291,7 @@ class ComputerControllerMixin:
         if not spoken:
             self._append("private_action", prompt); memory.add("private_action", prompt)
         self._append("assistant", result); memory.add("assistant", result)
+        self._audit_control_action("private_computer_control", "success")
         if spoken and hasattr(self, "_speak_local_response"):
             self._speak_local_response(result)
 
@@ -316,9 +322,18 @@ class ComputerControllerMixin:
             self._report_control_failure("pressionar tecla", exc)
 
     def _report_control_failure(self, action: str, error: Exception):
+        self._audit_control_action("computer_control", "failed")
         message = f"Falha ao {action}: {error}"
         if self.tray_icon:
             self.tray_icon.showMessage("JARVIS", message)
         self.show_from_tray()
         self.error(message)
+
+    @staticmethod
+    def _audit_control_action(kind: str, outcome: str):
+        """Auditing must never block the requested action or hide its original error."""
+        try:
+            memory.audit_action(kind, outcome)
+        except Exception:
+            pass
 

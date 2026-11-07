@@ -44,6 +44,8 @@ from .computer_controller import ComputerControllerMixin
 from .voice_controller import VoiceControllerMixin
 from .vision_controller import VisionControllerMixin
 from .reply_controller import ReplyControllerMixin
+from .assistant_state import AssistantState
+from .logging_config import configure_logging
 
 
 def _asset_path(filename: str) -> Path:
@@ -131,6 +133,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         center_layout = QVBoxLayout(center_stage)
         center_layout.setContentsMargins(8, 0, 8, 0); center_layout.setSpacing(8)
         self.core_orb = JarvisReactor(__version__)
+        self.assistant_state = AssistantState.READY
         center_layout.addWidget(self.core_orb, 1, Qt.AlignmentFlag.AlignHCenter)
         self.live_voice_hint = QLabel(f"JARVIS v{__version__} · Diga “Jarvis” e fale seu pedido")
         self.live_voice_hint.setObjectName("heroHint")
@@ -367,6 +370,20 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self.computer_control_checkbox.setToolTip(
             "Abrir aplicativos é direto. Cliques, digitação e teclas continuam pedindo revisão.")
         voice_card.addWidget(self.computer_control_checkbox)
+        self.privacy_profile_picker = QComboBox()
+        self.privacy_profile_picker.addItem(
+            "Equilibrado · confirma ações sensíveis", "balanced")
+        self.privacy_profile_picker.addItem(
+            "Restrito · sem visão, controle ou memória na IA", "restricted")
+        self.privacy_profile_picker.addItem(
+            "Integrado · voz, visão e controle disponíveis", "connected")
+        profile_index = self.privacy_profile_picker.findData(
+            load_settings().get("privacy_profile", "balanced"))
+        self.privacy_profile_picker.setCurrentIndex(max(0, profile_index))
+        self.privacy_profile_picker.currentIndexChanged.connect(
+            self._preview_privacy_profile)
+        voice_card.addWidget(QLabel("Perfil de privacidade"))
+        voice_card.addWidget(self.privacy_profile_picker)
         vision_row = QHBoxLayout(); vision_row.setSpacing(10)
         self.live_vision_button = QPushButton("Iniciar visão contínua")
         self.live_vision_button.setObjectName("settingsToggle")
@@ -582,25 +599,48 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self.reminder_timer.start(30_000)
         self._refresh_memory_map()
         QTimer.singleShot(1200, self._check_due_reminders)
+        QTimer.singleShot(1600, self._show_startup_health)
         if settings["hands_free_enabled"] and get_secret("gemini"):
             QTimer.singleShot(500, lambda: self.voice_activation_button.setChecked(True))
         if settings["live_vision_enabled"] and get_secret("gemini"):
             QTimer.singleShot(900, lambda: (self.live_vision_button.setChecked(True),
                                            self.toggle_live_vision(True)))
 
+    def _show_startup_health(self):
+        """Surface missing local components without opening devices or making network calls."""
+        from .runtime_health import blocking_issues
+        issues = blocking_issues()
+        if issues:
+            self.status.setText("Diagnóstico · " + " · ".join(issues[:2]))
+
     def _save_settings_page(self):
         """Persiste preferências e credenciais editadas na página Configurações."""
         try:
             save_secret("gemini", self.gemini_key_input.text())
-            save_settings({**load_settings(), "provider": "gemini",
-                           "share_long_term_memory": self.share_memory_checkbox.isChecked(),
+            privacy_profile = self.privacy_profile_picker.currentData() or "balanced"
+            share_memory = self.share_memory_checkbox.isChecked()
+            computer_control = self.computer_control_checkbox.isChecked()
+            if privacy_profile == "restricted":
+                share_memory = False
+                computer_control = False
+            existing_settings = load_settings()
+            live_vision_enabled = bool(existing_settings.get("live_vision_enabled", True))
+            if privacy_profile == "restricted":
+                live_vision_enabled = False
+            save_settings({**existing_settings, "provider": "gemini",
+                           "privacy_profile": privacy_profile,
+                           "share_long_term_memory": share_memory,
+                           "live_vision_enabled": live_vision_enabled,
                            "reduce_motion": self.reduce_motion_checkbox.isChecked(),
                            "tts_engine": "system",
-                           "computer_control_enabled": self.computer_control_checkbox.isChecked(),
+                           "computer_control_enabled": computer_control,
                            "screen_monitor": self.screen_monitor_picker.currentData() or 1})
             self.core_orb.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
             self.memory_brain.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
             preferences = load_settings()
+            if privacy_profile == "restricted" and self.live_vision_worker:
+                self.live_vision_button.setChecked(False)
+                self.toggle_live_vision(False)
             if get_secret("gemini") and preferences.get("hands_free_enabled", True):
                 self.voice_activation_button.setChecked(True)
             if (get_secret("gemini") and preferences.get("live_vision_enabled", True)
@@ -613,6 +653,16 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
                 "em vigor na próxima ativação da visão contínua.")
         except Exception as exc:
             QMessageBox.warning(self, "Configurações não salvas", str(exc))
+
+    def _preview_privacy_profile(self):
+        """Reflect a chosen preset in visible controls before the user saves it."""
+        profile = self.privacy_profile_picker.currentData()
+        if profile == "restricted":
+            self.computer_control_checkbox.setChecked(False)
+            self.share_memory_checkbox.setChecked(False)
+        elif profile == "connected":
+            self.computer_control_checkbox.setChecked(True)
+            self.share_memory_checkbox.setChecked(True)
 
     def _test_system_voice(self):
         """Testa exatamente o mesmo sintetizador usado nas respostas por voz."""
@@ -1338,8 +1388,10 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
 
     def closeEvent(self, event):
         worker = getattr(self, "worker", None)
-        if self._quit_requested and worker and worker.isRunning() and worker.mode == "voice":
-            worker.stop_recording()
+        if self._quit_requested and worker and worker.isRunning():
+            stop = getattr(worker, "stop", None) or getattr(worker, "stop_recording", None)
+            if stop:
+                stop()
         if self.live_vision_worker and self.live_vision_worker.isRunning():
             self._close_when_vision_stops = True
             self.live_vision_button.setEnabled(False)
@@ -1470,6 +1522,11 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
 
 
 def main():
+    configure_logging()
+    if "--smoke-test" in sys.argv:
+        from .smoke_test import run_smoke_test
+        run_smoke_test()
+        return 0
     app = QApplication(sys.argv)
     app.setApplicationName("JARVIS AI")
     app.setOrganizationName("Matheus Moreira")

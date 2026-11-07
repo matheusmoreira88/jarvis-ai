@@ -25,6 +25,11 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Build standalone application
         run: python -m PyInstaller --noconfirm --clean JarvisAI.spec
+      - name: Smoke-test packaged application
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath "dist/JarvisAI/JarvisAI.exe" -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Packaged JARVIS smoke test failed with exit code $($process.ExitCode)" }
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
       - name: Build setup installer
