@@ -13,6 +13,8 @@ class LiveVisionWorker(QThread):
     def __init__(self, frame_source=None):
         super().__init__()
         self._active = True
+        self._loop = None
+        self._task = None
         self.frame_source = frame_source
 
     def run(self):
@@ -23,9 +25,22 @@ class LiveVisionWorker(QThread):
             from .instructions import system_prompt
             from .settings import get_secret
 
-            asyncio.run(self._stream(genai, types, get_secret("gemini")))
+            loop = asyncio.new_event_loop()
+            self._loop = loop
+            asyncio.set_event_loop(loop)
+            self._task = loop.create_task(
+                self._stream(genai, types, get_secret("gemini")))
+            try:
+                loop.run_until_complete(self._task)
+            except asyncio.CancelledError:
+                pass
+            finally:
+                self._task = None
+                self._loop = None
+                loop.close()
         except Exception as exc:
-            self.failed.emit(str(exc))
+            if self._active:
+                self.failed.emit(str(exc))
 
     async def _stream(self, genai, types, api_key: str | None):
         """Envia imagens pela sessão Live e renova a sessão antes do limite de duração."""
@@ -107,5 +122,9 @@ class LiveVisionWorker(QThread):
 
     def stop(self):
         self._active = False
+        loop = self._loop
+        task = self._task
+        if loop is not None and task is not None and not task.done():
+            loop.call_soon_threadsafe(task.cancel)
 
 

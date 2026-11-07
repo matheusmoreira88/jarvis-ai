@@ -49,7 +49,7 @@ class ComputerControllerMixin:
         open_intent = bool(re.match(
             r"^(?:abra|abre|abrir|mostre|mostra|mostrar|quero ver|vá para|vai para)\b", lowered))
         if open_intent and any(word in lowered for word in ("configuração", "configurações", "configuracao", "configuracoes", "ajustes")):
-            self.tabs.setCurrentIndex(3)
+            self.tabs.setCurrentIndex(2)
             self.status.setText("Configurações abertas")
             return True
         if open_intent and any(word in lowered for word in ("conversa", "conversas", "chat", "histórico", "historico")):
@@ -57,8 +57,8 @@ class ComputerControllerMixin:
             self.status.setText("Conversa aberta")
             return True
         if open_intent and any(word in lowered for word in ("mídia", "midia", "música", "musica", "player")):
-            self.tabs.setCurrentIndex(2)
-            self.status.setText("Mídia aberta")
+            self.open_mini_player()
+            self.status.setText("Player aberto em uma janela")
             return True
         if open_intent and any(word in lowered for word in ("memória", "memoria", "mapa de conhecimento", "cérebro", "cerebro")):
             self.open_memory_map()
@@ -237,7 +237,6 @@ class ComputerControllerMixin:
             "hands_free_enabled": False,
             "voice_activation_enabled": False,
             "live_vision_enabled": False,
-            "clap_enabled": False,
         })
         save_settings(settings)
         if getattr(self, "voice_activation_button", None):
@@ -247,7 +246,6 @@ class ComputerControllerMixin:
             self.live_vision_button.setChecked(False)
             self.live_vision_button.blockSignals(False)
             self.toggle_live_vision(False)
-        self._stop_clap_worker()
         self._stop_screen_preview()
         worker = getattr(self, "worker", None)
         if worker and worker.isRunning():

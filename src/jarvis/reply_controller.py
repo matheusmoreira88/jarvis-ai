@@ -28,7 +28,6 @@ class ReplyControllerMixin:
             self.error("Pesquisa na web usa Gemini. Cadastre uma chave Gemini em Configurações.")
             self._resume_voice_activation()
             return
-        if mode in {"voice", "spoken"}: self._stop_clap_worker()
         if mode not in {"screen", "spoken", "voice"}:
             self._append("user", prompt); memory.add("user", prompt)
         # Na voz, um contexto menor diminui o tempo até o primeiro trecho.
@@ -49,12 +48,10 @@ class ReplyControllerMixin:
         elif mode == "voice":
             status = "Abrindo o microfone para o comando por voz…"
         elif mode == "spoken":
-            provider = load_settings().get("provider", "gemini").capitalize()
-            status = f"Enviando à {provider} · resposta em até 15 s…"
+            status = "Enviando à Gemini · resposta em até 15 s…"
         else:
-            provider = "Gemini" if search_web else load_settings().get("provider", "gemini").capitalize()
             detail = "mensagem, contexto recente e pesquisa" if search_web else "mensagem e contexto recente"
-            status = f"Enviando {detail} à {provider} · limite de 15 s…"
+            status = f"Enviando {detail} à Gemini · limite de 15 s…"
         set_window_state(self, AssistantState.THINKING, status)
         if mode in {"screen", "plan"}:
             self._set_dashboard_metric("tela", "Analisando")
@@ -67,8 +64,6 @@ class ReplyControllerMixin:
         self.worker.finished.connect(lambda: self.status.setText("Pronto"))
         self.worker.finished.connect(lambda mode=mode: self._finish_reply_indicators(mode))
         self.worker.finished.connect(self._resume_voice_activation)
-        if mode in {"voice", "spoken"}:
-            self.worker.finished.connect(self._resume_clap_worker)
         self.worker.start()
 
     def _finish_reply_indicators(self, mode: str):
@@ -182,11 +177,9 @@ class ReplyControllerMixin:
         self.pending_voice_command = None
         if not prompt:
             self.input.setEnabled(True)
-            self._resume_clap_worker()
             return
         if self._dispatch_computer_command(prompt):
             self.input.setEnabled(True)
-            self._resume_clap_worker()
             return
         self._append("user", prompt); memory.add("user", prompt)
         self._start(prompt, "spoken")

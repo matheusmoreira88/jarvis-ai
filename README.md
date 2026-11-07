@@ -31,13 +31,13 @@ Direitos autorais: **Copyright (c) 2026 Matheus Moreira**. Modelos e serviços d
 
 - Conversa, transcrição de voz, visão e pesquisa na web integradas ao Gemini, usando uma única chave de API.
 - O Gemini recebe instruções para reconhecer Matheus Moreira como criador, responder em português e não alegar ações que o aplicativo não executou.
-- Uma conversa única, sem sessões separadas. Histórico, lembranças permanentes e lembretes ficam no SQLite local. A busca indexada recupera lembranças antigas; a biblioteca fica em Configurações. Em Configurações também é possível impedir que lembranças entrem no contexto enviado ao provedor.
+- Uma conversa única, sem sessões separadas. Histórico, lembranças permanentes e lembretes ficam no SQLite local. A busca indexada recupera lembranças antigas; a biblioteca fica em Configurações. Também é possível impedir que lembranças entrem no contexto enviado à Gemini.
 - Comandos de voz mãos livres com um único modo: diga **Jarvis**. O filtro local evita enviar ruídos comuns ao Gemini; na primeira ativação baixa um modelo de português de cerca de 31 MB. A gravação termina após uma pausa, sem botão. Respostas aparecem no centro da interface e na conversa, com fala local por frases.
 - Comandos por voz ou texto para abrir aplicativos instalados sem uma confirmação extra depois do pedido explícito. Digitar texto, pressionar teclas, clicar e rolar continuam exigindo confirmação. O comando `agir: pedido` envia uma captura ao Gemini, que pode propor uma única ação; a pessoa revisa e confirma antes da execução.
 - Análise por captura explícita ou visão contínua ativada nas configurações: o HUD mostra uma prévia local fluida da tela (cerca de 10 atualizações/s) enquanto a Gemini Live recebe até 1 imagem/s, limite documentado da API. As observações aparecem no histórico. O envio à nuvem pode consumir cota; a visão pode ser desligada a qualquer momento.
 - A visão contínua é silenciosa: recebe observações em texto e nunca inicia áudio sozinha; a fala acontece somente quando uma resposta por voz é solicitada.
 - Quadros idênticos da tela não são reenviados a cada segundo, reduzindo tráfego e uso de cota quando nada muda.
-- Perfis de privacidade Equilibrado, Restrito e Integrado controlam visão, memória enviada à IA e ações no computador. O perfil Restrito bloqueia esses três recursos.
+- Perfis de privacidade Equilibrado, Restrito e Integrado controlam voz, visão, memória enviada à IA e ações no computador. O perfil Restrito não envia áudio, tela nem lembranças à nuvem e bloqueia o controle do PC.
 - Ações locais geram somente uma auditoria técnica (`tipo`, `resultado` e horário), sem guardar o comando, caminho ou conteúdo digitado. Logs rotativos removem formatos comuns de chaves de API.
 - Busca por nome entre os aplicativos disponíveis no menu Iniciar e os programas clássicos registrados no Windows; um pedido explícito abre o app sem uma confirmação extra. Também permite escolher manualmente um arquivo `.exe`.
 - Player no HUD para arquivos locais e URLs, além do YouTube incorporado: cole uma URL ou pesquise o nome de uma música, escolha um resultado e reproduza na página oficial sem baixar a faixa. Favoritos e fila ficam salvos localmente; a próxima entrada da fila pode ser aberta por botão ou comando de voz. O painel pode ser recolhido enquanto o áudio toca. Baixar áudio por URL é uma opção separada que pede confirmação.
@@ -56,7 +56,7 @@ Direitos autorais: **Copyright (c) 2026 Matheus Moreira**. Modelos e serviços d
 
 O uso das APIs depende dos limites, disponibilidade, termos e eventual cobrança de cada provedor. O Gemini 3.8 Flash oferece uso gratuito dentro da cota indicada pelo Google, mas a pesquisa Google (Search Grounding) não está incluída no nível gratuito. Confira a [página oficial de preços](https://ai.google.dev/gemini-api/docs/pricing) e os painéis antes de usar recursos pagos.
 
-- O Command Center mostra estados atuais de provedor, microfone, visão, mídia e memória; a troca de páginas e o núcleo visual usam animações suaves.
+- O Command Center mostra microfone, visão e memória com animações suaves. O player abre somente quando solicitado, em uma janela própria, sem ocupar uma aba permanente.
 - Peça músicas como toca música [artista ou faixa] ou pesquise no YouTube [termo]; os resultados oficiais abrem dentro do HUD. O vídeo pode ficar numa janela flutuante, em modo compacto ou em tela cheia.
 
 ### Instalação fácil no Windows
@@ -177,13 +177,13 @@ Copyright **(c) 2026 Matheus Moreira**. Third-party models and services keep the
 
 - Chat, voice transcription, vision, and web search integrated with Gemini using a single API key.
 - Gemini is instructed to recognize Matheus Moreira as the creator, answer in Portuguese by default, and never claim actions the app did not perform.
-- One ongoing conversation, with no separate sessions. Chat history, permanent memories, and reminders stay in local SQLite. Indexed search retrieves older memories; the library is in Settings. Settings can keep saved memories out of provider context.
+- One ongoing conversation, with no separate sessions. Chat history, permanent memories, and reminders stay in local SQLite. Indexed search retrieves older memories; Settings can keep saved memories out of Gemini context.
 - Hands-free voice commands use one wake phrase: **Jarvis**. A local filter keeps common noises from reaching Gemini; it downloads an approximately 31 MB Portuguese model on first use. Recording ends after a pause, without a button. Replies appear in the central interface and chat, with local speech by sentence.
 - Voice or text commands to open installed apps without an extra confirmation after an explicit request. Typing text, pressing keys, clicking, and scrolling still require confirmation. The `agir: request` command sends a screenshot to Gemini, which may suggest one action; the user reviews and confirms before execution.
 - On-demand screen analysis or continuous viewing enabled in Settings: the HUD shows a smooth local screen preview (about 10 updates/s locally) while Gemini Live receives up to 1 image/s, the API documented limit. Observations appear in chat history. Cloud transmission may use API quota, and viewing can be stopped at any time.
 - Continuous vision is silent: it receives text observations and never starts audio on its own; speech only begins when a voice reply is requested.
 - Identical screen frames are not resent every second, reducing traffic and quota usage while nothing changes.
-- Balanced, Restricted, and Connected privacy profiles control vision, AI memory sharing, and computer actions. Restricted blocks all three.
+- Balanced, Restricted, and Connected privacy profiles control voice, vision, AI memory sharing, and computer actions. Restricted sends no audio, screen frames, or memories to the cloud and blocks PC control.
 - Local actions create only a technical audit entry (`type`, `outcome`, and time), without storing the command, path, or typed content. Rotating logs redact common API-key formats.
 - Search by name through apps available in Start and classic programs registered in Windows; an explicit request opens the app without an extra confirmation. Manual `.exe` selection is also available.
 - HUD player for local files and URLs, plus YouTube embedded in the interface: paste a URL or search for a song, choose a result, and play it on the official page without downloading the track. Favorites and a queue are saved locally; the next entry can be opened by button or voice command. The panel can be collapsed while audio plays. Downloading audio from a URL is a separate option that asks for confirmation.
@@ -191,7 +191,6 @@ Copyright **(c) 2026 Matheus Moreira**. Third-party models and services keep the
 - Gmail desktop OAuth integration, limited to sending messages, with confirmation before each send.
 - WhatsApp Web inside the HUD, with an allowlist stored locally and messages prepared for review. WhatsApp Web's call interface can also be used in the HUD if the service and Qt WebEngine are compatible; the user answers and ends calls in that interface, after granting microphone or camera access when requested.
 - Option to start minimized at Windows or Linux login and remain in the system tray. A per-user lock prevents duplicate instances from competing for the microphone or memory.
-- Optional double-clap shortcut to toggle full screen. Detection runs locally, requires explicit activation, and keeps the microphone open while enabled.
 - Tool for proposing changes to its own source: select a module, ask Gemini for a proposal, review the complete file, and confirm twice before writing. Syntax is checked, a backup is created before replacement, and a saved version can be restored from the interface.
 
 ### Requirements
@@ -203,7 +202,7 @@ Copyright **(c) 2026 Matheus Moreira**. Third-party models and services keep the
 
 API use is subject to each provider's limits, availability, terms, and any charges. Gemini 3.8 Flash offers free use within Google's published free quota, but Google Search grounding is not included in the free tier. Check the [official pricing page](https://ai.google.dev/gemini-api/docs/pricing) and provider dashboards before using paid features.
 
-- The Command Center shows current provider, microphone, screen, media, and memory states, with gentle page transitions and a pulsing core.
+- The Command Center shows microphone, screen, and memory state with gentle animation. The player opens only when requested in its own window and no longer occupies a permanent tab.
 - Say or type play [artist or track] or search YouTube [query] to open official YouTube results in the HUD. The player supports a floating window, compact mode, and full screen.
 
 ### Easy Windows installation
@@ -282,7 +281,6 @@ The app does not read messages or send without the user's final action. For call
 
 - For text or voice conversations, Gemini receives the current message and recent context. After the local “Jarvis” check, command audio is sent to Gemini for transcription.
 - On-demand captures and action proposals send the image and current request to Gemini when requested; they do not include conversation history. Continuous vision sends frames and analysis prompts to Gemini Live only while it is enabled. Captures are not saved to SQLite.
-- Clap detection analyzes audio locally and does not record or transmit microphone blocks.
 - By default, up to 12 relevant or recent memories and up to 12 future reminders are included in text or spoken chat context. Turn off “Incluir lembranças salvas no contexto enviado à IA” in Settings to keep them local. SQLite history and memories are not encrypted.
 - API keys and contacts are stored in the user's credential vault. OAuth tokens and settings are stored in private application-data folders outside the repository.
 - SQLite history stays on the computer and is not encrypted; on Linux/macOS, JARVIS restricts file and directory permissions to the current account. On Windows, it uses the current user's application-data folder.
@@ -308,11 +306,11 @@ python -m jarvis
 
 Com a chave Gemini configurada, a escuta e a visão iniciam automaticamente. Diga apenas “Jarvis” e seu pedido. No primeiro uso, o JARVIS baixa o [modelo pequeno de português do Vosk](https://alphacephei.com/vosk/models), sob licença Apache 2.0. Ele filtra o nome localmente e envia ao Gemini apenas comandos detectados. Se não reconhecer o nome, o comando não será enviado; teste com seu microfone. Para desligar, peça “Jarvis, desligar microfone” ou “Jarvis, desligar visão”; a escolha é lembrada nas próximas aberturas.
 
-O microfone e a visão podem ser desligados por comando de voz ou nas Configurações. Essa preferência permanece após reiniciar o aplicativo. As chaves e o provedor são gerenciados somente nas Configurações.
+O microfone e a visão podem ser desligados por comando de voz ou nas Configurações. Essa preferência permanece após reiniciar o aplicativo. A chave Gemini é gerenciada somente nas Configurações.
 
 Crie ações rápidas em Configurações. Cada frase configurada chama o mesmo despachante de comandos locais do aplicativo, preservando suas confirmações e validações.
 
-Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.8.0`.
+Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.9.0`.
 
 O atualizador guarda um histórico curto dos pacotes que ele próprio validou. A partir da segunda atualização baixada pelo aplicativo, **Restaurar instalador anterior verificado** permite executar o pacote anterior somente se seu SHA-256 continuar intacto.
 
@@ -323,11 +321,11 @@ O único modo de chamada é “Jarvis”, reconhecido localmente pelo Vosk.
 
 With the Gemini key configured, listening and vision start automatically. Say “Jarvis” and your request. On first use, JARVIS downloads the [small Portuguese Vosk model](https://alphacephei.com/vosk/models), licensed under Apache 2.0. It filters the name locally and sends only detected commands to Gemini. If it misses the name, the command is not sent; test it with your microphone. To stop, say “Jarvis, desligar microfone” or “Jarvis, desligar visão”; the choice persists across launches.
 
-Turn the microphone or vision off by voice command or in Settings. This preference survives app restarts. API keys and the chat provider are managed in Settings.
+Turn the microphone or vision off by voice command or in Settings. This preference survives app restarts. The Gemini key is managed only in Settings.
 
 Create, use and remove configurable quick actions in Settings. Each phrase calls the app’s existing local command dispatcher, preserving its checks and confirmations.
 
-To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.8.0.
+To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.9.0.
 
 The updater keeps a short history of packages it verified itself. Starting with the second in-app download, **Restore previous verified installer** can run the preceding package only while its saved SHA-256 remains valid.
 
@@ -359,7 +357,7 @@ Say “Jarvis, [command]” or “Jarvis” and your command in the next phrase.
 - Novo núcleo visual, indicadores reais no painel, redução de animações, favoritos e fila de mídia, rotinas configuráveis, lembretes recorrentes e importação de eventos `.ics` com aviso um dia antes.
 - O código da resposta, tema, rotinas, calendário, mídia e detecção local foi separado em módulos. Testes de regressão cobrem as novidades.
 
-Para usar essas ferramentas, abra **Configurações** e escolha a tela observada. Em **Mostrar recursos opcionais**, crie uma rotina com uma frase e de 1 a 8 comandos locais ou importe um calendário `.ics`. **Ver lembranças e lembretes** pesquisa conteúdos antigos. Em **Mídia**, use **☆ Salvar**, **+ Fila** e **Próxima**. Arquivos `.ics` com regras de repetição complexas são importados apenas pela ocorrência explícita no arquivo; exporte as ocorrências futuras separadamente se precisar de todas.
+Para usar essas ferramentas, abra **Configurações** e escolha a tela observada. Em **Mostrar recursos opcionais**, crie uma rotina com uma frase e de 1 a 8 comandos locais ou importe um calendário `.ics`. **Ver lembranças e lembretes** pesquisa conteúdos antigos. O player do YouTube abre em uma janela quando você pede uma música. Arquivos `.ics` com regras de repetição complexas são importados apenas pela ocorrência explícita no arquivo; exporte as ocorrências futuras separadamente se precisar de todas.
 
 ## Version 0.6.0 · voice, memory and HUD
 
@@ -482,3 +480,27 @@ The main settings are reduced to connection, voice and control, appearance, and 
 - Improves reply cancellation, TTS shutdown, panic mode, and safe application exit.
 - Keeps memory search synchronized and rejects excessively large SQLite backups.
 - Expands the suite to 38 tests and smoke-tests the packaged app before creating the installer.
+
+## Versão 0.9.0 · menu enxuto e execução sob demanda
+
+- Remove completamente a detecção por palmas e suas preferências antigas.
+- Remove a aba Mídia; músicas continuam abrindo em uma janela flutuante por comando.
+- Cria o player e o navegador do YouTube somente no primeiro pedido de mídia.
+- Carrega as vozes instaladas no Windows em segundo plano, sem atrasar o HUD.
+- Faz o perfil Restrito bloquear também comandos de voz enviados à nuvem.
+- Limita a autoalteração do código a cópias iniciadas explicitamente em modo desenvolvedor.
+- Cancela imediatamente a tarefa assíncrona da visão contínua durante o encerramento.
+- Remove o seletor interno de provedor e mantém a configuração exclusiva para Gemini.
+- Amplia a suíte para 40 testes automatizados.
+
+## Version 0.9.0 · lean menu and on-demand startup
+
+- Completely removes clap detection and its legacy preferences.
+- Removes the Media tab; music still opens in a floating window by command.
+- Creates the player and YouTube browser only on the first media request.
+- Loads installed Windows voices in the background without delaying the HUD.
+- Makes Restricted mode block cloud voice commands as well.
+- Limits source self-modification to checkouts explicitly started in developer mode.
+- Immediately cancels the continuous-vision async task during shutdown.
+- Removes the internal provider selector and keeps Gemini-only configuration.
+- Expands the suite to 40 automated tests.

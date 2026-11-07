@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import difflib
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -16,8 +17,10 @@ BACKUP_ROOT = user_data_path("JarvisAI", "Matheus") / "source-backups"
 
 
 def source_editing_available() -> bool:
-    """Return true only when JARVIS is running from an editable source checkout."""
-    return not getattr(sys, "frozen", False) and (SOURCE_ROOT / "app.py").is_file()
+    """Expose source editing only in an explicitly enabled development checkout."""
+    developer_mode = os.environ.get("JARVIS_DEVELOPER_MODE", "").strip() == "1"
+    return (developer_mode and not getattr(sys, "frozen", False)
+            and (SOURCE_ROOT / "app.py").is_file())
 
 
 def proposal_diff(path: str, proposed_content: str) -> str:

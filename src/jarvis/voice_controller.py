@@ -5,6 +5,7 @@ from . import memory
 from .settings import get_secret, load_settings, save_settings
 from .voice_worker import VoiceActivationWorker
 from .assistant_state import AssistantState, set_window_state
+from .privacy import normalized_profile
 
 
 class VoiceControllerMixin:
@@ -22,6 +23,16 @@ class VoiceControllerMixin:
                 self.voice_state.setText("Microfone desligado")
             self.voice_activation_button.setText("Voz: Ativada" if enabled else "Voz: Desativada")
             return
+        if normalized_profile(load_settings()) == "restricted":
+            save_settings({**load_settings(), "voice_activation_enabled": False,
+                           "hands_free_enabled": False})
+            self.voice_activation_button.blockSignals(True)
+            self.voice_activation_button.setChecked(False)
+            self.voice_activation_button.blockSignals(False)
+            self.voice_activation_button.setText("Voz: Desativada")
+            self.error(
+                "O perfil Restrito não envia áudio à nuvem. Mude o perfil para usar comandos de voz.")
+            return
         if not get_secret("gemini"):
             save_settings({**load_settings(), "voice_activation_enabled": False, "hands_free_enabled": False})
             self.voice_activation_button.blockSignals(True)
@@ -33,7 +44,6 @@ class VoiceControllerMixin:
         if self.voice_activation_worker and self.voice_activation_worker.isRunning():
             self.voice_activation_worker.resume()
             return
-        self._stop_clap_worker()
         self.voice_activation_button.setText("Voz: Ativada")
         self.voice_state.setText("Abrindo microfone…")
         worker = VoiceActivationWorker(mode="jarvis_local")

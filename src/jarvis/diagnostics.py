@@ -14,8 +14,8 @@ from .runtime_health import collect_runtime_health
 
 SAFE_SETTING_KEYS = (
     "hands_free_enabled", "live_vision_enabled", "reduce_motion",
-    "share_long_term_memory", "clap_enabled", "screen_monitor",
-    "activation_mode", "provider", "setup_completed", "tts_engine",
+    "share_long_term_memory", "screen_monitor",
+    "activation_mode", "setup_completed", "tts_engine",
     "privacy_profile",
 )
 

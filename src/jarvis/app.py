@@ -13,11 +13,9 @@ from PySide6.QtWidgets import (QApplication, QDialog, QFormLayout, QLineEdit, QL
                                QMainWindow, QPushButton, QTextEdit, QVBoxLayout, QWidget,
                                QMessageBox, QHBoxLayout, QFileDialog, QComboBox)
 from PySide6.QtWidgets import (QCheckBox, QTextBrowser, QSystemTrayIcon, QMenu, QStyle,
-                               QStackedWidget, QTabWidget, QScrollArea, QFrame)
+                               QTabWidget, QScrollArea, QFrame)
 from PySide6.QtWidgets import QInputDialog, QPlainTextEdit
 from PySide6.QtWidgets import QDialogButtonBox
-from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
-from PySide6.QtMultimediaWidgets import QVideoWidget
 
 from . import memory, __version__
 from .settings import get_secret, save_secret, load_settings, save_settings
@@ -28,7 +26,6 @@ from .reminders import parse_reminder_request
 from .routines import validate_routine
 from .calendar_import import import_events
 from .autostart import set_enabled
-from .claps import ClapWorker
 from .setup_wizard import SetupDialog
 from .updater import UpdateDownloadWorker, UpdateWorker
 from .memory_ui import MemoryManagerDialog
@@ -91,7 +88,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         settings_button = QPushButton("⚙")
         settings_button.setObjectName("roundCommand")
         settings_button.setToolTip("Abrir configurações")
-        settings_button.clicked.connect(lambda: self.tabs.setCurrentIndex(3))
+        settings_button.clicked.connect(lambda: self.tabs.setCurrentIndex(2))
         topbar.addWidget(settings_button)
         main_layout.addLayout(topbar)
         layout.addWidget(main_area, 1)
@@ -103,7 +100,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         dock_layout.setContentsMargins(12, 6, 12, 6); dock_layout.setSpacing(8)
         dock_layout.addStretch(1)
         self.nav_buttons = []
-        for index, label in enumerate(("NÚCLEO", "CONVERSA", "MÍDIA")):
+        for index, label in enumerate(("NÚCLEO", "CONVERSA")):
             nav = QPushButton(label); nav.setObjectName("dockCommand"); nav.setCheckable(True)
             nav.clicked.connect(lambda checked=False, index=index: self.tabs.setCurrentIndex(index))
             dock_layout.addWidget(nav); self.nav_buttons.append(nav)
@@ -230,73 +227,11 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         assistant_layout.addLayout(chat_row)
         self.tabs.addTab(assistant_page, "Assistente")
 
-        self.media_panel = QWidget(); media_layout = QVBoxLayout(self.media_panel)
-        media_layout.setContentsMargins(20, 18, 20, 18); media_layout.setSpacing(12)
-        media_header = QHBoxLayout()
-        media_header.addWidget(QLabel("MÍDIA · arquivos, URLs e YouTube"))
-        self.media_title = QLabel("YouTube pronto para buscar")
-        media_header.addWidget(self.media_title, 1)
-        self.media_window_button = QPushButton("Janela flutuante")
-        self.media_window_button.clicked.connect(self.open_mini_player)
-        media_header.addWidget(self.media_window_button)
-        self.media_fullscreen_button = QPushButton("Tela cheia")
-        self.media_fullscreen_button.clicked.connect(self.toggle_media_fullscreen)
-        media_header.addWidget(self.media_fullscreen_button)
-        self.compact_button = QPushButton("Recolher controles")
-        self.compact_button.clicked.connect(self.toggle_compact_media)
-        media_header.addWidget(self.compact_button); media_layout.addLayout(media_header)
-        self.media_view = QStackedWidget(self.media_panel)
-        self.media_idle = QLabel("Escolha um arquivo, URL ou pesquise uma música no YouTube.")
-        self.media_idle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.video_widget = QVideoWidget(self.media_view); self.video_widget.setMinimumHeight(260)
-        # Chromium is expensive to start. The YouTube view is created only when
-        # somebody actually asks for media, keeping normal HUD startup lighter.
+        # O player é criado somente no primeiro comando de mídia; não há aba
+        # permanente nem custo de Qt Multimedia durante a abertura normal.
+        self._media_initialized = False
         self.youtube_view = None
-        self.youtube_profile = None
-        self.youtube_status_timer = QTimer(self)
-        self.youtube_status_timer.setInterval(1000)
-        self.youtube_status_timer.timeout.connect(self._poll_youtube_status)
         self.mini_player_dialog = None
-        self._last_auto_advanced_url = ""
-        self.media_view.addWidget(self.media_idle)
-        self.media_view.addWidget(self.video_widget)
-        media_layout.addWidget(self.media_view, 1)
-        self.media_controls = QWidget(); media_controls_layout = QHBoxLayout(self.media_controls)
-        self.media_source = QLineEdit(); self.media_source.setPlaceholderText("URL ou nome da música no YouTube")
-        media_controls_layout.addWidget(self.media_source, 1)
-        file_button = QPushButton("Arquivo…"); file_button.clicked.connect(self.open_media_file)
-        media_controls_layout.addWidget(file_button)
-        play_button = QPushButton("Tocar / buscar"); play_button.clicked.connect(self.play_media)
-        media_controls_layout.addWidget(play_button)
-        pause_button = QPushButton("Pausar"); pause_button.clicked.connect(self.pause_media)
-        media_controls_layout.addWidget(pause_button)
-        download_button = QPushButton("Baixar áudio…"); download_button.clicked.connect(self.download_media)
-        media_controls_layout.addWidget(download_button); media_layout.addWidget(self.media_controls)
-        library_row = QHBoxLayout()
-        self.favorite_picker = QComboBox()
-        self.favorite_picker.setMinimumWidth(180)
-        library_row.addWidget(self.favorite_picker, 1)
-        favorite_play = QPushButton("Abrir favorito")
-        favorite_play.clicked.connect(self.play_selected_favorite)
-        library_row.addWidget(favorite_play)
-        favorite_save = QPushButton("☆ Salvar")
-        favorite_save.clicked.connect(self.save_media_favorite)
-        library_row.addWidget(favorite_save)
-        add_queue = QPushButton("+ Fila")
-        add_queue.clicked.connect(self.add_media_queue)
-        library_row.addWidget(add_queue)
-        self.next_media_button = QPushButton("Próxima · 0")
-        self.next_media_button.clicked.connect(self.play_next_media)
-        library_row.addWidget(self.next_media_button)
-        media_layout.addLayout(library_row)
-        self._refresh_media_library()
-        self.tabs.addTab(self.media_panel, "Mídia")
-        self.player = QMediaPlayer(self); self.audio_output = QAudioOutput(self)
-        self.player.setAudioOutput(self.audio_output)
-        self.player.setVideoOutput(self.video_widget)
-        self.player.playbackStateChanged.connect(self._local_media_state_changed)
-        self.player.mediaStatusChanged.connect(self._local_media_status_changed)
-        self.player.errorOccurred.connect(lambda *_: self.media_title.setText("Falha ao abrir mídia"))
 
         settings_scroll = QScrollArea(); settings_scroll.setWidgetResizable(True)
         settings_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -365,14 +300,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         voice_card.addLayout(voice_row)
         self.voice_picker = QComboBox()
         self.voice_picker.addItem("Voz automática (português)", "")
-        try:
-            from .tts import available_system_voices
-            for voice_id, voice_name in available_system_voices():
-                self.voice_picker.addItem(voice_name, voice_id)
-        except Exception:
-            pass
-        selected_voice = self.voice_picker.findData(load_settings().get("voice_id", ""))
-        self.voice_picker.setCurrentIndex(max(0, selected_voice))
+        self.voice_picker.setToolTip("As vozes instaladas no Windows são carregadas em segundo plano.")
         voice_card.addWidget(QLabel("Voz do sistema"))
         voice_card.addWidget(self.voice_picker)
         self.computer_control_checkbox = QCheckBox("Controle do computador: desativado")
@@ -541,8 +469,8 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
             modify_source.hide()
             restore_source.hide()
             source_note = QLabel(
-                "Alterações do próprio código ficam disponíveis somente ao executar "
-                "o projeto pelo código-fonte, não no instalador compilado.")
+                "Alterações do próprio código ficam disponíveis somente em uma cópia "
+                "de desenvolvimento iniciada com JARVIS_DEVELOPER_MODE=1.")
             source_note.setObjectName("settingsCardNote")
             advanced_layout.addWidget(source_note)
         advanced_card.hide()
@@ -574,7 +502,6 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
                 "<p style='color:#7f91aa'>As conversas ficam na memória local. Comandos que "
                 "alteram o computador pedem confirmação antes de agir.</p></div>"
             )
-        self.clap_worker = None
         self.voice_activation_worker = None
         self.installed_apps_cache = None
         self._refresh_privacy_indicators()
@@ -590,12 +517,11 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self._quit_requested = False
         self._waiting_for_workers = False
         self.background_workers: set[QThread] = set()
+        self.voice_catalog_worker = None
         self.tray_icon = None
         if QSystemTrayIcon.isSystemTrayAvailable():
             self._create_tray_icon()
-        # A detecção de palmas não faz parte do fluxo público do aplicativo.
         settings = load_settings()
-        settings["clap_enabled"] = False
         settings["activation_mode"] = "jarvis_local"
         settings.setdefault("computer_control_enabled", True)
         settings["tts_engine"] = "system"
@@ -611,11 +537,33 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self._refresh_memory_map()
         QTimer.singleShot(1200, self._check_due_reminders)
         QTimer.singleShot(1600, self._show_startup_health)
+        QTimer.singleShot(250, self._start_voice_catalog)
         if settings["hands_free_enabled"] and get_secret("gemini"):
             QTimer.singleShot(500, lambda: self.voice_activation_button.setChecked(True))
         if settings["live_vision_enabled"] and get_secret("gemini"):
             QTimer.singleShot(900, lambda: (self.live_vision_button.setChecked(True),
                                            self.toggle_live_vision(True)))
+
+    def _start_voice_catalog(self):
+        """Populate the voice selector without delaying the main window startup."""
+        if self.voice_catalog_worker and self.voice_catalog_worker.isRunning():
+            return
+        from .voice_catalog import VoiceCatalogWorker
+        worker = VoiceCatalogWorker(self)
+        self.voice_catalog_worker = worker
+        self._track_worker(worker)
+        worker.completed.connect(self._voice_catalog_ready)
+        worker.start()
+
+    def _voice_catalog_ready(self, voices: list):
+        selected_id = str(load_settings().get("voice_id", ""))
+        known = {self.voice_picker.itemData(index)
+                 for index in range(self.voice_picker.count())}
+        for voice_id, voice_name in voices:
+            if voice_id not in known:
+                self.voice_picker.addItem(voice_name, voice_id)
+        selected_index = self.voice_picker.findData(selected_id)
+        self.voice_picker.setCurrentIndex(max(0, selected_index))
 
     def _show_startup_health(self):
         """Surface missing local components without opening devices or making network calls."""
@@ -638,7 +586,8 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
             live_vision_enabled = bool(existing_settings.get("live_vision_enabled", True))
             if privacy_profile == "restricted":
                 live_vision_enabled = False
-            save_settings({**existing_settings, "provider": "gemini",
+            existing_settings.pop("provider", None)
+            save_settings({**existing_settings,
                            "privacy_profile": privacy_profile,
                            "share_long_term_memory": share_memory,
                            "live_vision_enabled": live_vision_enabled,
@@ -672,6 +621,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         if profile == "restricted":
             self.computer_control_checkbox.setChecked(False)
             self.share_memory_checkbox.setChecked(False)
+            self.voice_activation_button.setChecked(False)
         elif profile == "connected":
             self.computer_control_checkbox.setChecked(True)
             self.share_memory_checkbox.setChecked(True)
@@ -928,7 +878,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
 
     def _update_navigation(self, index: int):
         """Mantém a central inferior e o título sincronizados com a área ativa."""
-        labels = ("NÚCLEO", "CONVERSA", "MÍDIA", "CONFIGURAÇÕES")
+        labels = ("NÚCLEO", "CONVERSA", "CONFIGURAÇÕES")
         for position, button in enumerate(self.nav_buttons):
             button.setChecked(position == index)
         if 0 <= index < len(labels):
@@ -1323,49 +1273,6 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         except Exception as exc:
             self.error(str(exc))
 
-    def toggle_clap_detection(self, enabled: bool):
-        if enabled:
-            answer = QMessageBox.warning(
-                self, "Escuta local por palmas",
-                "Enquanto ativado, o microfone permanece aberto e o áudio é analisado localmente para detectar duas palmas. O áudio ambiente não é salvo nem enviado. Ativar?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No)
-            if answer != QMessageBox.StandardButton.Yes:
-                self.clap_button.setChecked(False)
-                return
-            save_settings({**load_settings(), "clap_enabled": True})
-            self._start_clap_worker()
-        else:
-            save_settings({**load_settings(), "clap_enabled": False})
-            self._stop_clap_worker()
-
-    def _start_clap_worker(self):
-        if self.clap_worker and self.clap_worker.isRunning(): return
-        self.clap_worker = ClapWorker()
-        self.clap_worker.double_clap.connect(self._toggle_fullscreen)
-        self.clap_worker.error.connect(self._clap_error)
-        self.clap_worker.start()
-        self.status.setText("Escutando palmas localmente · microfone aberto")
-
-    def _stop_clap_worker(self):
-        worker = self.clap_worker
-        if worker and worker.isRunning():
-            worker.stop(); worker.wait(2000)
-        self.clap_worker = None
-
-    def _resume_clap_worker(self):
-        button = getattr(self, "clap_button", None)
-        if button is not None and button.isChecked():
-            self._start_clap_worker()
-
-    def _clap_error(self, message: str):
-        button = getattr(self, "clap_button", None)
-        if button is not None:
-            button.setChecked(False)
-        save_settings({**load_settings(), "clap_enabled": False})
-        self.status.setText("Detecção de palmas desativada")
-        QMessageBox.warning(self, "Microfone indisponível", message)
-
     def _toggle_fullscreen(self):
         if self.isFullScreen(): self.showNormal()
         else: self.showFullScreen()
@@ -1438,7 +1345,6 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
                     worker.finished.connect(self._close_after_background_workers)
             event.ignore()
             return
-        self._stop_clap_worker()
         self._stop_screen_preview()
         self._pause_voice_activation()
         if self.tray_icon:

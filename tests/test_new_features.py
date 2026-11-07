@@ -2,6 +2,7 @@
 import tempfile
 import unittest
 import sqlite3
+import importlib.util
 import hashlib
 import json
 import re
@@ -31,6 +32,7 @@ from jarvis.logging_config import redact
 from jarvis.smoke_test import run_smoke_test
 from jarvis.privacy import (computer_control_allowed, live_vision_allowed,
                             memory_sharing_allowed, normalized_profile)
+from jarvis import self_modify
 
 
 class NewFeatureTests(unittest.TestCase):
@@ -144,6 +146,19 @@ class NewFeatureTests(unittest.TestCase):
             timeout=30,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_removed_features_do_not_return_to_the_main_menu(self):
+        root = Path(__file__).resolve().parents[1]
+        app_source = (root / "src" / "jarvis" / "app.py").read_text(encoding="utf-8")
+        self.assertNotIn('addTab(self.media_panel', app_source)
+        self.assertNotIn('"MÍDIA"))', app_source)
+        self.assertIsNone(importlib.util.find_spec("jarvis.claps"))
+
+    def test_source_editing_requires_explicit_developer_mode(self):
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertFalse(self_modify.source_editing_available())
+        with patch.dict("os.environ", {"JARVIS_DEVELOPER_MODE": "1"}, clear=True):
+            self.assertTrue(self_modify.source_editing_available())
 
     def test_packaged_smoke_test_imports_core_subsystems(self):
         run_smoke_test()

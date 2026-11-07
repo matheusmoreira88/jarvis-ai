@@ -21,8 +21,16 @@ from .settings import load_settings
 class MediaControllerMixin:
     """Give the main window media behavior without owning its visual construction."""
 
+    def _ensure_media_player(self):
+        if getattr(self, "_media_initialized", False):
+            return
+        from .media_ui import build_media_player
+        build_media_player(self)
+        self._media_initialized = True
+
     def _ensure_youtube_view(self):
         """Create Chromium only on first YouTube use to keep startup responsive."""
+        self._ensure_media_player()
         if self.youtube_view is not None:
             return self.youtube_view
         from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
@@ -52,6 +60,7 @@ class MediaControllerMixin:
         command = parse_media_command(prompt)
         if command is None:
             return False
+        self._ensure_media_player()
         if command.action == "pause":
             self.pause_media()
             return True
@@ -59,7 +68,7 @@ class MediaControllerMixin:
             self.play_next_media()
             return True
         if command.action == "fullscreen":
-            if self.tabs.currentIndex() == 2 or self.mini_player_dialog:
+            if self.youtube_view is not None or self.mini_player_dialog:
                 self.toggle_media_fullscreen()
             return True
         if command.action == "minimize":
@@ -72,8 +81,7 @@ class MediaControllerMixin:
             self.open_mini_player()
             return True
         self.search_youtube_in_hud(command.query)
-        if command.window:
-            QTimer.singleShot(1400, self.open_mini_player)
+        QTimer.singleShot(1400, self.open_mini_player)
         if command.fullscreen:
             QTimer.singleShot(1800, self.toggle_media_fullscreen)
         if command.minimized:
@@ -82,8 +90,8 @@ class MediaControllerMixin:
 
     def search_youtube_in_hud(self, query: str):
         """Loads official YouTube search results inside the media page of the HUD."""
+        self._ensure_media_player()
         self.media_source.setText(query)
-        self.tabs.setCurrentIndex(2)
         if query.strip():
             search_url = QUrl("https://www.youtube.com/results")
             params = QUrlQuery(); params.addQueryItem("search_query", query.strip())
@@ -204,6 +212,7 @@ class MediaControllerMixin:
 
     def open_mini_player(self):
         """Moves the active YouTube page into a small floating window without restarting it."""
+        self._ensure_media_player()
         if self.mini_player_dialog:
             self.mini_player_dialog.showNormal()
             self.mini_player_dialog.raise_()

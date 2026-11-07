@@ -74,7 +74,7 @@ class SetupDialog(QWizard):
             "• O áudio reconhecido é enviado ao Gemini para transcrição.\n"
             "• A visão envia imagens somente enquanto estiver ativada.\n"
             "• Conversas, lembranças e lembretes ficam no SQLite local.\n"
-            "• O botão INTERROMPER desliga microfone, visão e palmas imediatamente.\n\n"
+            "• O botão INTERROMPER desliga microfone, visão e controle imediatamente.\n\n"
             '<a href="https://github.com/matheusmoreira88/jarvis-ai/blob/main/PRIVACY.txt">'
             "Leia as informações completas de privacidade</a>.")
         privacy_text.setOpenExternalLinks(True)
@@ -98,7 +98,9 @@ class SetupDialog(QWizard):
             return
         try:
             save_secret("gemini", self.gemini.text())
-            save_settings({**load_settings(), "provider": "gemini", "setup_completed": True})
+            settings = load_settings()
+            settings.pop("provider", None)
+            save_settings({**settings, "setup_completed": True})
             super().accept()
         except Exception as exc:
             QMessageBox.warning(
