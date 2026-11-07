@@ -14,6 +14,7 @@ DB_FILE = user_data_path("JarvisAI", "Matheus") / "memory.sqlite3"
 _initialized: set[str] = set()
 _schema_lock = threading.Lock()
 REQUIRED_TABLES = {"messages", "long_term_memory", "reminders"}
+MAX_BACKUP_SIZE_BYTES = 512 * 1024 * 1024
 
 
 def _initialize(db: sqlite3.Connection) -> None:
@@ -175,7 +176,7 @@ def import_database(source: str | Path) -> Path | None:
     if not incoming.is_file() or incoming == DB_FILE.resolve():
         raise ValueError("Escolha um arquivo de backup SQLite diferente do banco atual.")
     # Evita importar acidentalmente um arquivo gigantesco para a memória local.
-    if incoming.stat().st_size > 512 * 1024 * 1024:
+    if incoming.stat().st_size > MAX_BACKUP_SIZE_BYTES:
         raise ValueError("O backup excede o limite seguro de 512 MB.")
     with closing(sqlite3.connect(
             f"file:{incoming.as_posix()}?mode=ro", uri=True)) as candidate:

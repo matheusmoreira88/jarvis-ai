@@ -273,8 +273,7 @@ class NewFeatureTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             source = Path(folder) / "huge.sqlite3"
             source.write_bytes(b"x")
-            with patch.object(memory.Path, "stat") as stat:
-                stat.return_value.st_size = 513 * 1024 * 1024
+            with patch.object(memory, "MAX_BACKUP_SIZE_BYTES", 0):
                 with self.assertRaises(ValueError):
                     memory.import_database(source)
 
