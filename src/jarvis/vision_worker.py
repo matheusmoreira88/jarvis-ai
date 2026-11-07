@@ -30,61 +30,37 @@ class LiveVisionWorker(QThread):
     async def _stream(self, genai, types, api_key: str | None):
         """Envia imagens pela sessão Live e renova a sessão antes do limite de duração."""
         import asyncio
-        import sounddevice as sd
-
         if not api_key:
             raise RuntimeError("Configure a chave Gemini para usar visão contínua.")
         client = genai.Client(api_key=api_key)
-        audio_output = None
-        audio_error_reported = False
         frames_sent = 0
         try:
             while self._active:
                 async with client.aio.live.connect(
                     model=GEMINI_LIVE_VISION_MODEL,
                     config={
-                        "response_modalities": ["AUDIO"],
-                        "output_audio_transcription": {},
+                        # A visão contínua é silenciosa. O TTS só deve falar
+                        # quando o usuário pedir uma resposta, nunca por causa
+                        # de uma observação automática da tela.
+                        "response_modalities": ["TEXT"],
                         "system_instruction": system_prompt(),
                     },
                 ) as session:
                     async def receive_updates():
-                        nonlocal audio_output, audio_error_reported
                         async for message in session.receive():
                             if not self._active:
                                 break
                             content = getattr(message, "server_content", None)
                             transcript = getattr(content, "output_transcription", None) if content else None
                             text = getattr(transcript, "text", "").strip() if transcript else ""
+                            if not text and content:
+                                model_turn = getattr(content, "model_turn", None)
+                                for part in (getattr(model_turn, "parts", ()) if model_turn else ()):
+                                    candidate = getattr(part, "text", "") or ""
+                                    if candidate.strip():
+                                        text += candidate
                             if text:
-                                self.observation.emit(text)
-                            model_turn = getattr(content, "model_turn", None) if content else None
-                            for part in (getattr(model_turn, "parts", ()) if model_turn else ()):
-                                audio = getattr(part, "inline_data", None)
-                                data = getattr(audio, "data", None) if audio else None
-                                if data and audio_output is not False:
-                                    try:
-                                        if audio_output is None:
-                                            audio_output = sd.RawOutputStream(
-                                                samplerate=24_000, channels=1, dtype="int16")
-                                            audio_output.start()
-                                        # Este worker já roda fora da UI; a escrita bloqueante não congela o HUD.
-                                        audio_output.write(data)
-                                    except Exception as exc:
-                                        if audio_output is not None:
-                                            try:
-                                                audio_output.stop()
-                                            except Exception:
-                                                pass
-                                            try:
-                                                audio_output.close()
-                                            except Exception:
-                                                pass
-                                        audio_output = False
-                                        if not audio_error_reported:
-                                            self.failed.emit(
-                                                f"Não foi possível reproduzir a voz da Gemini Live: {exc}")
-                                            audio_error_reported = True
+                                self.observation.emit(text.strip())
 
                     receiver = asyncio.create_task(receive_updates())
                     try:
@@ -116,14 +92,7 @@ class LiveVisionWorker(QThread):
                     await asyncio.sleep(0.2)
         finally:
             record_api_usage("live_vision_frames", frames_sent)
-            try:
-                if audio_output not in (None, False):
-                    try:
-                        audio_output.stop()
-                    finally:
-                        audio_output.close()
-            finally:
-                await client.aio.aclose()
+            await client.aio.aclose()
 
     def stop(self):
         self._active = False

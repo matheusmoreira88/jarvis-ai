@@ -43,6 +43,11 @@ def _initialize(db: sqlite3.Connection) -> None:
         CREATE TRIGGER IF NOT EXISTS memory_search_insert AFTER INSERT ON long_term_memory BEGIN
             INSERT INTO memory_search(rowid, title, body) VALUES (new.id, new.title, new.body);
         END;
+        CREATE TRIGGER IF NOT EXISTS memory_search_update AFTER UPDATE ON long_term_memory BEGIN
+            INSERT INTO memory_search(memory_search, rowid, title, body)
+            VALUES ('delete', old.id, old.title, old.body);
+            INSERT INTO memory_search(rowid, title, body) VALUES (new.id, new.title, new.body);
+        END;
         CREATE TRIGGER IF NOT EXISTS memory_search_delete AFTER DELETE ON long_term_memory BEGIN
             INSERT INTO memory_search(memory_search, rowid, title, body)
             VALUES ('delete', old.id, old.title, old.body);
@@ -146,6 +151,9 @@ def import_database(source: str | Path) -> Path | None:
     incoming = Path(source).resolve()
     if not incoming.is_file() or incoming == DB_FILE.resolve():
         raise ValueError("Escolha um arquivo de backup SQLite diferente do banco atual.")
+    # Evita importar acidentalmente um arquivo gigantesco para a memória local.
+    if incoming.stat().st_size > 512 * 1024 * 1024:
+        raise ValueError("O backup excede o limite seguro de 512 MB.")
     with closing(sqlite3.connect(
             f"file:{incoming.as_posix()}?mode=ro", uri=True)) as candidate:
         tables = {row[0] for row in candidate.execute(

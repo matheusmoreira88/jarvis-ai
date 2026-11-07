@@ -45,7 +45,11 @@ class ReplyWorker(QThread):
         self.stop_event = Event()
 
     def stop_recording(self):
-        """Ask a voice capture to finish now; other worker modes ignore this signal."""
+        """Stop recording or ask an in-flight response to finish promptly."""
+        self.stop_event.set()
+
+    def stop(self):
+        """Compatibility helper used by the controller during shutdown."""
         self.stop_event.set()
 
     def _speak_queue(self, fragments):
@@ -98,6 +102,8 @@ class ReplyWorker(QThread):
             speech_pending = ""
             try:
                 for part in stream_assistant(prompt, self.history, self.search_web):
+                    if self.stop_event.is_set():
+                        raise RuntimeError("Resposta interrompida pelo usuário.")
                     answer_parts.append(part)
                     self.partial_text.emit(part)
                     if speech_queue is not None:
@@ -122,6 +128,7 @@ class ReplyWorker(QThread):
                 if speech_queue is not None:
                     speech_queue.put(None)
                 if speech_thread is not None:
-                    speech_thread.join(timeout=60)
+                    # Nunca bloqueie o encerramento da janela esperando o TTS.
+                    speech_thread.join(timeout=2)
         except Exception as exc:
             self.failed.emit(str(exc))

@@ -225,6 +225,27 @@ class NewFeatureTests(unittest.TestCase):
                 memory.delete_saved_item("memory", old_id)
                 self.assertNotIn("matemática", " ".join(memory.context_for_ai("planejamento escolar")))
 
+    def test_memory_search_stays_in_sync_after_an_update(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(memory, "DB_FILE", Path(folder) / "memory.sqlite3"):
+                item_id = memory.save_memory("Projeto", "texto antigo")
+                with memory._connection() as db:
+                    db.execute(
+                        "UPDATE long_term_memory SET title = ?, body = ? WHERE id = ?",
+                        ("Projeto atualizado", "texto novo", item_id),
+                    )
+                self.assertIn("texto novo", " ".join(memory.context_for_ai("texto novo")))
+                self.assertNotIn("texto antigo", " ".join(memory.context_for_ai("texto antigo")))
+
+    def test_memory_import_rejects_unreasonably_large_backups(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "huge.sqlite3"
+            source.write_bytes(b"x")
+            with patch.object(memory.Path, "stat") as stat:
+                stat.return_value.st_size = 513 * 1024 * 1024
+                with self.assertRaises(ValueError):
+                    memory.import_database(source)
+
     def test_calendar_import_schedules_previous_day_and_skips_old_event(self):
         now = datetime(2026, 10, 31, 10, tzinfo=timezone.utc)
         sample = ("BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Prova de matemática\n"
