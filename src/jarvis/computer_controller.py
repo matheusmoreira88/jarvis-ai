@@ -247,10 +247,6 @@ class ComputerControllerMixin:
             self.live_vision_button.setChecked(False)
             self.live_vision_button.blockSignals(False)
             self.toggle_live_vision(False)
-        if getattr(self, "clap_button", None):
-            self.clap_button.blockSignals(True)
-            self.clap_button.setChecked(False)
-            self.clap_button.blockSignals(False)
         self._stop_clap_worker()
         self._stop_screen_preview()
         worker = getattr(self, "worker", None)
@@ -260,12 +256,12 @@ class ComputerControllerMixin:
                 stop()
         self.core_orb.set_state("ready")
         self.voice_state.setText("Modo pânico · sensores desligados")
-        self.answer_preview.setText("Microfone, visão e detecção de palmas foram desligados.")
+        self.answer_preview.setText("Microfone, visão e controle foram desligados.")
         self.status.setText("MODO PÂNICO · sensores desligados")
         self._refresh_privacy_indicators()
         if self.tray_icon and self.tray_icon.isVisible():
             self.tray_icon.showMessage(
-                "JARVIS · modo pânico", "Microfone, visão e palmas foram desligados.",
+                "JARVIS · modo pânico", "Microfone, visão e controle foram desligados.",
                 QSystemTrayIcon.MessageIcon.Warning, 4000)
 
     def _run_pointer_action(self, action):

@@ -85,7 +85,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         topbar.addWidget(self.clock_label)
         panic_button = QPushButton("INTERROMPER")
         panic_button.setObjectName("panicCommand")
-        panic_button.setToolTip("Desliga imediatamente microfone, visão e palmas (Ctrl+Shift+P)")
+        panic_button.setToolTip("Desliga imediatamente microfone, visão e controle (Ctrl+Shift+P)")
         panic_button.clicked.connect(self.panic_stop)
         topbar.addWidget(panic_button)
         settings_button = QPushButton("⚙")
@@ -351,7 +351,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
             "Voz e controle",
             "Diga “Jarvis” e seu pedido. A voz usa o sintetizador do Windows.")
         voice_row = QHBoxLayout(); voice_row.setSpacing(10)
-        self.voice_activation_button = QPushButton("Ativar voz mãos livres")
+        self.voice_activation_button = QPushButton("Voz: Desativada")
         self.voice_activation_button.setObjectName("settingsToggle")
         self.voice_activation_button.setCheckable(True)
         self.voice_activation_button.setToolTip(
@@ -363,10 +363,26 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         test_voice.clicked.connect(self._test_system_voice)
         voice_row.addWidget(test_voice)
         voice_card.addLayout(voice_row)
-        self.computer_control_checkbox = QCheckBox(
-            "Permitir abrir aplicativos e controlar o computador quando eu pedir")
+        self.voice_picker = QComboBox()
+        self.voice_picker.addItem("Voz automática (português)", "")
+        try:
+            from .tts import available_system_voices
+            for voice_id, voice_name in available_system_voices():
+                self.voice_picker.addItem(voice_name, voice_id)
+        except Exception:
+            pass
+        selected_voice = self.voice_picker.findData(load_settings().get("voice_id", ""))
+        self.voice_picker.setCurrentIndex(max(0, selected_voice))
+        voice_card.addWidget(QLabel("Voz do sistema"))
+        voice_card.addWidget(self.voice_picker)
+        self.computer_control_checkbox = QCheckBox("Controle do computador: desativado")
         self.computer_control_checkbox.setChecked(
             load_settings().get("computer_control_enabled", True))
+        self.computer_control_checkbox.toggled.connect(
+            lambda enabled: self.computer_control_checkbox.setText(
+                f"Controle do computador: {'ativado' if enabled else 'desativado'}"))
+        self.computer_control_checkbox.setText(
+            f"Controle do computador: {'ativado' if self.computer_control_checkbox.isChecked() else 'desativado'}")
         self.computer_control_checkbox.setToolTip(
             "Abrir aplicativos é direto. Cliques, digitação e teclas continuam pedindo revisão.")
         voice_card.addWidget(self.computer_control_checkbox)
@@ -385,7 +401,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         voice_card.addWidget(QLabel("Perfil de privacidade"))
         voice_card.addWidget(self.privacy_profile_picker)
         vision_row = QHBoxLayout(); vision_row.setSpacing(10)
-        self.live_vision_button = QPushButton("Iniciar visão contínua")
+        self.live_vision_button = QPushButton("Visão: Desativada")
         self.live_vision_button.setObjectName("settingsToggle")
         self.live_vision_button.setCheckable(True)
         self.live_vision_button.clicked.connect(self.toggle_live_vision)
@@ -496,10 +512,6 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         analyze_screen_button = QPushButton("Analisar minha tela…")
         analyze_screen_button.clicked.connect(self.analyze_screen)
         advanced_layout.addWidget(analyze_screen_button)
-        self.clap_button = QPushButton("Ativar duplo aplauso")
-        self.clap_button.setCheckable(True)
-        self.clap_button.clicked.connect(self.toggle_clap_detection)
-        advanced_layout.addWidget(self.clap_button)
         launch_app = QPushButton("Ver todos os aplicativos instalados…")
         launch_app.clicked.connect(self.open_installed_apps)
         advanced_layout.addWidget(launch_app)
@@ -581,10 +593,9 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self.tray_icon = None
         if QSystemTrayIcon.isSystemTrayAvailable():
             self._create_tray_icon()
-        if load_settings().get("clap_enabled", False):
-            self.clap_button.setChecked(True)
-            self._start_clap_worker()
+        # A detecção de palmas não faz parte do fluxo público do aplicativo.
         settings = load_settings()
+        settings["clap_enabled"] = False
         settings["activation_mode"] = "jarvis_local"
         settings.setdefault("computer_control_enabled", True)
         settings["tts_engine"] = "system"
@@ -633,6 +644,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
                            "live_vision_enabled": live_vision_enabled,
                            "reduce_motion": self.reduce_motion_checkbox.isChecked(),
                            "tts_engine": "system",
+                           "voice_id": self.voice_picker.currentData() or "",
                            "computer_control_enabled": computer_control,
                            "screen_monitor": self.screen_monitor_picker.currentData() or 1})
             self.core_orb.set_motion_enabled(not self.reduce_motion_checkbox.isChecked())
@@ -667,6 +679,7 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
     def _test_system_voice(self):
         """Testa exatamente o mesmo sintetizador usado nas respostas por voz."""
         from .reply_worker import SpeechTestWorker
+        save_settings({**load_settings(), "voice_id": self.voice_picker.currentData() or ""})
         worker = SpeechTestWorker("Olá. A voz do JARVIS está funcionando.")
         self._track_worker(worker)
         worker.failed.connect(lambda error: self.error(f"A voz do Windows falhou: {error}"))
@@ -1341,10 +1354,14 @@ class JarvisWindow(MediaControllerMixin, AppCatalogControllerMixin, ComputerCont
         self.clap_worker = None
 
     def _resume_clap_worker(self):
-        if self.clap_button.isChecked(): self._start_clap_worker()
+        button = getattr(self, "clap_button", None)
+        if button is not None and button.isChecked():
+            self._start_clap_worker()
 
     def _clap_error(self, message: str):
-        self.clap_button.setChecked(False)
+        button = getattr(self, "clap_button", None)
+        if button is not None:
+            button.setChecked(False)
         save_settings({**load_settings(), "clap_enabled": False})
         self.status.setText("Detecção de palmas desativada")
         QMessageBox.warning(self, "Microfone indisponível", message)

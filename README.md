@@ -45,7 +45,6 @@ Direitos autorais: **Copyright (c) 2026 Matheus Moreira**. Modelos e serviços d
 - Gmail por OAuth de desktop, com permissão limitada a enviar mensagens e confirmação antes de cada envio.
 - WhatsApp Web dentro do HUD, contatos permitidos guardados localmente e mensagens preparadas para revisão. A interface de chamadas do WhatsApp Web pode ser usada no HUD se o serviço e o Qt WebEngine forem compatíveis; o usuário atende e encerra pela própria interface, após permitir o microfone ou a câmera quando solicitado.
 - Opção para iniciar minimizado com o login do Windows ou Linux e permanecer na bandeja do sistema. Um bloqueio por usuário evita abrir duas instâncias e disputar microfone ou memória.
-- Atalho opcional de duas palmas para alternar a tela cheia. A detecção é local, requer ativação expressa e mantém o microfone aberto enquanto estiver ligada.
 - Ferramenta para propor mudanças no próprio código: escolhe um módulo, pede uma proposta ao Gemini, exibe o arquivo para revisão e só grava após duas confirmações. Valida sintaxe, cria backup antes de substituir e permite restaurar uma versão salva pela interface.
 
 ### Requisitos
@@ -136,7 +135,6 @@ O aplicativo não lê mensagens nem envia sem a ação final do usuário. Em uma
 
 - Para conversas por texto ou voz, o Gemini recebe a mensagem atual e o contexto recente. Após a detecção local da palavra “Jarvis”, o áudio do comando é enviado ao Gemini para transcrição.
 - Capturas pontuais e propostas de ação enviam a imagem e o pedido atual à Gemini após a solicitação; não enviam o histórico da conversa. A visão contínua envia quadros e pedidos de análise à Gemini Live somente enquanto estiver ativa. Capturas não são guardadas no SQLite.
-- A detecção de palmas analisa áudio localmente e não grava nem transmite os blocos de microfone.
 - Por padrão, até 12 lembranças relevantes ou recentes e até 12 lembretes futuros entram no contexto de conversas por texto ou voz. Desmarque “Incluir lembranças salvas no contexto enviado à IA” nas configurações para mantê-los locais. O SQLite não é criptografado.
 - Chaves de API e contatos ficam no cofre de credenciais do usuário. Tokens OAuth e configurações ficam nas pastas privadas de dados do aplicativo, fora do repositório.
 - O histórico SQLite permanece no computador e não é criptografado; no Linux/macOS, o JARVIS restringe as permissões dos arquivos e pastas à conta atual. No Windows, usa a pasta de dados do perfil do usuário.

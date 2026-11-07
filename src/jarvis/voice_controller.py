@@ -20,21 +20,21 @@ class VoiceControllerMixin:
                 self.voice_state.setText("Desligando microfone…")
             else:
                 self.voice_state.setText("Microfone desligado")
-            self.voice_activation_button.setText("Desativar voz mãos livres" if enabled else "Ativar voz mãos livres")
+            self.voice_activation_button.setText("Voz: Ativada" if enabled else "Voz: Desativada")
             return
         if not get_secret("gemini"):
             save_settings({**load_settings(), "voice_activation_enabled": False, "hands_free_enabled": False})
             self.voice_activation_button.blockSignals(True)
             self.voice_activation_button.setChecked(False)
             self.voice_activation_button.blockSignals(False)
-            self.voice_activation_button.setText("Ativar voz mãos livres")
+            self.voice_activation_button.setText("Voz: Desativada")
             self.error("Cadastre uma chave Gemini em Configurações para transcrever os comandos de voz.")
             return
         if self.voice_activation_worker and self.voice_activation_worker.isRunning():
             self.voice_activation_worker.resume()
             return
         self._stop_clap_worker()
-        self.voice_activation_button.setText("Desativar voz mãos livres")
+        self.voice_activation_button.setText("Voz: Ativada")
         self.voice_state.setText("Abrindo microfone…")
         worker = VoiceActivationWorker(mode="jarvis_local")
         self.voice_activation_worker = worker

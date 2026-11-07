@@ -38,7 +38,7 @@ class VisionControllerMixin:
             self.live_vision_worker.failed.connect(self.error)
             self.live_vision_worker.finished.connect(self._live_vision_finished)
             self.live_vision_worker.start()
-            self.live_vision_button.setText("Parar visão contínua")
+            self.live_vision_button.setText("Visão: Ativada")
             save_settings({**load_settings(), "live_vision_enabled": True})
             self.status.setText("Visão ao vivo · prévia local fluida; Gemini recebe até 1 imagem/s")
             self._set_dashboard_metric("tela", "Ao vivo")
@@ -54,7 +54,7 @@ class VisionControllerMixin:
 
     def _live_vision_finished(self):
         self.live_vision_button.setChecked(False)
-        self.live_vision_button.setText("Iniciar visão contínua")
+        self.live_vision_button.setText("Visão: Desativada")
         self.live_vision_button.setEnabled(True)
         self.live_vision_worker = None
         self._stop_screen_preview()
@@ -70,6 +70,6 @@ class VisionControllerMixin:
         worker = self.live_vision_worker
         if worker and worker.isRunning():
             self.live_vision_button.setEnabled(False)
-            self.live_vision_button.setText("Parando após a solicitação atual…")
+            self.live_vision_button.setText("Visão: Desativando…")
             worker.stop()
 

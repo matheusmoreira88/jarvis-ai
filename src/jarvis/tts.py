@@ -12,6 +12,30 @@ from pathlib import Path
 from .settings import load_settings
 
 
+def available_system_voices() -> list[tuple[str, str]]:
+    """Return installed Windows/SAPI voices without failing on other platforms."""
+    try:
+        pyttsx3 = _load_pyttsx3()
+        with _speech_thread_context():
+            engine = pyttsx3.init()
+            try:
+                voices = engine.getProperty("voices") or []
+                result = []
+                seen = set()
+                for voice in voices:
+                    identifier = str(getattr(voice, "id", "")).strip()
+                    if not identifier or identifier in seen:
+                        continue
+                    seen.add(identifier)
+                    name = str(getattr(voice, "name", "") or identifier).strip()
+                    result.append((identifier, name))
+                return result
+            finally:
+                engine.stop()
+    except Exception:
+        return []
+
+
 def _load_pyttsx3():
     """Carrega o driver sem exibir avisos internos incompatíveis com o HUD sem console."""
     with warnings.catch_warnings():
