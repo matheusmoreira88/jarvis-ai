@@ -314,7 +314,7 @@ O microfone e a visão podem ser desligados por comando de voz ou nas Configura�
 
 Crie ações rápidas em Configurações. Cada frase configurada chama o mesmo despachante de comandos locais do aplicativo, preservando suas confirmações e validações.
 
-Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.7.3`.
+Para atualizar, use **Verificar atualizações** nas configurações. A página de releases publica o instalador de Windows associado a tags `v*`; instale a versão mais recente por cima da atual para manter suas preferências locais. Quem mantém o projeto pode publicar uma versão criando e enviando uma tag, por exemplo `v0.8.0`.
 
 O atualizador guarda um histórico curto dos pacotes que ele próprio validou. A partir da segunda atualização baixada pelo aplicativo, **Restaurar instalador anterior verificado** permite executar o pacote anterior somente se seu SHA-256 continuar intacto.
 
@@ -329,7 +329,7 @@ Turn the microphone or vision off by voice command or in Settings. This preferen
 
 Create, use and remove configurable quick actions in Settings. Each phrase calls the app’s existing local command dispatcher, preserving its checks and confirmations.
 
-To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.7.3.
+To update, select **Check for updates** in Settings. The GitHub releases page provides the Windows installer published for v* tags. Install the newest version over the existing one to retain local preferences. Maintainers can publish a release by creating and pushing a tag, for example v0.8.0.
 
 The updater keeps a short history of packages it verified itself. Starting with the second in-app download, **Restore previous verified installer** can run the preceding package only while its saved SHA-256 remains valid.
 
@@ -462,3 +462,25 @@ The main settings are reduced to connection, voice and control, appearance, and 
 - Substitui o ícone genérico do Windows por um núcleo holográfico próprio do JARVIS AI.
 - O mesmo símbolo aparece no executável, no instalador, nos atalhos e na bandeja do sistema.
 - Inclui versões nítidas para tamanhos pequenos e grandes, com fundo transparente.
+
+## Versão 0.8.0 · estabilidade, privacidade e diagnóstico
+
+- Centraliza os estados de escuta, transcrição, processamento, fala e erro do assistente.
+- Torna a visão contínua silenciosa e evita reenviar quadros idênticos da tela.
+- Adiciona perfis de privacidade Equilibrado, Restrito e Integrado.
+- Inclui logs rotativos com remoção de credenciais e diagnóstico offline de componentes.
+- Registra auditoria técnica de ações sem armazenar comandos, caminhos ou texto digitado.
+- Melhora o cancelamento de respostas, TTS, modo pânico e encerramento seguro.
+- Mantém a busca de memória sincronizada e rejeita backups SQLite excessivamente grandes.
+- Amplia a suíte para 38 testes e testa o aplicativo empacotado antes de gerar o instalador.
+
+## Version 0.8.0 · stability, privacy, and diagnostics
+
+- Centralizes listening, transcription, thinking, speaking, and error lifecycle states.
+- Makes continuous vision silent and avoids resending identical screen frames.
+- Adds Balanced, Restricted, and Connected privacy profiles.
+- Adds rotating credential-redacting logs and offline component diagnostics.
+- Records a technical action audit without storing commands, paths, or typed content.
+- Improves reply cancellation, TTS shutdown, panic mode, and safe application exit.
+- Keeps memory search synchronized and rejects excessively large SQLite backups.
+- Expands the suite to 38 tests and smoke-tests the packaged app before creating the installer.

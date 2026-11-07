@@ -1,14 +1,19 @@
-# JARVIS AI 0.7.3
+# JARVIS AI 0.8.0
 
 ## Português (Brasil)
 
-Esta atualização visual substitui o ícone genérico do Windows por uma identidade própria do JARVIS AI.
+Esta versão concentra estabilidade, privacidade e diagnóstico, mantendo o HUD e as funcionalidades existentes.
 
-- Novo ícone holográfico com núcleo azul/ciano e anel orbital tecnológico.
-- Fundo transparente para permanecer nítido em atalhos, menu Iniciar, barra de tarefas e bandeja.
-- O mesmo símbolo foi integrado ao executável, ao instalador, aos atalhos e ao ícone da bandeja.
-- Inclui arquivos PNG e ICO com tamanhos adequados para telas pequenas e grandes.
-- Mantém todas as correções de voz, conversa, configurações e controle local da versão 0.7.2.
+- Estados centralizados para escuta, transcrição, processamento, fala, observação e erro.
+- Visão contínua silenciosa, sem áudio automático e com redução de quadros repetidos enviados à Gemini Live.
+- Perfis de privacidade **Equilibrado**, **Restrito** e **Integrado**. O perfil Restrito bloqueia visão contínua, controle do computador e compartilhamento de lembranças com a IA.
+- Cancelamento mais rápido de respostas e TTS, além de encerramento seguro pelo modo pânico ou fechamento do aplicativo.
+- Logs locais rotativos com remoção de formatos comuns de credenciais.
+- Diagnóstico offline de áudio, captura de tela, filtro local de voz, SDK Gemini e configuração da chave.
+- Auditoria local de ações guarda somente categoria, resultado e horário; comandos, caminhos e textos digitados não são registrados.
+- Índice de busca da memória permanece sincronizado após atualizações e backups SQLite acima de 512 MB são rejeitados.
+- O pipeline do GitHub agora executa um smoke test no aplicativo já empacotado antes de criar o instalador.
+- Suíte ampliada para 38 testes automatizados.
 
 O instalador não possui certificado comercial de assinatura de código. O Windows SmartScreen pode mostrar fornecedor desconhecido; baixe somente desta release oficial e confira o arquivo SHA-256 publicado.
 
@@ -16,13 +21,18 @@ Copyright (c) 2026 Matheus Moreira. Código sob licença MIT. Modelos, APIs e se
 
 ## English
 
-This visual update replaces the generic Windows icon with a dedicated JARVIS AI identity.
+This release focuses on stability, privacy, and diagnostics while preserving the existing HUD and feature set.
 
-- New holographic icon with a blue/cyan core and technological orbital ring.
-- Transparent background keeps it crisp in shortcuts, Start menu, taskbar, and system tray.
-- The same mark is integrated into the executable, installer, shortcuts, and tray icon.
-- Includes PNG and ICO assets with sizes suitable for small and large displays.
-- Keeps all voice, conversation, settings, and local-control fixes from version 0.7.2.
+- Centralized lifecycle states for listening, transcription, thinking, speaking, observation, and errors.
+- Silent continuous vision with no automatic audio and fewer repeated frames sent to Gemini Live.
+- **Balanced**, **Restricted**, and **Connected** privacy profiles. Restricted blocks continuous vision, computer control, and sharing saved memories with AI.
+- Faster reply and TTS cancellation, plus safer panic-mode and application shutdown behavior.
+- Local rotating logs that redact common credential formats.
+- Offline diagnostics for audio, screen capture, local voice filtering, the Gemini SDK, and key configuration.
+- Local action auditing stores only category, outcome, and time; commands, paths, and typed text are not recorded.
+- Memory search stays synchronized after updates, and SQLite backups larger than 512 MB are rejected.
+- The GitHub pipeline now smoke-tests the packaged application before creating the installer.
+- The automated suite now contains 38 tests.
 
 The installer does not have a commercial code-signing certificate. Windows SmartScreen may show an unknown publisher; download only from this official release and verify the published SHA-256 file.
 
